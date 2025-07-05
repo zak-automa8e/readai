@@ -268,7 +268,6 @@ export const ChatWindow = () => {
           <TextInput
             placeholder={activeCache ? "Ask a question about the PDF..." : "Upload a PDF to start chatting..."}
             onMessageSubmit={handleSubmit}
-            disabled={isLoading}
           />
         </div>
       </div>

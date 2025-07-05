@@ -8,14 +8,22 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@google/genai": "^0.2.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express": "^4.18.2",
+    "mime": "^3.0.0",
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
-  "keywords": ["express", "pdf", "proxy", "cors"],
+  "keywords": [
+    "express",
+    "pdf",
+    "proxy",
+    "cors"
+  ],
   "author": "",
   "license": "MIT"
 }
