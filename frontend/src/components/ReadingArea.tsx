@@ -10,6 +10,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import html2canvas from 'html2canvas';
 import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "./ui/scroll-area";
 
 // Set the worker source for PDF.js (using local file)
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'; // This should match the file in public folder
@@ -90,18 +91,17 @@ export const ReadingArea = () => {
 
   // Handle window resize for PDF page width
   const updateContainerDimensions = () => {
-if (containerRef.current) {
+    if (containerRef.current) {
       const containerWidth = containerRef.current.clientWidth;
-      const containerHeight = containerRef.current.clientHeight;
 
       // Calculate width to fully fit the container
       const maxWidth = Math.min(containerWidth * 0.9, 800);
 
-      // Adjust width and height to fit within container
+      // Adjust width to fit within container
       setPageWidth(maxWidth);
 
-      // Ensure height fits vertical space completely
-      setPageHeight(containerHeight);
+      // Let the page height be determined by its aspect ratio for scrolling
+      setPageHeight(null);
     }
   };
 
@@ -373,41 +373,42 @@ if (containerRef.current) {
         px-4 sm:px-8`}>
         
         {/* Reading area with fixed padding at bottom to make room for controls */}
-        <Card className="h-[calc(100%-70px)] glass bg-card shadow-lg p-3 sm:p-4 lg:p-8 animate-fade-in overflow-hidden">
-          <div ref={containerRef} className="h-full flex items-center justify-center">
-            {pdfUrl && (
-              <Document
-                file={pdfUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
-                loading={
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center py-4">
-                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-2"></div>
-                      <p>Loading PDF...</p>
+        <Card className="h-[calc(100%-70px)] glass bg-card shadow-lg p-3 sm:p-4 lg:p-8 animate-fade-in">
+          <ScrollArea className="h-full w-full">
+            <div ref={containerRef} className="flex justify-center p-4">
+              {pdfUrl && (
+                <Document
+                  file={pdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center py-4">
+                        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-2"></div>
+                        <p>Loading PDF...</p>
+                      </div>
                     </div>
+                  }
+                  error={
+                    <div className="text-center py-4 text-red-500">
+                      <p>Error loading PDF. Please try again.</p>
+                    </div>
+                  }
+                >
+                  <div ref={pageRef} className="pdf-page-container">
+                    <Page
+                      pageNumber={pageNumber}
+                      width={pageWidth}
+                      height={pageHeight || undefined}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                    />
                   </div>
-                }
-                error={
-                  <div className="text-center py-4 text-red-500">
-                    <p>Error loading PDF. Please try again.</p>
-                  </div>
-                }
-              >
-                <div ref={pageRef} className="pdf-page-container">
-                  <Page
-                    pageNumber={pageNumber}
-                    width={pageWidth}
-                    height={pageHeight}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    className="object-contain"
-                  />
-                </div>
-              </Document>
-            )}
-          </div>
+                </Document>
+              )}
+            </div>
+          </ScrollArea>
         </Card>
-        
+
         {/* Fixed control bar at bottom */}
         <Card className="absolute bottom-0 left-4 right-4 sm:left-8 sm:right-8 glass bg-card/95 shadow-lg p-2 sm:p-3 lg:p-4 animate-slide-in">
           <div className="flex items-center justify-between">
