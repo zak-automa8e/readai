@@ -1,32 +1,27 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Trash2, Pencil, Link, Plus, FileText, Search, Grid, List, SortAsc, SortDesc, Filter } from "lucide-react";
+import { Trash2, Pencil, Plus, Search, Grid, List, SortAsc, SortDesc, Filter, FileText } from "lucide-react";
 import { useBooks, Book } from "@/contexts/BooksContext";
 import { useNavigate } from "react-router-dom";
 import { EditBookModal } from "@/components/EditBookModal";
+import { AddBookModal } from "@/components/AddBookModal";
 import { Dialog as ConfirmDialog, DialogContent as ConfirmDialogContent, DialogHeader as ConfirmDialogHeader, DialogTitle as ConfirmDialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { ContentLayout } from "@/components/layouts/ContentLayout";
 
 export default function Library() {
-  const { books, addBook, removeBook, setCurrentBook, updateBook, uploadPDF, loading, error } = useBooks();
+  const { books, removeBook, setCurrentBook, updateBook, loading, error } = useBooks();
   const navigate = useNavigate();
   
   // Remove verbose state logs to keep console clean
   
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [confirmDeleteBook, setConfirmDeleteBook] = useState<Book | null>(null);
-  const [urlInput, setUrlInput] = useState("");
-  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
-  const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [addBookModalOpen, setAddBookModalOpen] = useState(false);
-  const [uploadTab, setUploadTab] = useState("file");
   
   // New state for enhanced library features
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,89 +29,6 @@ export default function Library() {
   const [sortBy, setSortBy] = useState<'title' | 'date' | 'author'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState<'all' | 'recent' | 'favorites'>('all');
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsLoadingFile(true);
-    try {
-      // Validate file type
-      if (file.type !== 'application/pdf') {
-        toast({
-          title: "Invalid File",
-          description: "Please upload a PDF file",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Use the new uploadPDF method that handles backend integration
-      await uploadPDF(file, {
-        title: file.name.replace(/\.pdf$/i, ''),
-        author: '', // Can be extended later with a form
-        description: ''
-      });
-      
-      // Close modal on successful upload
-      setAddBookModalOpen(false);
-    } catch (error) {
-      // Error handling is now done in the uploadPDF method
-    } finally {
-      setIsLoadingFile(false);
-      // Clear the file input
-      event.target.value = '';
-    }
-  };
-
-  const handleUrlUpload = async () => {
-    if (!urlInput.trim()) return;
-
-    setIsLoadingUrl(true);
-    try {
-      // Validate URL format
-      let urlStr = urlInput.trim();
-      
-      // Handle Google Drive URLs by converting to direct download links
-      if (urlStr.includes('drive.google.com')) {
-        // Extract file ID from various Google Drive URL formats
-        let fileId = '';
-        if (urlStr.includes('/file/d/')) {
-          fileId = urlStr.split('/file/d/')[1].split('/')[0];
-        } else if (urlStr.includes('id=')) {
-          fileId = urlStr.split('id=')[1].split('&')[0];
-        }
-        
-        if (fileId) {
-          urlStr = `https://drive.google.com/uc?export=download&id=${fileId}`;
-          // Converted Google Drive URL to direct download
-        }
-      }
-      
-      const url = new URL(urlStr);
-      
-      // Extract filename from URL or use default
-      const urlPath = url.pathname;
-      const filename = urlPath.split('/').pop() || 'Downloaded PDF';
-      const title = filename.replace(/\.pdf$/i, '');
-
-      // Create book from URL using the backend API
-      await addBook({
-        title,
-        pdf_url: urlStr,
-        pdf_source: 'url',
-      });
-
-      // Clear the URL input and close modal
-      setUrlInput("");
-      setAddBookModalOpen(false);
-    } catch (error) {
-  // Error handled in addBook method
-      // Error handling is now done in the addBook method
-    } finally {
-      setIsLoadingUrl(false);
-    }
-  };
 
   const handleEditSave = async (bookId: string, updates: Partial<Book> & { coverFile?: File }) => {
     await updateBook(bookId, updates);
@@ -544,91 +456,10 @@ export default function Library() {
         )}
 
         {/* Add Book Modal */}
-        <Dialog open={addBookModalOpen} onOpenChange={setAddBookModalOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center">
-                <FileText className="h-5 w-5 mr-2" />
-                Add a book
-              </DialogTitle>
-            </DialogHeader>
-            
-            <Tabs value={uploadTab} onValueChange={setUploadTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="file" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload file
-                </TabsTrigger>
-                <TabsTrigger value="url" className="flex items-center gap-2">
-                  <Link className="h-4 w-4" />
-                  From URL
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="file" className="mt-6">
-                <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    Choose a PDF file from your device to add to your library.
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="relative overflow-hidden w-full h-24 border-dashed"
-                    size="lg"
-                  >
-                    <div className="flex flex-col items-center">
-                      <Upload className="h-6 w-6 mb-2" />
-                      <span>Click to select PDF file</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileUpload}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                  </Button>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="url" className="mt-6">
-                <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    Enter a direct link to a PDF file. The file will be downloaded and added to your library.
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="url"
-                      placeholder="Paste PDF URL here..."
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      className="flex-1"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !isLoadingUrl) {
-                          handleUrlUpload();
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={handleUrlUpload}
-                      disabled={!urlInput.trim() || isLoadingUrl}
-                    >
-                      {isLoadingUrl ? (
-                        <>
-                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          Adding...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </DialogContent>
-        </Dialog>
+        <AddBookModal 
+          isOpen={addBookModalOpen} 
+          onClose={() => setAddBookModalOpen(false)} 
+        />
       </div>
     </ContentLayout>
   );

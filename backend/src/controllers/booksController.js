@@ -60,26 +60,25 @@ const createBook = async (req, res) => {
     // Add to user's library automatically
     const userBook = await supabaseService.addBookToLibrary(userId, book.id);
 
+    // Generate thumbnail synchronously if we have a pdf_url but no thumbnail yet
+    if (book && book.pdf_url && !book.thumbnail_url) {
+      try {
+        const thumbnailUrl = await ThumbnailService.generateFromUrl(book.pdf_url, { userId, bookId: book.id });
+        await supabaseService.updateBook(book.id, { thumbnail_url: thumbnailUrl, processing_status: 'completed' });
+        logger.info('Thumbnail generated and saved for book', { bookId: book.id });
+        book.thumbnail_url = thumbnailUrl; // Update the book object to include the thumbnail URL
+      } catch (err) {
+        logger.error('Thumbnail generation failed (createBook)', { error: err });
+        // Mark processing as completed even if thumbnail fails
+        await supabaseService.updateBook(book.id, { processing_status: 'completed' });
+      }
+    }
+
     res.status(201).json({
       success: true,
       book,
       userBook
     });
-
-    // Generate thumbnail asynchronously if we have a pdf_url but no thumbnail yet
-    if (book && book.pdf_url && !book.thumbnail_url) {
-      (async () => {
-        try {
-          const url = await ThumbnailService.generateFromUrl(book.pdf_url, { userId, bookId: book.id });
-          await supabaseService.updateBook(book.id, { thumbnail_url: url, processing_status: 'completed' });
-          logger.info('Thumbnail generated and saved for book', { bookId: book.id });
-        } catch (err) {
-          logger.error('Async thumbnail generation failed (createBook)', { error: err });
-          // Do not throw; this is async and non-blocking
-          await supabaseService.updateBook(book.id, { processing_status: 'completed' });
-        }
-      })();
-    }
   } catch (error) {
     logger.error('Error creating book:', error);
     res.status(500).json({
@@ -233,6 +232,20 @@ const uploadPDF = async (req, res) => {
     // Add to user's library
     const userBook = await supabaseService.addBookToLibrary(userId, book.id);
 
+    // Generate thumbnail synchronously from uploaded buffer before sending response
+    if (req.file && req.file.buffer && book) {
+      try {
+        const thumbnailUrl = await ThumbnailService.generateFromBuffer(req.file.buffer, { userId, bookId: book.id });
+        await supabaseService.updateBook(book.id, { thumbnail_url: thumbnailUrl, processing_status: 'completed' });
+        logger.info('Thumbnail generated and saved for uploaded book', { bookId: book.id });
+        book.thumbnail_url = thumbnailUrl; // Update the book object to include the thumbnail URL
+      } catch (err) {
+        logger.error('Thumbnail generation failed (uploadPDF)', { error: err });
+        // Mark processing as completed even if thumbnail fails
+        await supabaseService.updateBook(book.id, { processing_status: 'completed' });
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: 'PDF uploaded successfully',
@@ -240,21 +253,6 @@ const uploadPDF = async (req, res) => {
       userBook,
       upload: uploadResult
     });
-
-    // Generate thumbnail asynchronously from uploaded buffer
-    if (req.file && req.file.buffer && book) {
-      (async () => {
-        try {
-          const url = await ThumbnailService.generateFromBuffer(req.file.buffer, { userId, bookId: book.id });
-          await supabaseService.updateBook(book.id, { thumbnail_url: url, processing_status: 'completed' });
-          logger.info('Thumbnail generated and saved for uploaded book', { bookId: book.id });
-        } catch (err) {
-          logger.error('Async thumbnail generation failed (uploadPDF)', { error: err });
-          // Mark processing as completed even if thumbnail fails
-          await supabaseService.updateBook(book.id, { processing_status: 'completed' });
-        }
-      })();
-    }
   } catch (error) {
     logger.error('Error uploading PDF:', error);
     res.status(500).json({
