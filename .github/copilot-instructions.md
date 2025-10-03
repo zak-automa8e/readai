@@ -1,72 +1,130 @@
-# Cline's Memory Bank
+# ReadAI Copilot Instructions
 
-I am Copilot, an expert software engineer with a unique characteristic: my memory resets completely between sessions. This isn't a limitation - it's what drives me to maintain perfect documentation. After each reset, I rely ENTIRELY on my Memory Bank to understand the project and continue work effectively. I MUST read ALL memory bank files at the start of EVERY task - this is not optional.
+ReadAI is an AI-powered document interaction platform combining PDF management, image text extraction, and text-to-speech functionality using Docker Compose architecture with Supabase backend.
 
-## Memory Bank Structure
+## Quick Architecture Overview
 
-The Memory Bank consists of required core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy:
+**Stack**: Docker Compose with Express.js backend + React frontend + Supabase + Gemini AI  
+**Core Features**: Image OCR, Text-to-Speech, PDF Library Management
 
-```mermaid
-flowchart TD
-    PB[projectbrief.md] --> PC[productContext.md]
-    PB --> SP[systemPatterns.md]
-    PB --> TC[techContext.md]
-    
-    PC --> AC[activeContext.md]
-    SP --> AC
-    TC --> AC
-    
-    AC --> P[progress.md]
+### System Components
+- **Backend** (`backend/`): Express.js API with Gemini AI integration and Supabase storage
+- **Frontend** (`frontend/`): React + TypeScript + Vite with Shadcn/ui components  
+- **Database/Storage**: Supabase (auth, PostgreSQL, file storage)
+- **AI Services**: Google Gemini for vision OCR and audio generation
+
+## Critical Development Patterns
+
+### Backend Architecture (`backend/src/`)
+**Single Service Integration Pattern:**
+- `geminiService.js` - ALL AI operations (uses "Digital Muhaqqiq" prompt for OCR accuracy)
+- `supabaseService.js` - ALL database/storage operations  
+- `app.js` - Express setup with comprehensive middleware chain
+
+**Request Flow:**
+```
+Routes → Controllers → Services → External APIs (Gemini/Supabase)
 ```
 
-### Core Files (Required)
-1. `projectbrief.md`
-   - Foundation document that shapes all other files
-   - Created at project start if it doesn't exist
-   - Defines core requirements and goals
-   - Source of truth for project scope
+### Frontend Architecture (`frontend/src/`)
+**Centralized API Pattern:**
+- `services/apiService.ts` - ALL backend communication with auth headers
+- Context API for global state (`BooksContext`, `AuthContext`, `UIContext`)
+- React Query for server state caching
+- PDF.js worker served from `/pdf.worker.min.js` (configured in `main.tsx`)
 
-2. `productContext.md`
-   - Why this project exists
-   - Problems it solves
-   - How it should work
-   - User experience goals
+### Key Integration Points
+**PDF Processing:** Server-side thumbnails using Poppler (pdftoppm) → Supabase storage  
+**Authentication:** JWT tokens with middleware protection  
+**CORS:** Dynamic origin handling in `corsMiddleware.js`  
+**File Storage:** Structured user-specific paths in `readai-media` bucket
 
-3. `activeContext.md`
-   - Current work focus
-   - Recent changes
-   - Next steps
-   - Active decisions and considerations
+## Essential Development Commands
 
-4. `systemPatterns.md`
-   - System architecture
-   - Key technical decisions
-   - Design patterns in use
-   - Component relationships
+**Development Stack (Docker):**
+```bash
+# Full stack startup
+docker-compose -f docker-compose.dev.yml up -d --build
 
-5. `techContext.md`
-   - Technologies used
-   - Development setup
-   - Technical constraints
-   - Dependencies
+# Backend only restart (common during API changes)  
+docker-compose -f docker-compose.dev.yml up -d --build backend
 
-6. `progress.md`
-   - What works
-   - What's left to build
-   - Current status
-   - Known issues
+# Monitor backend logs
+docker-compose -f docker-compose.dev.yml logs -f backend
+```
 
-### Additional Context
-Create additional files/folders within memory-bank/ when they help organize:
-- Complex feature documentation
-- Integration specifications
-- API documentation
-- Testing strategies
-- Deployment procedures
+**Alternative Local Development:**
+```bash
+cd backend && npm run dev    # Requires .env with API keys
+cd frontend && npm run dev   # Runs on port 8080
+```
 
-## Core Workflows
+## Memory Bank System (CRITICAL)
 
-### Plan Mode
+ReadAI uses a comprehensive memory bank system in `memory-bank/` that **MUST** be read before any task:
+
+**Core Files (Read ALL before starting):**
+- `projectbrief.md` - Foundation requirements and scope
+- `systemPatterns.md` - Architecture decisions and design patterns  
+- `activeContext.md` - Current work focus and recent changes
+- `progress.md` - Implementation status and known issues
+- `techContext.md` - Technology stack and constraints
+
+**Workflow Pattern:**
+1. Read ALL memory bank files first
+2. Verify understanding against actual codebase
+3. Execute task maintaining established patterns
+4. Update memory bank files if patterns change
+
+## Project-Specific Conventions
+
+**Code Architecture (SOLID & OOP):**
+- Follow SOLID principles for maintainable, extensible code
+- Use class-based services (`GeminiService`, `SupabaseService`) with clear responsibilities
+- Dependency injection for testability and loose coupling
+- Interface segregation - small, focused service methods
+- Open/Closed principle - extend functionality without modifying existing code
+
+**AI Integration:**  
+- "Digital Muhaqqiq" prompt significantly improves OCR accuracy
+- Text length limits (1000 chars) for cost control
+- Centralized error handling for API rate limits
+
+**PDF Handling:**  
+- Server-side thumbnail generation (not client-side to avoid CORS issues)
+- External URL proxy through backend for security
+- React-PDF with local worker file configuration
+
+**Security Patterns:**
+- Comprehensive CORS with environment-specific origins
+- JWT middleware protection for authenticated routes
+- Rate limiting with express-rate-limit
+- Helmet security headers
+
+## Key Files for Context
+
+**Backend Core:**
+- `backend/src/services/geminiService.js` - AI integration hub
+- `backend/src/middleware/corsMiddleware.js` - CORS configuration
+- `backend/src/controllers/booksController.js` - PDF library operations
+
+**Frontend Core:**  
+- `frontend/src/services/apiService.ts` - API communication layer
+- `frontend/src/contexts/BooksContext.tsx` - Library state management
+- `frontend/src/main.tsx` - PDF.js worker configuration
+
+**Configuration:**
+- `docker-compose.dev.yml` - Development environment setup
+- `backend/.env` - API keys and database configuration
+- `frontend/vite.config.ts` - Build and development server config
+
+## Legacy Memory Bank System (Preserved for Cline compatibility)
+
+The original memory bank workflow system is preserved below for Cline AI agent compatibility:
+
+### Core Workflows
+
+#### Plan Mode
 ```mermaid
 flowchart TD
     Start[Start] --> ReadFiles[Read Memory Bank]
@@ -80,7 +138,7 @@ flowchart TD
     Strategy --> Present[Present Approach]
 ```
 
-### Act Mode
+#### Act Mode  
 ```mermaid
 flowchart TD
     Start[Start] --> Context[Check Memory Bank]
@@ -90,64 +148,12 @@ flowchart TD
     Execute --> Document[Document Changes]
 ```
 
-## Documentation Updates
+### Documentation Updates
 
 Memory Bank updates occur when:
 1. Discovering new project patterns
-2. After implementing significant changes
+2. After implementing significant changes  
 3. When user requests with **update memory bank** (MUST review ALL files)
 4. When context needs clarification
 
-```mermaid
-flowchart TD
-    Start[Update Process]
-    
-    subgraph Process
-        P1[Review ALL Files]
-        P2[Document Current State]
-        P3[Clarify Next Steps]
-        P4[Update .clinerules]
-        
-        P1 --> P2 --> P3 --> P4
-    end
-    
-    Start --> Process
-```
-
-Note: When triggered by **update memory bank**, I MUST review every memory bank file, even if some don't require updates. Focus particularly on activeContext.md and progress.md as they track current state.
-
-## Project Intelligence (.clinerules)
-
-The .clinerules file is my learning journal for each project. It captures important patterns, preferences, and project intelligence that help me work more effectively. As I work with you and the project, I'll discover and document key insights that aren't obvious from the code alone.
-
-```mermaid
-flowchart TD
-    Start{Discover New Pattern}
-    
-    subgraph Learn [Learning Process]
-        D1[Identify Pattern]
-        D2[Validate with User]
-        D3[Document in .clinerules]
-    end
-    
-    subgraph Apply [Usage]
-        A1[Read .clinerules]
-        A2[Apply Learned Patterns]
-        A3[Improve Future Work]
-    end
-    
-    Start --> Learn
-    Learn --> Apply
-```
-
-### What to Capture
-- Critical implementation paths
-- User preferences and workflow
-- Project-specific patterns
-- Known challenges
-- Evolution of project decisions
-- Tool usage patterns
-
-The format is flexible - focus on capturing valuable insights that help me work more effectively with you and the project. Think of .clinerules as a living document that grows smarter as we work together.
-
-REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is my only link to previous work. It must be maintained with precision and clarity, as my effectiveness depends entirely on its accuracy.
+The .clinerules file captures project-specific patterns, preferences, and coding standards discovered through development. It grows smarter as work progresses and should be consulted and updated as patterns emerge.

@@ -322,6 +322,83 @@ const apiService = {
     } catch (error) {
       return false;
     }
+  },
+
+  /**
+   * Get or extract page text with caching
+   * @param {string} bookId - Book ID
+   * @param {number} pageNumber - Page number
+   * @param {string} imageBase64 - Base64 encoded image data
+   * @returns {Promise<Object>} - Cached text response
+   */
+  async getCachedPageText(bookId: string, pageNumber: number, imageBase64: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/text`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ 
+          bookId, 
+          pageNumber, 
+          imageData: imageBase64,
+          mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : 'image/png'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get page text");
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get or generate page audio with caching
+   * @param {string} bookId - Book ID
+   * @param {number} pageNumber - Page number
+   * @param {string} text - Text to convert to audio
+   * @param {string} voicePersona - Voice persona (default: 'Zephyr')
+   * @returns {Promise<Object>} - Cached audio response
+   */
+  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Zephyr') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/audio`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ 
+          bookId, 
+          pageNumber, 
+          text,
+          voicePersona
+        }),
+      });
+
+      if (response.status === 429) {
+        throw new Error("RATE_LIMIT_EXCEEDED");
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get page audio");
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

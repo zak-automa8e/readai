@@ -161,10 +161,10 @@ export const ReadingArea = () => {
     }
       const imageBase64 = canvas.toDataURL('image/png');
 
-      // 2. Send image to get text
-      let textData;
+      // 2. Get cached text
+      let textResponse;
       try {
-        textData = await apiService.imageToText(imageBase64);
+        textResponse = await apiService.getCachedPageText(currentBook.id, pageNumber, imageBase64);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Cannot connect to backend server. Is it running?";
         toast({ 
@@ -175,6 +175,8 @@ export const ReadingArea = () => {
         setIsReading(false);
         return;
       }
+      
+      const textData = textResponse.text;
         
       // Combine header and body for better reading experience
       let pageText = '';
@@ -187,21 +189,28 @@ export const ReadingArea = () => {
 
       if (!pageText || pageText.trim().length === 0) {
         toast({ title: "No Text Found", description: "Could not find any text on the current page." });
+        setIsReading(false);
         return;
       }
 
-      // 3. Send text to get audio
-      let audioBlob = null;
-      let audioUrl = null;
-      
+      // Show cache status for text
+      if (textResponse.cached) {
+        toast({ 
+          title: "Text Loaded from Cache", 
+          description: "Previously processed text loaded instantly.",
+          duration: 2000
+        });
+      }
+
+      // 3. Get cached audio
+      let audioResponse;
       try {
-        audioBlob = await apiService.textToAudio(pageText);
-        audioUrl = URL.createObjectURL(audioBlob);
+        audioResponse = await apiService.getCachedPageAudio(currentBook.id, pageNumber, pageText, 'Zephyr');
       } catch (error) {
         if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
           toast({ 
             title: "Rate Limit Reached", 
-            description: "Text-to-speech API rate limit reached. Using text reading mode instead.",
+            description: "Text-to-speech API rate limit reached. Please try again later.",
             duration: 5000
           });
           setIsReading(false);
@@ -217,18 +226,28 @@ export const ReadingArea = () => {
         }
       }
       
-      if (!audioBlob || !audioUrl) {
-        throw new Error("Failed to generate audio content.");
+      if (!audioResponse || !audioResponse.audioUrl) {
+        throw new Error("Failed to get audio content.");
       }
 
-      // 4. Play audio
+      // Show cache status for audio
+      if (audioResponse.cached) {
+        toast({ 
+          title: "Audio Loaded from Cache", 
+          description: "Previously generated audio loaded instantly.",
+          duration: 2000
+        });
+      }
+
+      // 4. Play audio from URL
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      const newAudio = new Audio(audioUrl);
+      
+      const newAudio = new Audio(audioResponse.audioUrl);
       audioRef.current = newAudio;
       
-      // Add a load event listener to ensure audio is ready
+      // Add event listeners
       newAudio.addEventListener('canplaythrough', () => {
         newAudio.play().catch(error => {
           toast({ title: "Playback Error", description: "Could not play audio: " + error.message, variant: "destructive" });
@@ -240,19 +259,17 @@ export const ReadingArea = () => {
         setIsPlaying(true);
       });
       
-      // Try to load the audio
-      newAudio.load();
-
-      newAudio.onended = () => {
+      newAudio.addEventListener('ended', () => {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
+      });
 
-      newAudio.onerror = (e) => {
+      newAudio.addEventListener('error', (e) => {
         toast({ title: "Error", description: "Could not play audio.", variant: "destructive" });
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
+      });
+      
+      // Load the audio
+      newAudio.load();
 
     } catch (error) {
       toast({ title: "Reading Failed", description: error instanceof Error ? error.message : "An unknown error occurred.", variant: "destructive" });

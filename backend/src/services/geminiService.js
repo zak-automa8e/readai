@@ -18,6 +18,25 @@ class GeminiService {
    * @returns {Promise<Object>} - Extracted text in JSON format
    */
   async processImageToText(imageData, mimeType) {
+    // Validate input parameters
+    if (!imageData) {
+      throw new Error('Image data is required');
+    }
+    if (!mimeType) {
+      throw new Error('MIME type is required');
+    }
+    if (!mimeType.startsWith('image/')) {
+      throw new Error(`Invalid MIME type: ${mimeType}. Expected image type.`);
+    }
+
+    // Validate base64 image data format (basic check)
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Regex.test(imageData)) {
+      logger.warn(`Invalid base64 format detected. Data length: ${imageData.length}, starts with: ${imageData.substring(0, 50)}`);
+    }
+
+    logger.info(`Processing image with Gemini - size: ${imageData.length} chars, mimeType: ${mimeType}`);
+
     const modelConfig = {
       temperature: 0.5,
       thinkingConfig: {

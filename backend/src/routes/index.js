@@ -5,6 +5,7 @@ const imageRoutes = require('./imageRoutes');
 const audioRoutes = require('./audioRoutes');
 const booksRoutes = require('./booksRoutes');
 const authRoutes = require('./authRoutes');
+const pageRoutes = require('./pageRoutes');
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/', pdfRoutes);
 router.use('/', imageRoutes);
 router.use('/', audioRoutes);
 router.use('/books', booksRoutes);
+router.use('/pages', pageRoutes);
 
 module.exports = router;
