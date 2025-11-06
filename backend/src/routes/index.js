@@ -6,6 +6,7 @@ const audioRoutes = require('./audioRoutes');
 const booksRoutes = require('./booksRoutes');
 const authRoutes = require('./authRoutes');
 const pageRoutes = require('./pageRoutes');
+const chatRoutes = require('./chatRoutes');
 
 const router = express.Router();
 
@@ -29,5 +30,6 @@ router.use('/', imageRoutes);
 router.use('/', audioRoutes);
 router.use('/books', booksRoutes);
 router.use('/pages', pageRoutes);
+router.use('/chat', chatRoutes);
 
 module.exports = router;

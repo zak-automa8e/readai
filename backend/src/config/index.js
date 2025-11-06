@@ -45,8 +45,16 @@ const config = {
   
   // Gemini models
   geminiModels: {
-    imageToText: 'gemini-2.5-flash-lite-preview-06-17',
-    textToAudio: 'gemini-2.5-flash-preview-tts'
+    imageToText: 'gemini-2.5-flash-preview-09-2025',
+    textToAudio: 'gemini-2.5-flash-preview-tts',
+    documentChat: process.env.GEMINI_DOCUMENT_CHAT_MODEL || 'gemini-2.5-flash'
+  },
+
+  geminiChat: {
+    defaultCacheTtl: process.env.GEMINI_CACHE_TTL || '3600s',
+    maxConversationHistory: parseInt(process.env.MAX_CONVERSATION_HISTORY, 10) || 10,
+    fileUploadTimeout: parseInt(process.env.FILE_UPLOAD_TIMEOUT, 10) || 60000,
+    cacheExtensionThreshold: parseInt(process.env.CACHE_EXTENSION_THRESHOLD, 10) || 300000 // 5 minutes
   },
   
   // Logging

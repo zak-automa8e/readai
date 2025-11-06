@@ -23,13 +23,13 @@ export const AIAssistant = () => {
       ${isCollapsed 
         ? 'w-[50px] right-4 top-4 h-[calc(100vh-2rem)]'
         : `
-          sm:w-[calc(35vw-6rem)] sm:right-8 sm:top-4 sm:h-[calc(100vh-2rem)]
-          lg:h-[calc(100vh-3rem)] sm:max-w-[600px]
+          sm:w-[calc(35vw-6rem)] sm:right-8 sm:top-4 sm:h-[calc(100vh-4rem)] sm:bottom-2
+          lg:h-[calc(100vh-4rem)] lg:bottom-2 sm:max-w-[600px]
           w-full h-full right-0 top-0
         `
       }
-      transition-[width,transform,opacity] duration-300 ease-in-out
-      p-2 sm:p-3 lg:p-4 flex flex-col gap-4 animate-fade-in overflow-hidden`}>
+  transition-[width,transform,opacity] duration-300 ease-in-out
+  px-2 pt-2 pb-0 sm:px-3 sm:pt-3 sm:pb-0 lg:px-4 lg:pt-4 lg:pb-0 flex flex-col gap-4 animate-fade-in overflow-hidden`}>
       
       {/* Update the collapsed icon button */}
       <div className={`absolute inset-0 flex items-center justify-center
@@ -49,36 +49,31 @@ export const AIAssistant = () => {
         </Button>
       </div>
 
-      <Collapsible open={!isCollapsed} className="flex-1">
-        <div className="flex items-center justify-between border-b pb-2">
-          <h2 className={`text-base sm:text-lg font-semibold transition-opacity duration-300
-            ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
-            AI Assistant
-          </h2>
-          <CollapsibleTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 sm:hover:bg-background/80"
-              onClick={() => setIsAICollapsed(!isAICollapsed)}
-            >
-              <ArrowLeft className={`h-4 w-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent className="h-full mt-4">
+      <Collapsible open={!isCollapsed} className="flex-1 min-h-0 overflow-hidden">
+        <CollapsibleContent className="h-full">
           <Tabs defaultValue="chat" className="h-full flex flex-col">
-            <TabsList className="w-full grid grid-cols-2 mb-4 bg-background/50 rounded-lg">
-              <TabsTrigger value="chat" className="flex items-center gap-2 text-sm sm:text-base">Chat</TabsTrigger>
-              <TabsTrigger value="notes" className="flex items-center gap-2 text-sm sm:text-base">Notes</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-2 border-b pb-2 mb-4 flex-shrink-0">
+              <TabsList className="flex-1 grid grid-cols-2 bg-background/50 rounded-lg">
+                <TabsTrigger value="chat" className="flex items-center justify-center gap-2 text-sm sm:text-base">Chat</TabsTrigger>
+                <TabsTrigger value="notes" className="flex items-center justify-center gap-2 text-sm sm:text-base">Notes</TabsTrigger>
+              </TabsList>
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 shrink-0 sm:hover:bg-background/80"
+                  onClick={() => setIsAICollapsed(!isAICollapsed)}
+                >
+                  <ArrowLeft className={`h-4 w-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
 
-            <TabsContent value="chat" className="flex-1 h-full mt-0">
+            <TabsContent value="chat" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=active]:flex data-[state=active]:flex-col">
               <ChatWindow />
             </TabsContent>
 
-            <TabsContent value="notes" className="flex-1 h-full mt-0">
+            <TabsContent value="notes" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=active]:flex data-[state=active]:flex-col">
               <NotesWindow />
             </TabsContent>
           </Tabs>

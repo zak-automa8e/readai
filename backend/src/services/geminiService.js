@@ -38,7 +38,7 @@ class GeminiService {
     logger.info(`Processing image with Gemini - size: ${imageData.length} chars, mimeType: ${mimeType}`);
 
     const modelConfig = {
-      temperature: 0.5,
+      temperature: 0,
       thinkingConfig: {
         thinkingBudget: -1,
       },

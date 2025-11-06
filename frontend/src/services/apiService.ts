@@ -5,6 +5,49 @@
 // Base API URL - can be configured based on environment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+export interface ChatConversationResponseMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+}
+
+export interface ChatConversationResponse {
+  success: boolean;
+  conversation: {
+    id: string;
+    hasActiveCache: boolean;
+    cacheExpiresAt: string | null;
+    messages: ChatConversationResponseMessage[];
+  };
+}
+
+export interface UploadBookToGeminiResponse {
+  success: boolean;
+  conversationId: string;
+  cacheId: string;
+  expiresAt: string | null;
+  message: string;
+}
+
+export interface SendChatMessageResponse {
+  success: boolean;
+  message: string;
+  messageId: string;
+  tokensUsed: {
+    cached: number;
+    prompt: number;
+    candidates: number;
+    total: number;
+  };
+}
+
+export interface ExtendCacheResponse {
+  success: boolean;
+  expiresAt?: string;
+  message?: string;
+}
+
 /**
  * Get authentication headers from localStorage
  */
@@ -325,33 +368,22 @@ const apiService = {
   },
 
   /**
-   * Get or extract page text with caching
-   * @param {string} bookId - Book ID
-   * @param {number} pageNumber - Page number
-   * @param {string} imageBase64 - Base64 encoded image data
-   * @returns {Promise<Object>} - Cached text response
+   * Get or create conversation for a book
    */
-  async getCachedPageText(bookId: string, pageNumber: number, imageBase64: string) {
+  async getOrCreateConversation(bookId: string): Promise<ChatConversationResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/pages/text`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/chat/conversation/${bookId}`, {
+        method: 'GET',
         mode: 'cors',
-        headers: { 
-          'Content-Type': 'application/json',
+        headers: {
           'Accept': 'application/json',
           ...getAuthHeaders()
-        },
-        body: JSON.stringify({ 
-          bookId, 
-          pageNumber, 
-          imageData: imageBase64,
-          mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : 'image/png'
-        }),
+        }
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to get page text");
+        throw new Error(errorData.error || 'Failed to get conversation');
       }
 
       return await response.json();
@@ -361,38 +393,29 @@ const apiService = {
   },
 
   /**
-   * Get or generate page audio with caching
-   * @param {string} bookId - Book ID
-   * @param {number} pageNumber - Page number
-   * @param {string} text - Text to convert to audio
-   * @param {string} voicePersona - Voice persona (default: 'Zephyr')
-   * @returns {Promise<Object>} - Cached audio response
+   * Upload a book to Gemini for chat functionality
    */
-  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Zephyr') {
+  async uploadBookToGemini(data: {
+    conversationId: string;
+    bookId: string;
+    pdfUrl: string;
+    title: string;
+  }): Promise<UploadBookToGeminiResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/pages/audio`, {
+      const response = await fetch(`${API_BASE_URL}/chat/upload-book`, {
         method: 'POST',
         mode: 'cors',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           ...getAuthHeaders()
         },
-        body: JSON.stringify({ 
-          bookId, 
-          pageNumber, 
-          text,
-          voicePersona
-        }),
+        body: JSON.stringify(data)
       });
-
-      if (response.status === 429) {
-        throw new Error("RATE_LIMIT_EXCEEDED");
-      }
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to get page audio");
+        throw new Error(errorData.error || 'Failed to upload book to Gemini');
       }
 
       return await response.json();
@@ -402,9 +425,89 @@ const apiService = {
   },
 
   /**
-   * Fetch notes for a specific book
-   * @param {string} bookId - Book ID
-   * @returns {Promise<Object>} - Notes response
+   * Send a chat message
+   */
+  async sendChatMessage(data: {
+    conversationId: string;
+    message: string;
+  }): Promise<SendChatMessageResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/message`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send chat message');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Extend cache lifetime
+   */
+  async extendCacheLifetime(conversationId: string, ttl: string = '3600s'): Promise<ExtendCacheResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/extend-cache`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ conversationId, ttl })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extend cache lifetime');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Delete cache (cleanup)
+   */
+  async deleteChatCache(conversationId: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/cache/${conversationId}`, {
+        method: 'DELETE',
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete chat cache');
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get all notes for a book
    */
   async getBookNotes(bookId: string) {
     try {
@@ -429,7 +532,80 @@ const apiService = {
   },
 
   /**
-   * Create a note for a book
+   * Get cached page text or extract text from page
+   * @param {string} bookId - Book ID
+   * @param {number} pageNumber - Page number
+   * @param {string} imageBase64 - Base64 encoded page image
+   * @returns {Promise<Object>} - Page text response
+   */
+  async getCachedPageText(bookId: string, pageNumber: number, imageBase64: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/text`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ 
+          bookId, 
+          pageNumber, 
+          imageData: imageBase64,
+          mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : 'image/png'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get page text");
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Get cached page audio or generate audio from page text
+   * @param {string} bookId - Book ID
+   * @param {number} pageNumber - Page number
+   * @param {string} text - Page text to convert to audio
+   * @param {string} voicePersona - Voice persona to use (default: 'Sadaltager')
+   * @returns {Promise<Object>} - Page audio response
+   */
+  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Sadaltager') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/audio`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ 
+          bookId, 
+          pageNumber, 
+          text,
+          voicePersona
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get page audio");
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new note for a book
    */
   async createBookNote(bookId: string, payload: {
     content: string;
@@ -465,7 +641,7 @@ const apiService = {
   },
 
   /**
-   * Update a note for a book
+   * Update an existing note
    */
   async updateBookNote(bookId: string, noteId: string, payload: {
     content?: string;
