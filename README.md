@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+# Welcome readai project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/cb774738-2f8c-4996-9fc8-cfe67f31536d
+This is an opensource project to help making reading books easily available to anyone with the help of AI
 
 ## How can I edit this code?
 
