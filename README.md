@@ -2,7 +2,7 @@
 
 ReadAI is an application that combines the power of PDFs and AI to provide an enhanced reading experience. The application allows users to load PDFs, extract text using OCR, and convert text to speech.
 
-## Features
+This is an opensource project to help making reading books easily available to anyone with the help of AI
 
 - PDF library management
 - Text extraction from PDF pages using AI
