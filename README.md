@@ -8,12 +8,6 @@ This is an opensource project to help making reading books easily available to a
 
 There are several ways of editing your application.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/cb774738-2f8c-4996-9fc8-cfe67f31536d) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
 **Use your preferred IDE**
 
 If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
@@ -59,6 +53,7 @@ This project is built with .
 - React
 - shadcn-ui
 - Tailwind CSS
+- Gemini
 
 ## How can I deploy this project?
 
