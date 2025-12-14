@@ -44,14 +44,20 @@ ReadAI is a full-stack web application for reading PDFs with AI-powered features
 - `SUPABASE_ANON_KEY` - Supabase anonymous key
 
 ### Frontend
-- `VITE_API_URL` - Backend API URL (default: http://localhost:3001/api)
+- `VITE_API_URL` - Backend API URL (default: /api via Vite proxy)
 - `VITE_SUPABASE_URL` - Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
 
 ## Development
-- Frontend runs on port 5000 (Vite dev server)
+- Frontend runs on port 5000 (Vite dev server with API proxy)
 - Backend runs on port 3001 (Express)
 - Both workflows start automatically
+- Vite proxies /api and /health requests to the backend
+
+## Production Deployment
+- Frontend is built and served statically by the backend
+- Backend serves on port 5000 in production
+- API available at /api endpoints
 
 ## Key Features
 - PDF viewing and reading
@@ -63,6 +69,8 @@ ReadAI is a full-stack web application for reading PDFs with AI-powered features
 
 ## Recent Changes
 - 2024-12-14: Configured for Replit environment
-  - Updated Vite to use port 5000 with allowedHosts
-  - Made Supabase/Gemini config optional for startup
+  - Updated Vite to use port 5000 with allowedHosts and API proxy
+  - Made Supabase/Gemini config optional for startup (warns instead of crash)
   - Fixed CORS for Replit domains
+  - Backend serves frontend static files in production
+  - Configured deployment for autoscale

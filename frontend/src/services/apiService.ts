@@ -2,8 +2,8 @@
  * API service for interacting with the backend
  */
 
-// Base API URL - can be configured based on environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Base API URL - use relative URL for Vite proxy in development
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface ChatConversationResponseMessage {
   id: string;
