@@ -4,14 +4,20 @@
 
 This document outlines the complete implementation plan for the Voice Persona feature in ReadAI. The feature allows users to create, customize, and use personalized voice personas for text-to-speech reading of their books.
 
+**Key Features:**
+- Custom voice persona creation with style controls
+- Preview audio generation before saving
+- Persona marketplace where users can share and rate personas
+- Usage analytics and leaderboards
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (React)                          │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │  Voice Studio   │  │  Book Reader    │  │  Persona API    │  │
-│  │  (Create/Edit)  │  │  (Use Persona)  │  │  Service Layer  │  │
+│  │  Voice Studio   │  │  Persona        │  │  Book Reader    │  │
+│  │  (Create/Edit)  │  │  Marketplace    │  │  (Use Persona)  │  │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘  │
 └───────────┼────────────────────┼────────────────────┼───────────┘
             │                    │                    │
@@ -19,8 +25,8 @@ This document outlines the complete implementation plan for the Voice Persona fe
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Backend (Node.js/Express)                   │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ Voice Persona   │  │  Gemini TTS     │  │   Page Cache    │  │
-│  │   Controller    │  │    Service      │  │    Service      │  │
+│  │ Voice Persona   │  │  Gemini TTS     │  │  Rate Limiter   │  │
+│  │   Controller    │  │    Service      │  │  (Preview)      │  │
 │  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘  │
 └───────────┼────────────────────┼────────────────────┼───────────┘
             │                    │                    │
@@ -28,8 +34,8 @@ This document outlines the complete implementation plan for the Voice Persona fe
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Supabase                                 │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ voice_personas  │  │  page_audio     │  │    Storage      │  │
-│  │     table       │  │  (existing)     │  │  (audio files)  │  │
+│  │ voice_personas  │  │ persona_ratings │  │    Storage      │  │
+│  │     table       │  │     table       │  │ (preview audio) │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
             │
@@ -39,6 +45,8 @@ This document outlines the complete implementation plan for the Voice Persona fe
 │              gemini-2.5-flash-preview-tts model                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Google Gemini TTS Reference
 
@@ -97,6 +105,7 @@ Run this SQL in Supabase SQL Editor:
 -- Voice Personas Table
 -- ============================================
 -- Stores user-created voice personas with customizable settings
+-- Supports both private personas and publicly shared ones
 
 CREATE TABLE IF NOT EXISTS voice_personas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -119,52 +128,176 @@ CREATE TABLE IF NOT EXISTS voice_personas (
     -- Custom prompt override (if user wants full control)
     custom_prompt TEXT,
     
-    -- Settings
-    is_default BOOLEAN DEFAULT FALSE,
-    is_active BOOLEAN DEFAULT TRUE,
+    -- Visibility & Sharing
+    is_public BOOLEAN DEFAULT FALSE,            -- If true, visible in marketplace
+    is_featured BOOLEAN DEFAULT FALSE,          -- Admin-curated featured personas
+    
+    -- User Settings
+    is_default BOOLEAN DEFAULT FALSE,           -- User's default persona
+    is_active BOOLEAN DEFAULT TRUE,             -- Soft delete flag
+    
+    -- Preview Audio (saved when persona is created/updated)
+    preview_audio_url TEXT,                     -- URL to stored preview audio file
+    preview_text TEXT,                          -- The text used for preview
+    
+    -- Usage Analytics (Global - across all users who use this persona)
+    total_usage_count INTEGER DEFAULT 0,        -- Total times used by all users
+    total_pages_read INTEGER DEFAULT 0,         -- Total pages read with this persona
+    unique_users_count INTEGER DEFAULT 0,       -- Number of unique users
+    
+    -- Ratings (Aggregated)
+    average_rating DECIMAL(3,2) DEFAULT 0,      -- Average rating (0-5)
+    total_ratings INTEGER DEFAULT 0,            -- Number of ratings received
     
     -- Metadata
-    preview_audio_url TEXT,
-    usage_count INTEGER DEFAULT 0,
     last_used_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ============================================
+-- Persona Ratings Table
+-- ============================================
+-- Stores individual user ratings for public personas
+
+CREATE TABLE IF NOT EXISTS persona_ratings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    persona_id UUID NOT NULL REFERENCES voice_personas(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review TEXT,                                -- Optional text review
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Each user can only rate a persona once
+    UNIQUE(persona_id, user_id)
+);
+
+-- ============================================
+-- Persona Usage Tracking Table
+-- ============================================
+-- Tracks which users have used which personas (for unique_users_count)
+
+CREATE TABLE IF NOT EXISTS persona_usage (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    persona_id UUID NOT NULL REFERENCES voice_personas(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    usage_count INTEGER DEFAULT 1,              -- How many times this user used it
+    pages_read INTEGER DEFAULT 0,               -- Pages read by this user with this persona
+    first_used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_used_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    UNIQUE(persona_id, user_id)
+);
+
+-- ============================================
+-- Preview Rate Limiting Table
+-- ============================================
+-- Tracks preview generations per user to prevent abuse
+
+CREATE TABLE IF NOT EXISTS persona_preview_limits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    preview_count INTEGER DEFAULT 0,            -- Previews generated today
+    last_preview_at TIMESTAMP WITH TIME ZONE,
+    reset_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '24 hours'),
+    
+    UNIQUE(user_id)
+);
+
+-- ============================================
 -- Indexes for Performance
 -- ============================================
 
+-- Voice Personas indexes
 CREATE INDEX idx_voice_personas_user_id ON voice_personas(user_id);
 CREATE INDEX idx_voice_personas_is_default ON voice_personas(user_id, is_default) WHERE is_default = TRUE;
 CREATE INDEX idx_voice_personas_active ON voice_personas(user_id, is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_voice_personas_public ON voice_personas(is_public, is_active) WHERE is_public = TRUE AND is_active = TRUE;
+CREATE INDEX idx_voice_personas_featured ON voice_personas(is_featured) WHERE is_featured = TRUE;
+CREATE INDEX idx_voice_personas_popular ON voice_personas(total_usage_count DESC) WHERE is_public = TRUE;
+CREATE INDEX idx_voice_personas_top_rated ON voice_personas(average_rating DESC) WHERE is_public = TRUE AND total_ratings > 0;
+
+-- Ratings indexes
+CREATE INDEX idx_persona_ratings_persona ON persona_ratings(persona_id);
+CREATE INDEX idx_persona_ratings_user ON persona_ratings(user_id);
+
+-- Usage tracking indexes
+CREATE INDEX idx_persona_usage_persona ON persona_usage(persona_id);
+CREATE INDEX idx_persona_usage_user ON persona_usage(user_id);
 
 -- ============================================
 -- Row Level Security (RLS)
 -- ============================================
 
 ALTER TABLE voice_personas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE persona_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE persona_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE persona_preview_limits ENABLE ROW LEVEL SECURITY;
 
--- Users can only see their own personas
+-- Voice Personas Policies
+-- Users can see their own personas
 CREATE POLICY "Users can view own personas" ON voice_personas
     FOR SELECT USING (auth.uid() = user_id);
 
--- Users can insert their own personas
+-- Users can see public personas from other users
+CREATE POLICY "Users can view public personas" ON voice_personas
+    FOR SELECT USING (is_public = TRUE AND is_active = TRUE);
+
+-- Users can create their own personas
 CREATE POLICY "Users can create own personas" ON voice_personas
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own personas
+-- Users can only update their own personas
 CREATE POLICY "Users can update own personas" ON voice_personas
     FOR UPDATE USING (auth.uid() = user_id);
 
--- Users can delete their own personas
+-- Users can only delete their own personas
 CREATE POLICY "Users can delete own personas" ON voice_personas
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Ratings Policies
+CREATE POLICY "Users can view all ratings" ON persona_ratings
+    FOR SELECT USING (TRUE);
+
+CREATE POLICY "Users can create own ratings" ON persona_ratings
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own ratings" ON persona_ratings
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own ratings" ON persona_ratings
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Usage Policies
+CREATE POLICY "Users can view own usage" ON persona_usage
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own usage" ON persona_usage
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own usage" ON persona_usage
+    FOR UPDATE USING (auth.uid() = user_id);
+
+-- Preview Limits Policies
+CREATE POLICY "Users can view own limits" ON persona_preview_limits
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create own limits" ON persona_preview_limits
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own limits" ON persona_preview_limits
+    FOR UPDATE USING (auth.uid() = user_id);
+
 -- ============================================
--- Trigger for updated_at
+-- Triggers
 -- ============================================
 
+-- Update updated_at on voice_personas
 CREATE OR REPLACE FUNCTION update_voice_personas_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -178,10 +311,70 @@ CREATE TRIGGER voice_personas_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_voice_personas_updated_at();
 
+-- Update average_rating when new rating is added
+CREATE OR REPLACE FUNCTION update_persona_rating_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE voice_personas
+    SET 
+        average_rating = (
+            SELECT COALESCE(AVG(rating), 0)
+            FROM persona_ratings
+            WHERE persona_id = COALESCE(NEW.persona_id, OLD.persona_id)
+        ),
+        total_ratings = (
+            SELECT COUNT(*)
+            FROM persona_ratings
+            WHERE persona_id = COALESCE(NEW.persona_id, OLD.persona_id)
+        )
+    WHERE id = COALESCE(NEW.persona_id, OLD.persona_id);
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER persona_ratings_stats_update
+    AFTER INSERT OR UPDATE OR DELETE ON persona_ratings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_persona_rating_stats();
+
+-- Update usage stats when persona is used
+CREATE OR REPLACE FUNCTION update_persona_usage_stats()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Update the persona's aggregate stats
+    UPDATE voice_personas
+    SET 
+        total_usage_count = (
+            SELECT COALESCE(SUM(usage_count), 0)
+            FROM persona_usage
+            WHERE persona_id = NEW.persona_id
+        ),
+        total_pages_read = (
+            SELECT COALESCE(SUM(pages_read), 0)
+            FROM persona_usage
+            WHERE persona_id = NEW.persona_id
+        ),
+        unique_users_count = (
+            SELECT COUNT(DISTINCT user_id)
+            FROM persona_usage
+            WHERE persona_id = NEW.persona_id
+        ),
+        last_used_at = NOW()
+    WHERE id = NEW.persona_id;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER persona_usage_stats_update
+    AFTER INSERT OR UPDATE ON persona_usage
+    FOR EACH ROW
+    EXECUTE FUNCTION update_persona_usage_stats();
+
 -- ============================================
 -- Default Personas (System-provided templates)
 -- ============================================
--- These are created per-user on first access or can be seeded
 
 CREATE TABLE IF NOT EXISTS voice_persona_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,7 +403,6 @@ INSERT INTO voice_persona_templates (name, description, base_voice_name, pace, t
 -- ============================================
 -- Update existing page_audio table (if needed)
 -- ============================================
--- Add voice_persona_id reference to track which persona was used
 
 ALTER TABLE page_audio 
 ADD COLUMN IF NOT EXISTS voice_persona_id UUID REFERENCES voice_personas(id) ON DELETE SET NULL;
@@ -222,26 +414,72 @@ CREATE INDEX IF NOT EXISTS idx_page_audio_persona ON page_audio(voice_persona_id
 
 ## Phase 2: Backend Implementation
 
-### 2.1 Voice Persona Service
+### 2.1 Configuration Constants
+
+**File: `backend/src/config/voicePersonaConfig.js`**
+
+```javascript
+module.exports = {
+  // Preview limits
+  preview: {
+    maxPreviewsPerDay: 10,           // Max previews per user per day
+    maxPreviewTextLength: 150,       // Max characters for custom preview text
+    defaultPreviewTexts: [
+      // Arabic preview texts for book reading context
+      'بسم الله الرحمن الرحيم. الحمد لله رب العالمين.',
+      'في هذا الكتاب، سنستكشف معاً أفكاراً جديدة ورؤى ملهمة.',
+      'القراءة نور، والجهل ظلام. فلنقرأ ونتعلم معاً.',
+    ],
+    cooldownSeconds: 30,              // Minimum seconds between previews
+  },
+  
+  // Marketplace settings
+  marketplace: {
+    minRatingsForFeatured: 10,        // Min ratings to be featured
+    minRatingForFeatured: 4.0,        // Min average rating to be featured
+    pageSize: 20,                     // Personas per page in marketplace
+  },
+  
+  // Base voices from Google
+  baseVoices: [
+    { id: 'Enceladus', name: 'Enceladus', description: 'General reading' },
+    { id: 'Lapetus', name: 'Lapetus', description: 'Calm narration' },
+    { id: 'Algieba', name: 'Algieba', description: 'Expressive reading' },
+    { id: 'Algenib', name: 'Algenib', description: 'Professional tone' },
+    { id: 'Alnilam', name: 'Alnilam', description: 'Deep, authoritative' },
+    { id: 'Schedar', name: 'Schedar', description: 'Warm, friendly' },
+  ],
+  
+  // Style options
+  paceOptions: ['slow', 'normal', 'fast'],
+  toneOptions: ['warm', 'neutral', 'professional', 'dramatic'],
+  emotionOptions: ['calm', 'enthusiastic', 'serious', 'gentle'],
+  speakingStyleOptions: ['narrative', 'conversational', 'educational', 'storytelling'],
+};
+```
+
+### 2.2 Voice Persona Service
 
 **File: `backend/src/services/voicePersonaService.js`**
 
 ```javascript
 const supabaseService = require('./supabaseService');
 const logger = require('../config/logger');
+const config = require('../config/voicePersonaConfig');
 
 class VoicePersonaService {
   
-  // Build the TTS prompt from persona settings
+  // ==========================================
+  // PROMPT BUILDING
+  // ==========================================
+  
   buildPrompt(persona, textToRead) {
-    // If custom prompt exists, use it
     if (persona.custom_prompt) {
       return `${persona.custom_prompt}
 
 ${textToRead}`;
     }
     
-    // Build prompt from components
     const paceMap = {
       slow: 'at a slow, measured pace',
       normal: 'at a natural pace',
@@ -279,68 +517,381 @@ ${textToRead}`;
 ${textToRead}`;
   }
   
-  // Get all personas for a user
+  // ==========================================
+  // PREVIEW RATE LIMITING
+  // ==========================================
+  
+  async checkPreviewLimit(userId) {
+    const { data, error } = await supabaseService.supabase
+      .from('persona_preview_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // Not found is OK
+      throw error;
+    }
+    
+    const now = new Date();
+    
+    // No record exists, user can preview
+    if (!data) {
+      return { canPreview: true, remaining: config.preview.maxPreviewsPerDay };
+    }
+    
+    // Check if reset needed
+    const resetAt = new Date(data.reset_at);
+    if (now > resetAt) {
+      // Reset the counter
+      await this.resetPreviewLimit(userId);
+      return { canPreview: true, remaining: config.preview.maxPreviewsPerDay };
+    }
+    
+    // Check cooldown
+    if (data.last_preview_at) {
+      const lastPreview = new Date(data.last_preview_at);
+      const secondsSince = (now - lastPreview) / 1000;
+      if (secondsSince < config.preview.cooldownSeconds) {
+        return { 
+          canPreview: false, 
+          remaining: config.preview.maxPreviewsPerDay - data.preview_count,
+          waitSeconds: Math.ceil(config.preview.cooldownSeconds - secondsSince)
+        };
+      }
+    }
+    
+    // Check daily limit
+    if (data.preview_count >= config.preview.maxPreviewsPerDay) {
+      return { 
+        canPreview: false, 
+        remaining: 0,
+        resetAt: data.reset_at
+      };
+    }
+    
+    return { 
+      canPreview: true, 
+      remaining: config.preview.maxPreviewsPerDay - data.preview_count 
+    };
+  }
+  
+  async recordPreviewUsage(userId) {
+    const { data, error } = await supabaseService.supabase
+      .from('persona_preview_limits')
+      .upsert({
+        user_id: userId,
+        preview_count: 1,
+        last_preview_at: new Date().toISOString(),
+        reset_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // Increment count if record existed
+    if (data.preview_count > 1 || !data) {
+      await supabaseService.supabase
+        .from('persona_preview_limits')
+        .update({ 
+          preview_count: data.preview_count + 1,
+          last_preview_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+    }
+  }
+  
+  async resetPreviewLimit(userId) {
+    await supabaseService.supabase
+      .from('persona_preview_limits')
+      .upsert({
+        user_id: userId,
+        preview_count: 0,
+        last_preview_at: null,
+        reset_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      }, { onConflict: 'user_id' });
+  }
+  
+  getRandomPreviewText() {
+    const texts = config.preview.defaultPreviewTexts;
+    return texts[Math.floor(Math.random() * texts.length)];
+  }
+  
+  // ==========================================
+  // PERSONA CRUD
+  // ==========================================
+  
   async getUserPersonas(userId) {
-    return await supabaseService.query('voice_personas', {
-      filter: { user_id: userId, is_active: true },
-      orderBy: { column: 'created_at', ascending: false }
-    });
+    const { data, error } = await supabaseService.supabase
+      .from('voice_personas')
+      .select('*, users:user_id(email)')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
   }
   
-  // Get user's default persona
+  async getPersonaById(personaId, userId = null) {
+    let query = supabaseService.supabase
+      .from('voice_personas')
+      .select('*, owner:user_id(id, email)')
+      .eq('id', personaId)
+      .eq('is_active', true);
+    
+    const { data, error } = await query.single();
+    
+    if (error) throw error;
+    
+    // Check access: must be owner or persona must be public
+    if (data.user_id !== userId && !data.is_public) {
+      throw new Error('Access denied');
+    }
+    
+    return data;
+  }
+  
   async getDefaultPersona(userId) {
-    const personas = await supabaseService.query('voice_personas', {
-      filter: { user_id: userId, is_default: true, is_active: true },
-      limit: 1
-    });
-    return personas[0] || null;
+    const { data, error } = await supabaseService.supabase
+      .from('voice_personas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
   }
   
-  // Create new persona
-  async createPersona(userId, personaData) {
-    // If setting as default, unset other defaults first
+  async createPersona(userId, personaData, previewAudioUrl = null) {
+    // If setting as default, unset others first
     if (personaData.is_default) {
       await this.unsetDefaultPersona(userId);
     }
     
-    return await supabaseService.insert('voice_personas', {
-      user_id: userId,
-      ...personaData
-    });
+    const { data, error } = await supabaseService.supabase
+      .from('voice_personas')
+      .insert({
+        user_id: userId,
+        preview_audio_url: previewAudioUrl,
+        ...personaData
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
   }
   
-  // Update persona
-  async updatePersona(personaId, userId, updates) {
+  async updatePersona(personaId, userId, updates, previewAudioUrl = null) {
     if (updates.is_default) {
       await this.unsetDefaultPersona(userId);
     }
     
-    return await supabaseService.update('voice_personas', personaId, updates, {
-      filter: { user_id: userId }
-    });
+    const updateData = { ...updates };
+    if (previewAudioUrl) {
+      updateData.preview_audio_url = previewAudioUrl;
+    }
+    
+    const { data, error } = await supabaseService.supabase
+      .from('voice_personas')
+      .update(updateData)
+      .eq('id', personaId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
   }
   
-  // Delete persona
   async deletePersona(personaId, userId) {
-    return await supabaseService.delete('voice_personas', personaId, {
-      filter: { user_id: userId }
-    });
+    // Soft delete
+    const { error } = await supabaseService.supabase
+      .from('voice_personas')
+      .update({ is_active: false })
+      .eq('id', personaId)
+      .eq('user_id', userId);
+    
+    if (error) throw error;
   }
   
-  // Unset default persona
   async unsetDefaultPersona(userId) {
-    // Implementation depends on supabaseService capabilities
+    await supabaseService.supabase
+      .from('voice_personas')
+      .update({ is_default: false })
+      .eq('user_id', userId)
+      .eq('is_default', true);
   }
   
-  // Get templates for new users
+  // ==========================================
+  // MARKETPLACE
+  // ==========================================
+  
+  async getPublicPersonas(options = {}) {
+    const { 
+      page = 1, 
+      limit = config.marketplace.pageSize,
+      sortBy = 'popular', // popular, top_rated, newest
+      search = null 
+    } = options;
+    
+    let query = supabaseService.supabase
+      .from('voice_personas')
+      .select(`
+        *,
+        owner:user_id(id, email)
+      `, { count: 'exact' })
+      .eq('is_public', true)
+      .eq('is_active', true);
+    
+    // Search
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+    
+    // Sorting
+    switch (sortBy) {
+      case 'popular':
+        query = query.order('total_usage_count', { ascending: false });
+        break;
+      case 'top_rated':
+        query = query.order('average_rating', { ascending: false });
+        break;
+      case 'newest':
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+    
+    // Pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    return {
+      personas: data,
+      total: count,
+      page,
+      totalPages: Math.ceil(count / limit)
+    };
+  }
+  
+  async getFeaturedPersonas() {
+    const { data, error } = await supabaseService.supabase
+      .from('voice_personas')
+      .select('*, owner:user_id(id, email)')
+      .eq('is_featured', true)
+      .eq('is_public', true)
+      .eq('is_active', true)
+      .order('average_rating', { ascending: false })
+      .limit(6);
+    
+    if (error) throw error;
+    return data;
+  }
+  
+  // ==========================================
+  // RATINGS
+  // ==========================================
+  
+  async ratePersona(personaId, userId, rating, review = null) {
+    // Can't rate your own persona
+    const persona = await this.getPersonaById(personaId);
+    if (persona.user_id === userId) {
+      throw new Error('Cannot rate your own persona');
+    }
+    
+    const { data, error } = await supabaseService.supabase
+      .from('persona_ratings')
+      .upsert({
+        persona_id: personaId,
+        user_id: userId,
+        rating,
+        review,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'persona_id,user_id' })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+  
+  async getPersonaRatings(personaId, page = 1, limit = 10) {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    
+    const { data, error, count } = await supabaseService.supabase
+      .from('persona_ratings')
+      .select('*, user:user_id(email)', { count: 'exact' })
+      .eq('persona_id', personaId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    
+    if (error) throw error;
+    
+    return { ratings: data, total: count };
+  }
+  
+  // ==========================================
+  // USAGE TRACKING
+  // ==========================================
+  
+  async recordUsage(personaId, userId, pagesRead = 1) {
+    // Upsert usage record
+    const { data: existing } = await supabaseService.supabase
+      .from('persona_usage')
+      .select('*')
+      .eq('persona_id', personaId)
+      .eq('user_id', userId)
+      .single();
+    
+    if (existing) {
+      await supabaseService.supabase
+        .from('persona_usage')
+        .update({
+          usage_count: existing.usage_count + 1,
+          pages_read: existing.pages_read + pagesRead,
+          last_used_at: new Date().toISOString()
+        })
+        .eq('persona_id', personaId)
+        .eq('user_id', userId);
+    } else {
+      await supabaseService.supabase
+        .from('persona_usage')
+        .insert({
+          persona_id: personaId,
+          user_id: userId,
+          usage_count: 1,
+          pages_read: pagesRead
+        });
+    }
+  }
+  
+  // ==========================================
+  // TEMPLATES
+  // ==========================================
+  
   async getTemplates() {
-    return await supabaseService.query('voice_persona_templates', {
-      filter: { is_active: true },
-      orderBy: { column: 'sort_order', ascending: true }
-    });
+    const { data, error } = await supabaseService.supabase
+      .from('voice_persona_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    
+    if (error) throw error;
+    return data;
   }
   
-  // Create personas from templates for new user
   async initializeUserPersonas(userId) {
     const templates = await this.getTemplates();
     
@@ -357,35 +908,38 @@ ${textToRead}`;
       });
     }
   }
-  
-  // Increment usage count
-  async recordUsage(personaId) {
-    // Increment usage_count and update last_used_at
-  }
 }
 
 module.exports = new VoicePersonaService();
 ```
 
-### 2.2 Update Gemini Service
+### 2.3 Update Gemini Service
 
 **File: `backend/src/services/geminiService.js`**
 
 Update the `generateAudio` method:
 
 ```javascript
-async generateAudio(text, voiceName = 'Enceladus', systemPrompt = null) {
-  // Build the content with optional system prompt
-  let contentText = text;
-  if (systemPrompt) {
-    contentText = `${systemPrompt}
+async generateAudio(text, voiceName = 'Enceladus', personaPrompt = null) {
+  // Build the final prompt
+  let finalPrompt;
+  if (personaPrompt) {
+    // Persona prompt already includes instructions + placeholder for text
+    finalPrompt = personaPrompt.includes(text) 
+      ? personaPrompt 
+      : `${personaPrompt}
+
+${text}`;
+  } else {
+    // Default: just read the text
+    finalPrompt = `Read the following text aloud:
 
 ${text}`;
   }
   
-  const truncatedText = contentText.length > config.maxTextLength 
-    ? contentText.substring(0, config.maxTextLength) + "..." 
-    : contentText;
+  const truncatedPrompt = finalPrompt.length > config.maxTextLength 
+    ? finalPrompt.substring(0, config.maxTextLength) + "..." 
+    : finalPrompt;
 
   const modelConfig = {
     responseModalities: ['AUDIO'],
@@ -398,12 +952,12 @@ ${text}`;
     },
   };
 
-  const model = 'gemini-2.5-flash-preview-tts'; // Use TTS-specific model
+  const model = 'gemini-2.5-flash-preview-tts';
   const contents = [
     { 
       parts: [
         { 
-          text: truncatedText 
+          text: truncatedPrompt 
         }
       ] 
     }
@@ -436,14 +990,17 @@ ${text}`;
 }
 ```
 
-### 2.3 Voice Persona Controller
+### 2.4 Voice Persona Controller
 
 **File: `backend/src/controllers/voicePersonaController.js`**
 
 ```javascript
 const voicePersonaService = require('../services/voicePersonaService');
 const geminiService = require('../services/geminiService');
+const supabaseService = require('../services/supabaseService');
+const { convertToWav } = require('../utils/audioConverter');
 const logger = require('../config/logger');
+const config = require('../config/voicePersonaConfig');
 
 // GET /api/voice-personas
 exports.getPersonas = async (req, res) => {
@@ -457,11 +1014,151 @@ exports.getPersonas = async (req, res) => {
   }
 };
 
+// GET /api/voice-personas/marketplace
+exports.getMarketplace = async (req, res) => {
+  try {
+    const { page, sortBy, search } = req.query;
+    const result = await voicePersonaService.getPublicPersonas({
+      page: parseInt(page) || 1,
+      sortBy: sortBy || 'popular',
+      search
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Error fetching marketplace:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch marketplace' });
+  }
+};
+
+// GET /api/voice-personas/featured
+exports.getFeatured = async (req, res) => {
+  try {
+    const personas = await voicePersonaService.getFeaturedPersonas();
+    res.json({ success: true, data: personas });
+  } catch (error) {
+    logger.error('Error fetching featured:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch featured personas' });
+  }
+};
+
+// POST /api/voice-personas/preview
+// Generate preview audio for persona settings (before saving)
+exports.generatePreview = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      base_voice_name, 
+      pace, 
+      tone, 
+      emotion, 
+      speaking_style,
+      custom_prompt,
+      preview_text  // Optional: user-provided text (limited chars)
+    } = req.body;
+    
+    // Check rate limit
+    const limitCheck = await voicePersonaService.checkPreviewLimit(userId);
+    if (!limitCheck.canPreview) {
+      return res.status(429).json({ 
+        success: false, 
+        error: 'Preview limit reached',
+        remaining: limitCheck.remaining,
+        waitSeconds: limitCheck.waitSeconds,
+        resetAt: limitCheck.resetAt
+      });
+    }
+    
+    // Validate preview text length
+    let textToSpeak = preview_text;
+    if (textToSpeak && textToSpeak.length > config.preview.maxPreviewTextLength) {
+      textToSpeak = textToSpeak.substring(0, config.preview.maxPreviewTextLength);
+    }
+    if (!textToSpeak) {
+      textToSpeak = voicePersonaService.getRandomPreviewText();
+    }
+    
+    // Build temp persona object
+    const tempPersona = {
+      base_voice_name: base_voice_name || 'Enceladus',
+      pace: pace || 'normal',
+      tone: tone || 'neutral',
+      emotion: emotion || 'calm',
+      speaking_style: speaking_style || 'narrative',
+      custom_prompt
+    };
+    
+    // Build prompt
+    const prompt = voicePersonaService.buildPrompt(tempPersona, textToSpeak);
+    
+    // Generate audio
+    const { data: audioData, mimeType } = await geminiService.generateAudio(
+      textToSpeak,
+      tempPersona.base_voice_name,
+      prompt
+    );
+    
+    // Record usage
+    await voicePersonaService.recordPreviewUsage(userId);
+    
+    res.json({ 
+      success: true, 
+      data: {
+        audio: audioData,  // Base64 encoded
+        mimeType,
+        previewText: textToSpeak,
+        remaining: limitCheck.remaining - 1
+      }
+    });
+  } catch (error) {
+    logger.error('Error generating preview:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate preview' });
+  }
+};
+
 // POST /api/voice-personas
+// Create persona with the last generated preview audio
 exports.createPersona = async (req, res) => {
   try {
     const userId = req.user.id;
-    const persona = await voicePersonaService.createPersona(userId, req.body);
+    const { 
+      name,
+      description,
+      base_voice_name, 
+      pace, 
+      tone, 
+      emotion, 
+      speaking_style,
+      custom_prompt,
+      is_default,
+      is_public,
+      preview_audio,      // Base64 audio data from preview
+      preview_text
+    } = req.body;
+    
+    let previewAudioUrl = null;
+    
+    // Save preview audio if provided
+    if (preview_audio) {
+      const wavBuffer = convertToWav(preview_audio, 'audio/wav');
+      const fileName = `preview_${Date.now()}.wav`;
+      const filePath = `voice-personas/${userId}/${fileName}`;
+      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath);
+    }
+    
+    const persona = await voicePersonaService.createPersona(userId, {
+      name,
+      description,
+      base_voice_name,
+      pace,
+      tone,
+      emotion,
+      speaking_style,
+      custom_prompt,
+      is_default,
+      is_public,
+      preview_text
+    }, previewAudioUrl);
+    
     res.status(201).json({ success: true, data: persona });
   } catch (error) {
     logger.error('Error creating persona:', error);
@@ -474,7 +1171,19 @@ exports.updatePersona = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const persona = await voicePersonaService.updatePersona(id, userId, req.body);
+    const { preview_audio, ...updates } = req.body;
+    
+    let previewAudioUrl = null;
+    
+    // Save new preview audio if provided
+    if (preview_audio) {
+      const wavBuffer = convertToWav(preview_audio, 'audio/wav');
+      const fileName = `preview_${Date.now()}.wav`;
+      const filePath = `voice-personas/${userId}/${fileName}`;
+      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath);
+    }
+    
+    const persona = await voicePersonaService.updatePersona(id, userId, updates, previewAudioUrl);
     res.json({ success: true, data: persona });
   } catch (error) {
     logger.error('Error updating persona:', error);
@@ -495,39 +1204,35 @@ exports.deletePersona = async (req, res) => {
   }
 };
 
-// POST /api/voice-personas/:id/preview
-exports.previewPersona = async (req, res) => {
+// POST /api/voice-personas/:id/rate
+exports.ratePersona = async (req, res) => {
   try {
     const { id } = req.params;
-    const { text } = req.body;
     const userId = req.user.id;
+    const { rating, review } = req.body;
     
-    // Get persona
-    const personas = await voicePersonaService.getUserPersonas(userId);
-    const persona = personas.find(p => p.id === id);
-    
-    if (!persona) {
-      return res.status(404).json({ success: false, error: 'Persona not found' });
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, error: 'Rating must be 1-5' });
     }
     
-    // Build prompt and generate audio
-    const prompt = voicePersonaService.buildPrompt(persona, text);
-    const audio = await geminiService.generateAudio(
-      text,
-      persona.base_voice_name,
-      prompt
-    );
-    
-    res.json({ 
-      success: true, 
-      data: {
-        audio: audio.data,
-        mimeType: audio.mimeType
-      }
-    });
+    const result = await voicePersonaService.ratePersona(id, userId, rating, review);
+    res.json({ success: true, data: result });
   } catch (error) {
-    logger.error('Error previewing persona:', error);
-    res.status(500).json({ success: false, error: 'Failed to generate preview' });
+    logger.error('Error rating persona:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// GET /api/voice-personas/:id/ratings
+exports.getPersonaRatings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page } = req.query;
+    const result = await voicePersonaService.getPersonaRatings(id, parseInt(page) || 1);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('Error fetching ratings:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch ratings' });
   }
 };
 
@@ -541,9 +1246,25 @@ exports.getTemplates = async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch templates' });
   }
 };
+
+// GET /api/voice-personas/config
+exports.getConfig = async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      baseVoices: config.baseVoices,
+      paceOptions: config.paceOptions,
+      toneOptions: config.toneOptions,
+      emotionOptions: config.emotionOptions,
+      speakingStyleOptions: config.speakingStyleOptions,
+      maxPreviewTextLength: config.preview.maxPreviewTextLength,
+      maxPreviewsPerDay: config.preview.maxPreviewsPerDay
+    }
+  });
+};
 ```
 
-### 2.4 Routes
+### 2.5 Routes
 
 **File: `backend/src/routes/voicePersonaRoutes.js`**
 
@@ -553,14 +1274,22 @@ const router = express.Router();
 const voicePersonaController = require('../controllers/voicePersonaController');
 const { authenticateToken } = require('../middleware/auth');
 
+// Public routes (for marketplace browsing)
+router.get('/config', voicePersonaController.getConfig);
+router.get('/featured', voicePersonaController.getFeatured);
+router.get('/marketplace', voicePersonaController.getMarketplace);
+router.get('/templates', voicePersonaController.getTemplates);
+
+// Protected routes
 router.use(authenticateToken);
 
 router.get('/', voicePersonaController.getPersonas);
 router.post('/', voicePersonaController.createPersona);
-router.get('/templates', voicePersonaController.getTemplates);
+router.post('/preview', voicePersonaController.generatePreview);
 router.put('/:id', voicePersonaController.updatePersona);
 router.delete('/:id', voicePersonaController.deletePersona);
-router.post('/:id/preview', voicePersonaController.previewPersona);
+router.post('/:id/rate', voicePersonaController.ratePersona);
+router.get('/:id/ratings', voicePersonaController.getPersonaRatings);
 
 module.exports = router;
 ```
@@ -578,6 +1307,7 @@ import api from './api';
 
 export interface VoicePersona {
   id: string;
+  user_id: string;
   name: string;
   description?: string;
   base_voice_name: string;
@@ -587,48 +1317,108 @@ export interface VoicePersona {
   speaking_style: 'narrative' | 'conversational' | 'educational' | 'storytelling';
   custom_prompt?: string;
   is_default: boolean;
-  is_active: boolean;
+  is_public: boolean;
+  is_featured: boolean;
   preview_audio_url?: string;
-  usage_count: number;
+  preview_text?: string;
+  total_usage_count: number;
+  total_pages_read: number;
+  unique_users_count: number;
+  average_rating: number;
+  total_ratings: number;
   created_at: string;
+  owner?: {
+    id: string;
+    email: string;
+  };
+}
+
+export interface PreviewResponse {
+  audio: string;  // Base64
+  mimeType: string;
+  previewText: string;
+  remaining: number;
+}
+
+export interface MarketplaceResponse {
+  personas: VoicePersona[];
+  total: number;
+  page: number;
+  totalPages: number;
 }
 
 export const voicePersonaApi = {
+  // Config
+  getConfig: () => api.get('/voice-personas/config'),
+  
+  // User's personas
   getAll: () => api.get<VoicePersona[]>('/voice-personas'),
   
-  create: (data: Partial<VoicePersona>) => 
+  // Marketplace
+  getMarketplace: (page = 1, sortBy = 'popular', search?: string) => 
+    api.get<MarketplaceResponse>('/voice-personas/marketplace', { 
+      params: { page, sortBy, search } 
+    }),
+  
+  getFeatured: () => api.get<VoicePersona[]>('/voice-personas/featured'),
+  
+  // CRUD
+  create: (data: Partial<VoicePersona> & { preview_audio?: string }) => 
     api.post<VoicePersona>('/voice-personas', data),
   
-  update: (id: string, data: Partial<VoicePersona>) => 
+  update: (id: string, data: Partial<VoicePersona> & { preview_audio?: string }) => 
     api.put<VoicePersona>(`/voice-personas/${id}`, data),
   
-  delete: (id: string) => 
-    api.delete(`/voice-personas/${id}`),
+  delete: (id: string) => api.delete(`/voice-personas/${id}`),
   
-  preview: (id: string, text: string) => 
-    api.post<{ audio: string; mimeType: string }>(`/voice-personas/${id}/preview`, { text }),
+  // Preview
+  generatePreview: (settings: {
+    base_voice_name: string;
+    pace: string;
+    tone: string;
+    emotion: string;
+    speaking_style: string;
+    custom_prompt?: string;
+    preview_text?: string;
+  }) => api.post<PreviewResponse>('/voice-personas/preview', settings),
   
-  getTemplates: () => 
-    api.get('/voice-personas/templates'),
+  // Ratings
+  rate: (id: string, rating: number, review?: string) => 
+    api.post(`/voice-personas/${id}/rate`, { rating, review }),
+  
+  getRatings: (id: string, page = 1) => 
+    api.get(`/voice-personas/${id}/ratings`, { params: { page } }),
+  
+  // Templates
+  getTemplates: () => api.get('/voice-personas/templates'),
 };
 ```
 
-### 3.2 Update Voice Studio Page
+### 3.2 Voice Studio Page Updates
 
-Update `frontend/src/pages/VoiceStudio.tsx` to:
+Key UI components to build:
 
-1. Fetch real personas from API
-2. Create/edit/delete functionality
-3. Preview audio playback
-4. Save settings to database
-5. Use Google's base voice names
+1. **Persona Builder Form**
+   - Base voice dropdown (6 Google voices)
+   - Pace, Tone, Emotion, Speaking Style selectors
+   - Optional custom prompt textarea
+   - Preview text input (limited to 150 chars) or use default
+   - "Generate Preview" button with remaining count display
+   - Audio player for preview
+   - Save button (saves with last generated preview)
 
-### 3.3 Update Book Reader
+2. **Marketplace Tab**
+   - Grid of public personas with owner info
+   - Sort by: Popular, Top Rated, Newest
+   - Search functionality
+   - Rating display with stars
+   - Usage stats badge (e.g., "Used 5,432 times")
+   - "Use This Persona" button
 
-Update the book reader to:
-
-1. Use selected persona when generating audio
-2. Pass persona settings to the audio generation endpoint
+3. **Rate & Review Modal**
+   - Star rating (1-5)
+   - Optional text review
+   - Submit button
 
 ---
 
@@ -636,28 +1426,33 @@ Update the book reader to:
 
 ### 4.1 Update Page Audio Generation
 
-**File: `backend/src/services/pageCacheService.js`**
-
-Update `getOrGeneratePageAudio` to accept and use voice persona:
+When generating page audio, use the persona's settings:
 
 ```javascript
 async getOrGeneratePageAudio(bookId, pageNumber, text, personaId, userId) {
-  // Get persona settings
+  // Get persona
   const persona = personaId 
     ? await voicePersonaService.getPersonaById(personaId, userId)
     : await voicePersonaService.getDefaultPersona(userId);
   
-  // Build prompt from persona
+  if (!persona) {
+    throw new Error('No persona selected');
+  }
+  
+  // Build prompt
   const prompt = voicePersonaService.buildPrompt(persona, text);
   
-  // Generate audio with persona settings
+  // Generate audio
   const { data: audioData, mimeType } = await geminiService.generateAudio(
     text,
     persona.base_voice_name,
     prompt
   );
   
-  // ... rest of caching logic
+  // Record usage
+  await voicePersonaService.recordUsage(persona.id, userId, 1);
+  
+  // ... rest of caching logic with persona_id stored
 }
 ```
 
@@ -667,68 +1462,108 @@ async getOrGeneratePageAudio(bookId, pageNumber, text, personaId, userId) {
 
 ### Week 1: Database & Core Backend
 1. Run Supabase migration SQL
-2. Create `voicePersonaService.js`
-3. Update `geminiService.js` with new `generateAudio` signature
-4. Create `voicePersonaController.js`
-5. Add routes and test with Postman/curl
+2. Create `voicePersonaConfig.js`
+3. Create `voicePersonaService.js` with rate limiting
+4. Update `geminiService.js`
+5. Create `voicePersonaController.js`
+6. Add routes and test endpoints
 
-### Week 2: Backend Integration
-1. Update `pageCacheService.js` to use personas
-2. Update `pageController.js` to accept persona ID
-3. Test end-to-end audio generation with personas
-4. Add error handling and validation
+### Week 2: Preview & Marketplace
+1. Implement preview generation with rate limiting
+2. Test preview audio quality
+3. Implement marketplace queries
+4. Add rating/review functionality
+5. Test usage tracking triggers
 
 ### Week 3: Frontend
-1. Create `voicePersonaApi.ts` service
-2. Update `VoiceStudio.tsx` with real API calls
-3. Build persona creation/editing modal
-4. Implement audio preview functionality
-5. Add loading states and error handling
+1. Create `voicePersonaApi.ts`
+2. Build persona builder UI with preview
+3. Build marketplace UI
+4. Implement audio playback
+5. Add rating modal
 
-### Week 4: Polish & Testing
-1. Update book reader to use selected persona
-2. Add persona selection UI in reader
+### Week 4: Integration & Polish
+1. Update book reader to use personas
+2. Add persona selector in reader
 3. Test with Arabic text
 4. Performance optimization
-5. User testing and feedback
+5. User testing
 
 ---
 
 ## Testing Checklist
 
+### Persona Management
 - [ ] Create persona with all settings
 - [ ] Update persona settings
-- [ ] Delete persona
+- [ ] Delete persona (soft delete)
 - [ ] Set default persona
-- [ ] Preview audio with persona
-- [ ] Generate page audio with persona
-- [ ] Arabic text pronunciation
-- [ ] Pace/tone/emotion variations work
-- [ ] Custom prompt override works
-- [ ] RLS policies work correctly
-- [ ] Error handling for API failures
+- [ ] Custom prompt works correctly
+
+### Preview System
+- [ ] Preview generates audio correctly
+- [ ] Rate limiting (10/day) works
+- [ ] Cooldown (30s) between previews
+- [ ] Custom preview text (150 char limit)
+- [ ] Default preview text rotation
+- [ ] Preview audio saved on persona save
+
+### Marketplace
+- [ ] Public personas visible to all
+- [ ] Private personas hidden
+- [ ] Owner info displayed
+- [ ] Sort by popular/rated/newest
+- [ ] Search works
+- [ ] Usage count updates
+
+### Ratings
+- [ ] Can rate others' personas
+- [ ] Cannot rate own persona
+- [ ] Average rating updates automatically
+- [ ] Reviews display correctly
+
+### Usage Tracking
+- [ ] Usage count increments
+- [ ] Pages read tracked
+- [ ] Unique users counted
+- [ ] Stats update correctly
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | /voice-personas/config | Get config options | No |
+| GET | /voice-personas/featured | Get featured personas | No |
+| GET | /voice-personas/marketplace | Browse public personas | No |
+| GET | /voice-personas/templates | Get default templates | No |
+| GET | /voice-personas | Get user's personas | Yes |
+| POST | /voice-personas | Create persona | Yes |
+| POST | /voice-personas/preview | Generate preview | Yes |
+| PUT | /voice-personas/:id | Update persona | Yes |
+| DELETE | /voice-personas/:id | Delete persona | Yes |
+| POST | /voice-personas/:id/rate | Rate persona | Yes |
+| GET | /voice-personas/:id/ratings | Get ratings | No |
 
 ---
 
 ## Notes
 
 ### Arabic Language Support
+- Gemini TTS supports Arabic natively
+- Test with various diacritics (tashkeel)
+- Ensure UTF-8 encoding throughout
 
-Gemini TTS supports Arabic. Ensure:
-1. Text encoding is UTF-8
-2. Test with various Arabic diacritics (tashkeel)
-3. Consider RTL rendering in UI
-
-### Performance Considerations
-
-1. Cache generated audio by persona+text hash
-2. Limit preview text length (50-100 words)
-3. Consider queuing for long books
+### Cost Control
+- Preview limit: 10/day per user
+- Cooldown: 30 seconds between previews
+- Max preview text: 150 characters
+- Consider caching popular persona previews
 
 ### Future Enhancements
-
 1. Voice cloning (when available)
 2. Emotion detection from text
 3. Multi-speaker for dialogue
-4. Speed/pitch fine-tuning
-5. Pronunciation dictionary for names
+4. Pronunciation dictionary
+5. Persona monetization (premium personas)
