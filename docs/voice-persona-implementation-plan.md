@@ -34,8 +34,8 @@ This document outlines the complete implementation plan for the Voice Persona fe
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Supabase                                 │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ voice_personas  │  │ persona_ratings │  │    Storage      │  │
-│  │     table       │  │     table       │  │ (preview audio) │  │
+│  │ voice_personas  │  │ persona_ratings │  │  readai-media   │  │
+│  │     table       │  │     table       │  │ /preview-audio/ │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
             │
@@ -1137,12 +1137,13 @@ exports.createPersona = async (req, res) => {
     
     let previewAudioUrl = null;
     
-    // Save preview audio if provided
+    // Save preview audio to readai-media bucket in preview-audio folder
     if (preview_audio) {
       const wavBuffer = convertToWav(preview_audio, 'audio/wav');
-      const fileName = `preview_${Date.now()}.wav`;
-      const filePath = `voice-personas/${userId}/${fileName}`;
-      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath);
+      const fileName = `persona_${Date.now()}.wav`;
+      // Storage path: readai-media/preview-audio/{user_id}/{filename}
+      const filePath = `preview-audio/${userId}/${fileName}`;
+      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath, 'readai-media');
     }
     
     const persona = await voicePersonaService.createPersona(userId, {
@@ -1175,12 +1176,13 @@ exports.updatePersona = async (req, res) => {
     
     let previewAudioUrl = null;
     
-    // Save new preview audio if provided
+    // Save new preview audio to readai-media bucket in preview-audio folder
     if (preview_audio) {
       const wavBuffer = convertToWav(preview_audio, 'audio/wav');
-      const fileName = `preview_${Date.now()}.wav`;
-      const filePath = `voice-personas/${userId}/${fileName}`;
-      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath);
+      const fileName = `persona_${Date.now()}.wav`;
+      // Storage path: readai-media/preview-audio/{user_id}/{filename}
+      const filePath = `preview-audio/${userId}/${fileName}`;
+      previewAudioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath, 'readai-media');
     }
     
     const persona = await voicePersonaService.updatePersona(id, userId, updates, previewAudioUrl);
@@ -1554,6 +1556,20 @@ async getOrGeneratePageAudio(bookId, pageNumber, text, personaId, userId) {
 - Gemini TTS supports Arabic natively
 - Test with various diacritics (tashkeel)
 - Ensure UTF-8 encoding throughout
+
+### Storage Structure
+
+Preview audio files are stored in the existing `readai-media` Supabase bucket:
+
+```
+readai-media/
+├── audio/              # Existing: page audio cache
+├── pdfs/               # Existing: PDF files
+├── thumbnails/         # Existing: book thumbnails
+└── preview-audio/      # NEW: persona preview audio
+    └── {user_id}/
+        └── persona_{timestamp}.wav
+```
 
 ### Cost Control
 - Preview limit: 10/day per user
