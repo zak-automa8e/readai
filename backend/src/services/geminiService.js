@@ -7,7 +7,7 @@ class GeminiService {
     this.ai = new GoogleGenAI({
       apiKey: config.geminiApiKey,
     });
-    
+
     logger.info('Gemini AI service initialized');
   }
 
@@ -66,7 +66,7 @@ class GeminiService {
     ];
 
     logger.debug(`Calling Gemini model ${model} for image-to-text conversion`);
-    
+
     try {
       const response = await this.ai.models.generateContentStream({
         model,
@@ -100,11 +100,13 @@ class GeminiService {
   /**
    * Generate audio from text
    * @param {string} text - Text to convert to audio
+   * @param {string} [voiceName='Sadaltager'] - Voice name to use
+   * @param {string} [systemInstruction] - Optional system instruction for style control
    * @returns {Promise<Object>} - Object containing audio data and mime type
    */
-  async generateAudio(text) {
-    const truncatedText = text.length > config.maxTextLength 
-      ? text.substring(0, config.maxTextLength) + "..." 
+  async generateAudio(text, voiceName = '6tager', systemInstruction = null) {
+    const truncatedText = text.length > config.maxTextLength
+      ? text.substring(0, config.maxTextLength) + "..."
       : text;
 
     const modelConfig = {
@@ -112,7 +114,7 @@ class GeminiService {
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: {
-            voiceName: 'Sadaltager',
+            voiceName: voiceName,
           }
         }
       },
@@ -120,24 +122,40 @@ class GeminiService {
 
     const model = config.geminiModels.textToAudio;
     const contents = [
-      { 
+      {
         parts: [
-          { 
-            text: truncatedText 
+          {
+            text: truncatedText
           }
-        ] 
+        ]
       }
     ];
 
     logger.debug(`Calling Gemini model ${model} for text-to-audio conversion`);
-    
+
     return this.retryWithBackoff(async () => {
       try {
-        const response = await this.ai.models.generateContent({
+        const request = {
           model,
           contents,
           config: modelConfig,
-        });
+        };
+
+        // A senior developer approach: enforce strict modality in system instructions
+        // This prevents the model from "thinking out loud" or generating text preludes
+        const strictAudioInstruction = "IMPORTANT: You are a TTS (Text-to-Speech) engine. You MUST ONLY generate audio. Do NOT generate any text, explanations, or preludes. Your response must be 100% audio data.";
+
+        const finalSystemInstruction = systemInstruction
+          ? `${systemInstruction}\n\n${strictAudioInstruction}`
+          : strictAudioInstruction;
+
+        if (finalSystemInstruction) {
+          request.systemInstruction = {
+            parts: [{ text: finalSystemInstruction }]
+          };
+        }
+
+        const response = await this.ai.models.generateContent(request);
 
         const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (!audioData) {
@@ -163,20 +181,20 @@ class GeminiService {
   async retryWithBackoff(operation) {
     let attempts = 0;
     const maxAttempts = config.maxRetries;
-    
+
     while (attempts < maxAttempts) {
       try {
         return await operation();
       } catch (error) {
         attempts++;
-        
+
         if (error.message && error.message.includes('429') && attempts < maxAttempts) {
           const waitTime = Math.pow(2, attempts) * config.retryDelay;
           logger.warn(`Rate limited, waiting ${waitTime}ms before retry ${attempts} of ${maxAttempts}`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           continue;
         }
-        
+
         throw error;
       }
     }
@@ -188,15 +206,18 @@ class GeminiService {
    * @returns {Object} - Parsed JSON or fallback object
    */
   parseResponse(fullText) {
+    if (!fullText || fullText.trim() === '') {
+      throw new Error('Gemini returned an empty response');
+    }
+
     try {
       return JSON.parse(fullText);
     } catch (parseError) {
-      logger.warn('Failed to parse JSON response, using fallback');
-      return {
-        header: "",
-        body: fullText || "Text extraction failed",
-        footer: ""
-      };
+      logger.error('Failed to parse JSON response from Gemini:', {
+        error: parseError.message,
+        text: fullText.substring(0, 500)
+      });
+      throw new Error('Failed to parse extraction result as JSON');
     }
   }
 

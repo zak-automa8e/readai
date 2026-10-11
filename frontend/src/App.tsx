@@ -11,6 +11,7 @@ import { NotesProvider } from './contexts/NotesContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { BackendHealthCheck } from "./components/BackendHealthCheck";
 import { AppRouter } from "./components/AppRouter";
+import { ThemeProvider } from "next-themes";
 
 const queryClient = new QueryClient();
 
@@ -30,24 +31,26 @@ const App = () => {
   }, []);
 
   return (
-    <AuthProvider>
-      <BooksProvider>
-        <NotesProvider>
-          <UIProvider>
-            <QueryClientProvider client={queryClient}>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BackendHealthCheck />
-                <BrowserRouter>
-                  <AppRouter />
-                </BrowserRouter>
-              </TooltipProvider>
-            </QueryClientProvider>
-          </UIProvider>
-        </NotesProvider>
-      </BooksProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <BooksProvider>
+          <NotesProvider>
+            <UIProvider>
+              <QueryClientProvider client={queryClient}>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BackendHealthCheck />
+                  <BrowserRouter>
+                    <AppRouter />
+                  </BrowserRouter>
+                </TooltipProvider>
+              </QueryClientProvider>
+            </UIProvider>
+          </NotesProvider>
+        </BooksProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

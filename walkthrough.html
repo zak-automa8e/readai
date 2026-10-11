@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Voice Persona — Backend Implementation Walkthrough</title>
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --bg-soft: #141728;
+    --card: #1a1e33;
+    --card-border: #2a2f4a;
+    --text: #e6e8f2;
+    --text-dim: #9aa0bd;
+    --accent: #7c6cff;
+    --accent-2: #34d8c5;
+    --accent-glow: rgba(124, 108, 255, 0.35);
+    --green: #4ade80;
+    --code-bg: #0a0c16;
+    --code-text: #9bd6ff;
+    --radius: 16px;
+    --maxw: 880px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(124,108,255,0.18), transparent 60%),
+                radial-gradient(900px 500px at -10% 10%, rgba(52,216,197,0.10), transparent 55%),
+                var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    text-align: center;
+    padding: 88px 24px 56px;
+    position: relative;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    background: rgba(52, 216, 197, 0.08);
+    border: 1px solid rgba(52, 216, 197, 0.25);
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 24px;
+  }
+  .badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-2);
+    box-shadow: 0 0 12px var(--accent-2);
+  }
+
+  h1.title {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1.1;
+    margin: 0 0 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(120deg, #fff 20%, var(--accent) 60%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .subtitle {
+    font-size: 1.12rem;
+    color: var(--text-dim);
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Progress / TOC ---------- */
+  nav.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 40px auto 8px;
+  }
+  nav.toc a {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 8px 16px;
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    background: var(--bg-soft);
+    transition: all 0.18s ease;
+  }
+  nav.toc a:hover {
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 4px 18px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  /* ---------- Sections ---------- */
+  section.card {
+    background: linear-gradient(180deg, var(--card), var(--bg-soft));
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 32px 34px;
+    margin-top: 28px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  section.card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  }
+
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 6px;
+  }
+  .sec-num {
+    flex: 0 0 auto;
+    width: 42px; height: 42px;
+    display: grid; place-items: center;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), #5b4bd6);
+    box-shadow: 0 6px 18px var(--accent-glow);
+  }
+  h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    margin: 26px 0 10px;
+    color: #fff;
+    font-weight: 700;
+  }
+  h3:first-of-type { margin-top: 18px; }
+
+  p { color: var(--text); margin: 12px 0; }
+  p.lead { color: var(--text-dim); }
+
+  ul { margin: 10px 0; padding-left: 0; list-style: none; }
+  ul li {
+    position: relative;
+    padding: 5px 0 5px 26px;
+    color: var(--text);
+  }
+  ul li::before {
+    content: "";
+    position: absolute;
+    left: 4px; top: 14px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    box-shadow: 0 0 8px rgba(52,216,197,0.6);
+  }
+  ul li strong { color: #fff; }
+
+  /* nested sub-bullets */
+  ul ul { margin: 4px 0 4px 0; }
+  ul ul li::before {
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    box-shadow: none;
+  }
+
+  code {
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86em;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border: 1px solid var(--card-border);
+    padding: 2px 7px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Verification checklist ---------- */
+  .checklist { margin-top: 16px; }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(74, 222, 128, 0.06);
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .check-item .tick {
+    flex: 0 0 auto;
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--green);
+    color: #06231a;
+    font-weight: 900;
+    font-size: 14px;
+  }
+
+  /* ---------- Next steps ---------- */
+  .steps { counter-reset: step; margin-top: 12px; }
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--card-border);
+  }
+  .step:first-child { border-top: none; }
+  .step .n {
+    counter-increment: step;
+    flex: 0 0 auto;
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background: var(--bg-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent-2);
+    font-weight: 800;
+  }
+  .step .n::before { content: counter(step); }
+  .step .body h4 { margin: 4px 0 4px; font-size: 1rem; color: #fff; }
+  .step .body p { margin: 0; color: var(--text-dim); font-size: 0.95rem; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    text-align: center;
+    margin-top: 56px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  footer .pill {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background: var(--bg-soft);
+  }
+
+  @media (max-width: 600px) {
+    section.card { padding: 26px 20px; }
+    .sec-head { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <span class="badge"><span class="dot"></span> Backend · Complete</span>
+    <h1 class="title">Voice Persona<br />Backend Implementation</h1>
+    <p class="subtitle">
+      The backend foundation for the Voice Persona feature is in place — database schema,
+      core service logic, and API endpoints, ready for frontend integration.
+    </p>
+    <nav class="toc">
+      <a href="#database">1 · Database</a>
+      <a href="#logic">2 · Backend Logic</a>
+      <a href="#verification">3 · Verification</a>
+      <a href="#next">4 · Next Steps</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+
+    <!-- 1. Database -->
+    <section class="card" id="database">
+      <div class="sec-head">
+        <div class="sec-num">1</div>
+        <h2>Database Implementation</h2>
+      </div>
+      <p class="lead">Migrations were applied directly to the Supabase project <code>readai</code>.</p>
+
+      <h3>Tables Created</h3>
+      <ul>
+        <li><code>voice_personas</code> — stores user personas with style settings.</li>
+        <li><code>voice_persona_templates</code> — system-provided templates (Scholar, Storyteller, etc.).</li>
+        <li><code>persona_ratings</code> &amp; <code>persona_usage</code> — social and analytics tables.</li>
+        <li><code>persona_preview_limits</code> — tracks daily usage to prevent abuse.</li>
+      </ul>
+
+      <h3>Policies &amp; Triggers</h3>
+      <ul>
+        <li><strong>RLS:</strong> enabled on all tables.</li>
+        <li><strong>Triggers:</strong> auto-updates for <code>updated_at</code>, <code>average_rating</code>, and <code>total_usage_count</code>.</li>
+      </ul>
+    </section>
+
+    <!-- 2. Backend Logic -->
+    <section class="card" id="logic">
+      <div class="sec-head">
+        <div class="sec-num">2</div>
+        <h2>Backend Logic</h2>
+      </div>
+
+      <h3>Configuration</h3>
+      <ul>
+        <li><strong>File:</strong> <code>backend/src/config/voicePersonaConfig.js</code></li>
+        <li><strong>Details:</strong> defines the 6 Google Voices, rate limits (10/day), and prompt style constants.</li>
+      </ul>
+
+      <h3>Service Layer</h3>
+      <ul>
+        <li><strong>File:</strong> <code>backend/src/services/voicePersonaService.js</code></li>
+        <li><strong>Key features:</strong>
+          <ul>
+            <li><code>buildPrompt(persona)</code> — converts slider values (Slow, Sad) into "System Instructions" for Gemini.</li>
+            <li><code>checkPreviewLimit(userId)</code> — enforces the daily limit.</li>
+            <li><code>createPersona</code> — handles CRUD and default toggling.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>Gemini Service Update</h3>
+      <ul>
+        <li><strong>File:</strong> <code>backend/src/services/geminiService.js</code></li>
+        <li><strong>Change:</strong> updated <code>generateAudio</code> to accept dynamic <code>voiceName</code> and <code>systemInstruction</code>.</li>
+      </ul>
+
+      <h3>API Layer</h3>
+      <ul>
+        <li><strong>Controller:</strong> <code>backend/src/controllers/voicePersonaController.js</code></li>
+        <li><strong>Routes:</strong> <code>backend/src/routes/voicePersonaRoutes.js</code> mounted at <code>/api/voice-personas</code>.</li>
+      </ul>
+    </section>
+
+    <!-- 3. Verification -->
+    <section class="card" id="verification">
+      <div class="sec-head">
+        <div class="sec-num">3</div>
+        <h2>Verification</h2>
+      </div>
+      <p class="lead">
+        A verification script <code>backend/scripts/verify-persona-logic.js</code> tests prompt
+        construction without incurring API costs.
+      </p>
+
+      <div class="checklist">
+        <div class="check-item"><span class="tick">✓</span> Default Persona prompt generation</div>
+        <div class="check-item"><span class="tick">✓</span> Complex "Scholar" Persona prompt generation</div>
+        <div class="check-item"><span class="tick">✓</span> Custom prompt passthrough</div>
+        <div class="check-item"><span class="tick">✓</span> Configuration integrity</div>
+      </div>
+    </section>
+
+    <!-- 4. Next Steps -->
+    <section class="card" id="next">
+      <div class="sec-head">
+        <div class="sec-num">4</div>
+        <h2>Next Steps — Frontend</h2>
+      </div>
+      <p class="lead">The backend is ready for frontend integration. The next phase builds the React components:</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="n"></div>
+          <div class="body">
+            <h4>VoiceStudio</h4>
+            <p>Canvas for creating and previewing personas.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n"></div>
+          <div class="body">
+            <h4>Marketplace</h4>
+            <p>Grid view for public personas.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n"></div>
+          <div class="body">
+            <h4>BookReader Integration</h4>
+            <p>Using the persona ID in audio requests.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div>Voice Persona feature · ReadAI</div>
+      <span class="pill">Backend foundation complete — frontend up next</span>
+    </footer>
+
+  </main>
+</body>
+</html>

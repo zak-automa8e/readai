@@ -48,7 +48,7 @@ class SupabaseService {
   }
   constructor() {
     this.initialized = false;
-    
+
     if (!config.supabase.url || !config.supabase.serviceKey) {
       logger.warn('Supabase configuration is missing. Backend will start but database features will be unavailable.');
       this.supabase = null;
@@ -86,7 +86,7 @@ class SupabaseService {
     this.initialized = true;
     logger.info('Supabase service initialized successfully');
   }
-  
+
   checkInitialized() {
     if (!this.initialized) {
       throw new Error('Supabase is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables.');
@@ -429,7 +429,7 @@ class SupabaseService {
         .eq('book_id', bookId)
         .eq('page_number', pageNumber)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
       return data;
     } catch (error) {
@@ -441,14 +441,14 @@ class SupabaseService {
   async getOrCreatePage(bookId, pageNumber, imageUrl = null) {
     try {
       let page = await this.getPageByBookAndNumber(bookId, pageNumber);
-      
+
       if (!page) {
         page = await this.createPage(bookId, {
           page_number: pageNumber,
           image_url: imageUrl
         });
       }
-      
+
       return page;
     } catch (error) {
       logger.error('Error getting or creating page:', error);
@@ -463,7 +463,7 @@ class SupabaseService {
         .select('*')
         .eq('page_id', pageId)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -486,7 +486,7 @@ class SupabaseService {
         .eq('pages.book_id', bookId)
         .eq('pages.page_number', pageNumber)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -503,7 +503,7 @@ class SupabaseService {
         .eq('page_id', pageId)
         .eq('voice_persona', voicePersona)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -527,7 +527,7 @@ class SupabaseService {
         .eq('pages.page_number', pageNumber)
         .eq('voice_persona', voicePersona)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -545,8 +545,9 @@ class SupabaseService {
           extracted_text: textData.extracted_text,
           extraction_confidence: textData.extraction_confidence,
           extraction_metadata: textData.extraction_metadata || {},
-          processing_duration_ms: textData.processing_duration_ms
-        })
+          processing_duration_ms: textData.processing_duration_ms,
+          processed_at: new Date().toISOString()
+        }, { onConflict: 'page_id' })
         .select()
         .single();
 
@@ -571,8 +572,9 @@ class SupabaseService {
           audio_size_bytes: audioData.audio_size_bytes,
           voice_settings: audioData.voice_settings || {},
           generation_metadata: audioData.generation_metadata || {},
-          processing_duration_ms: audioData.processing_duration_ms
-        })
+          processing_duration_ms: audioData.processing_duration_ms,
+          processed_at: new Date().toISOString()
+        }, { onConflict: 'page_id,voice_persona' })
         .select()
         .single();
 
@@ -593,7 +595,7 @@ class SupabaseService {
         .eq('book_id', bookId)
         .eq('page_number', pageNumber)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
       return data;
     } catch (error) {
@@ -605,14 +607,14 @@ class SupabaseService {
   async getOrCreatePage(bookId, pageNumber, imageUrl = null) {
     try {
       let page = await this.getPageByBookAndNumber(bookId, pageNumber);
-      
+
       if (!page) {
         page = await this.createPage(bookId, {
           page_number: pageNumber,
           image_url: imageUrl
         });
       }
-      
+
       return page;
     } catch (error) {
       logger.error('Error getting or creating page:', error);
@@ -627,7 +629,7 @@ class SupabaseService {
         .select('*')
         .eq('page_id', pageId)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -650,7 +652,7 @@ class SupabaseService {
         .eq('pages.book_id', bookId)
         .eq('pages.page_number', pageNumber)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -667,7 +669,7 @@ class SupabaseService {
         .eq('page_id', pageId)
         .eq('voice_persona', voicePersona)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -691,7 +693,7 @@ class SupabaseService {
         .eq('pages.page_number', pageNumber)
         .eq('voice_persona', voicePersona)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
@@ -706,7 +708,7 @@ class SupabaseService {
         contentType: 'audio/wav',
         upsert: true
       });
-      
+
       if (error) throw error;
       return this.getFileUrl('readai-media', filePath);
     } catch (error) {
@@ -718,7 +720,7 @@ class SupabaseService {
   // File storage operations
   async uploadFile(bucket, filePath, file, options = {}) {
     try {
-      const { data, error } = await this.supabase.storage
+      const { data, error } = await this.adminClient.storage
         .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -740,7 +742,7 @@ class SupabaseService {
         contentType: 'audio/wav',
         upsert: true
       });
-      
+
       if (error) throw error;
       return this.getFileUrl('readai-media', filePath);
     } catch (error) {
@@ -752,17 +754,17 @@ class SupabaseService {
   getFileUrl(bucket, filePath) {
     try {
       logger.info(`Getting URL for bucket: ${bucket}, path: ${filePath}`);
-      
+
       const result = this.supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
-      
+
       logger.info(`getPublicUrl result:`, result);
-      
+
       const { data } = result;
-      
+
       logger.info(`Data from getPublicUrl:`, data);
-      
+
       if (!data || !data.publicUrl) {
         logger.error(`No public URL in result data:`, { bucket, filePath, data });
         throw new Error('Failed to get public URL from Supabase');
@@ -778,7 +780,7 @@ class SupabaseService {
 
   async deleteFile(bucket, filePath) {
     try {
-      const { data, error } = await this.supabase.storage
+      const { data, error } = await this.adminClient.storage
         .from(bucket)
         .remove([filePath]);
 

@@ -49,7 +49,7 @@ export const ChatWindow = () => {
 
   const handleSaveAsNote = useCallback(async (messageId: string, content: string) => {
     if (!currentBook?.id || savingNoteId) return;
-    
+
     setSavingNoteId(messageId);
     try {
       await createNote(currentBook.id, {
@@ -149,7 +149,7 @@ export const ChatWindow = () => {
 
     setIsUploadingBook(true);
     setUploadError(null);
-    addSystemMessage(`Uploading "${currentBook.title}" to Gemini so we can chat about it...`);
+    addSystemMessage(`Indexing "${currentBook.title}" so we can chat about it...`);
 
     try {
       const response = await apiService.uploadBookToGemini({
@@ -159,8 +159,8 @@ export const ChatWindow = () => {
         title: currentBook.title,
       });
 
-  setCacheExpiresAt(response.expiresAt ? new Date(response.expiresAt) : null);
-  setHasActiveCache(true);
+      setCacheExpiresAt(response.expiresAt ? new Date(response.expiresAt) : null);
+      setHasActiveCache(true);
 
       addSystemMessage(`All set! I can now answer questions about "${currentBook.title}".`);
       toast({
@@ -196,7 +196,7 @@ export const ChatWindow = () => {
       const response = await apiService.extendCacheLifetime(conversationId);
       if (response.expiresAt) {
         const newExpiry = new Date(response.expiresAt);
-  setCacheExpiresAt(newExpiry);
+        setCacheExpiresAt(newExpiry);
         toast({
           title: 'Chat session extended',
           description: 'Keeping the document context warm for your questions.',
@@ -243,7 +243,7 @@ export const ChatWindow = () => {
 
     // Add user message to the chat
     const userMessageId = Date.now().toString();
-    
+
     setMessages(prevMessages => [
       ...prevMessages,
       {
@@ -266,15 +266,15 @@ export const ChatWindow = () => {
         sender: 'assistant',
         timestamp: new Date(),
       };
-      
+
       // Add assistant response to chat
       setMessages(prevMessages => [
         ...prevMessages,
         responseMessage
       ]);
 
-  } catch (error) {
-      
+    } catch (error) {
+
       // Add error message to chat
       setMessages(prevMessages => [
         ...prevMessages,
@@ -285,15 +285,15 @@ export const ChatWindow = () => {
           timestamp: new Date(),
         }
       ]);
-      
+
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    initializeConversation().catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    initializeConversation().catch(() => { });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentBook?.id]);
 
   useEffect(() => {
@@ -310,7 +310,7 @@ export const ChatWindow = () => {
   return (
     <div className="flex-1 h-full flex flex-col overflow-hidden">
       <div className="flex-1 flex flex-col min-h-0 relative">
-        <div 
+        <div
           className="flex-1 min-h-0 overflow-y-auto"
           ref={scrollViewportRef}
         >

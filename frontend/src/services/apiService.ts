@@ -56,7 +56,7 @@ const getAuthHeaders = () => {
   if (session) {
     try {
       const parsedSession = JSON.parse(session);
-      
+
       if (parsedSession.access_token && parsedSession.expires_at > Date.now() / 1000) {
         return {
           'Authorization': `Bearer ${parsedSession.access_token}`
@@ -144,7 +144,7 @@ const apiService = {
       const response = await fetch(`${API_BASE_URL}/image-to-text`, {
         method: 'POST',
         mode: 'cors',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           ...getAuthHeaders()
@@ -159,7 +159,7 @@ const apiService = {
 
       return await response.json();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -174,7 +174,7 @@ const apiService = {
       const response = await fetch(`${API_BASE_URL}/text-to-audio`, {
         method: 'POST',
         mode: 'cors',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'audio/wav',
           ...getAuthHeaders()
@@ -192,7 +192,7 @@ const apiService = {
 
       return await response.blob();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -220,7 +220,7 @@ const apiService = {
 
       return await response.blob();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -247,7 +247,7 @@ const apiService = {
 
       return await response.json();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -285,7 +285,7 @@ const apiService = {
 
       return await response.json();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -321,7 +321,7 @@ const apiService = {
 
       return await response.json();
     } catch (error) {
-  // Surface error to caller
+      // Surface error to caller
       throw error;
     }
   },
@@ -357,9 +357,9 @@ const apiService = {
           'Accept': 'application/json'
         }
       });
-      
-  if (!response.ok) return false;
-      
+
+      if (!response.ok) return false;
+
       const data = await response.json();
       return true;
     } catch (error) {
@@ -538,7 +538,7 @@ const apiService = {
    * @param {string} imageBase64 - Base64 encoded page image
    * @returns {Promise<Object>} - Page text response
    */
-  async getCachedPageText(bookId: string, pageNumber: number, imageBase64: string) {
+  async getCachedPageText(bookId: string, pageNumber: number, imageBase64: string, forceRefresh: boolean = false) {
     try {
       const response = await fetch(`${API_BASE_URL}/pages/text`, {
         method: 'POST',
@@ -548,11 +548,12 @@ const apiService = {
           'Accept': 'application/json',
           ...getAuthHeaders()
         },
-        body: JSON.stringify({ 
-          bookId, 
-          pageNumber, 
+        body: JSON.stringify({
+          bookId,
+          pageNumber,
           imageData: imageBase64,
-          mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : 'image/png'
+          mimeType: imageBase64.startsWith('data:') ? imageBase64.split(';')[0].split(':')[1] : 'image/png',
+          forceRefresh
         })
       });
 
@@ -573,9 +574,10 @@ const apiService = {
    * @param {number} pageNumber - Page number
    * @param {string} text - Page text to convert to audio
    * @param {string} voicePersona - Voice persona to use (default: 'Sadaltager')
+   * @param {boolean} forceRefresh - Force regeneration of audio
    * @returns {Promise<Object>} - Page audio response
    */
-  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Sadaltager') {
+  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Sadaltager', forceRefresh: boolean = false) {
     try {
       const response = await fetch(`${API_BASE_URL}/pages/audio`, {
         method: 'POST',
@@ -585,11 +587,12 @@ const apiService = {
           'Accept': 'application/json',
           ...getAuthHeaders()
         },
-        body: JSON.stringify({ 
-          bookId, 
-          pageNumber, 
+        body: JSON.stringify({
+          bookId,
+          pageNumber,
           text,
-          voicePersona
+          voicePersona,
+          forceRefresh
         })
       });
 

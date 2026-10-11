@@ -8,6 +8,8 @@ const authRoutes = require('./authRoutes');
 const pageRoutes = require('./pageRoutes');
 const chatRoutes = require('./chatRoutes');
 
+const voicePersonaRoutes = require('./voicePersonaRoutes');
+
 const router = express.Router();
 
 // Enable CORS preflight for all routes
@@ -31,5 +33,6 @@ router.use('/', audioRoutes);
 router.use('/books', booksRoutes);
 router.use('/pages', pageRoutes);
 router.use('/chat', chatRoutes);
+router.use('/voice-personas', voicePersonaRoutes);
 
 module.exports = router;

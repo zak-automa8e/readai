@@ -10,11 +10,11 @@ const pageController = {
   async getPageText(req, res) {
     try {
       const userId = req.user.id;
-      const { bookId, pageNumber, imageData, mimeType } = req.body;
+      const { bookId, pageNumber, imageData, mimeType, forceRefresh } = req.body;
 
       if (!bookId || !pageNumber || !imageData) {
-        return res.status(400).json({ 
-          error: 'bookId, pageNumber, and imageData are required' 
+        return res.status(400).json({
+          error: 'bookId, pageNumber, and imageData are required'
         });
       }
 
@@ -37,14 +37,15 @@ const pageController = {
         resolvedMimeType = 'image/png';
       }
 
-      logger.info('Processing page text request', { bookId, pageNumber, userId });
+      logger.info('Processing page text request', { bookId, pageNumber, userId, forceRefresh });
 
       const result = await pageCacheService.getOrExtractPageText(
-        bookId, 
-        pageNumber, 
-        processedImageData, 
-        resolvedMimeType, 
-        userId
+        bookId,
+        pageNumber,
+        processedImageData,
+        resolvedMimeType,
+        userId,
+        forceRefresh === true || forceRefresh === 'true'
       );
 
       res.json({
@@ -71,22 +72,23 @@ const pageController = {
   async getPageAudio(req, res) {
     try {
       const userId = req.user.id;
-      const { bookId, pageNumber, text, voicePersona = 'Zephyr' } = req.body;
+      const { bookId, pageNumber, text, voicePersona = 'Sadaltager', forceRefresh } = req.body;
 
       if (!bookId || !pageNumber || !text) {
-        return res.status(400).json({ 
-          error: 'bookId, pageNumber, and text are required' 
+        return res.status(400).json({
+          error: 'bookId, pageNumber, and text are required'
         });
       }
 
-      logger.info('Processing page audio request', { bookId, pageNumber, voicePersona, userId });
+      logger.info('Processing page audio request', { bookId, pageNumber, voicePersona, userId, forceRefresh });
 
       const result = await pageCacheService.getOrGeneratePageAudio(
-        bookId, 
-        pageNumber, 
-        text, 
-        voicePersona, 
-        userId
+        bookId,
+        pageNumber,
+        text,
+        voicePersona,
+        userId,
+        forceRefresh === true || forceRefresh === 'true'
       );
 
       res.json({
@@ -99,7 +101,7 @@ const pageController = {
 
     } catch (error) {
       logger.error('Error in getPageAudio:', error);
-      
+
       if (error.message && error.message.includes('429')) {
         return res.status(429).json({
           error: 'API rate limit exceeded. Please try again later.',

@@ -75,7 +75,7 @@ const Dashboard = () => {
 
         {/* Reading Statistics */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="glass p-6">
+          <Card className="glass p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-primary/20 cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Books</p>
@@ -87,7 +87,7 @@ const Dashboard = () => {
             </div>
           </Card>
 
-          <Card className="glass p-6">
+          <Card className="glass p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-primary/20 cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Reading Time</p>
@@ -99,7 +99,7 @@ const Dashboard = () => {
             </div>
           </Card>
 
-          <Card className="glass p-6">
+          <Card className="glass p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-primary/20 cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
@@ -111,7 +111,7 @@ const Dashboard = () => {
             </div>
           </Card>
 
-          <Card className="glass p-6">
+          <Card className="glass p-6 transition-all duration-300 hover:shadow-lg hover:scale-[1.03] hover:border-primary/20 cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Current Streak</p>
@@ -192,7 +192,7 @@ const Dashboard = () => {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Reading Goals</h2>
             <div className="space-y-4">
-              <Card className="glass p-4">
+              <Card className="glass p-4 transition-all duration-300 hover:shadow-md hover:scale-[1.01] hover:border-primary/10">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-foreground">Daily Reading</span>
                   <span className="text-sm text-muted-foreground">45/60 min</span>
@@ -206,7 +206,7 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground mt-1">75% complete</p>
               </Card>
 
-              <Card className="glass p-4">
+              <Card className="glass p-4 transition-all duration-300 hover:shadow-md hover:scale-[1.01] hover:border-primary/10">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-foreground">Monthly Books</span>
                   <span className="text-sm text-muted-foreground">3/5 books</span>
@@ -220,7 +220,7 @@ const Dashboard = () => {
                 <p className="text-xs text-muted-foreground mt-1">60% complete</p>
               </Card>
 
-              <Card className="glass p-4">
+              <Card className="glass p-4 transition-all duration-300 hover:shadow-md hover:scale-[1.01] hover:border-primary/10">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
                     <Target className="h-5 w-5 text-orange-500" />
@@ -241,17 +241,17 @@ const Dashboard = () => {
         <section>
           <h2 className="text-xl font-semibold text-foreground mb-4">Quick Insights</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="glass p-4 text-center">
+            <Card className="glass p-4 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] hover:border-primary/10">
               <div className="text-2xl font-bold text-foreground">{readingStats.averageSessionTime}</div>
               <div className="text-sm text-muted-foreground">Average Session</div>
             </Card>
             
-            <Card className="glass p-4 text-center">
+            <Card className="glass p-4 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] hover:border-primary/10">
               <div className="text-2xl font-bold text-foreground">2.3x</div>
               <div className="text-sm text-muted-foreground">Reading Speed Improvement</div>
             </Card>
             
-            <Card className="glass p-4 text-center">
+            <Card className="glass p-4 text-center transition-all duration-300 hover:shadow-md hover:scale-[1.02] hover:border-primary/10">
               <div className="text-2xl font-bold text-foreground">94%</div>
               <div className="text-sm text-muted-foreground">Comprehension Rate</div>
             </Card>

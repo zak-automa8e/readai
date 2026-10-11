@@ -17,9 +17,12 @@ import {
   Trash2,
   Settings as SettingsIcon
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 
 const Settings = () => {
+  const { theme: activeTheme, setTheme } = useTheme();
+
   // Mock settings state (in a real app, this would be managed by a settings context)
   const [settings, setSettings] = useState({
     // Reading preferences
@@ -40,14 +43,23 @@ const Settings = () => {
     autoSummarize: true,
     
     // App preferences
-    theme: "system",
+    theme: activeTheme || "system",
     language: "en",
     notifications: true,
     autoSave: true,
   });
 
+  useEffect(() => {
+    if (activeTheme) {
+      setSettings(prev => ({ ...prev, theme: activeTheme }));
+    }
+  }, [activeTheme]);
+
   const updateSetting = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === 'theme') {
+      setTheme(value);
+    }
   };
 
   return (
