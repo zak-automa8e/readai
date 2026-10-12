@@ -3,6 +3,7 @@ import { toast } from "@/hooks/use-toast";
 import apiService from "@/services/apiService";
 import type { Book } from "@/contexts/BooksContext";
 import { BASE_VOICE_NAME } from "./useVoiceChoice";
+import { isBlankCanvas } from "../blankPage";
 
 interface PrefetchedAudioData {
   audio: HTMLAudioElement;
@@ -50,6 +51,15 @@ export const usePageAudio = ({
   const prefetchAbortController = useRef<AbortController | null>(null);
   const prefetchPageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Pages found to have nothing to read; auto-play and prefetch step over them
+  const emptyPagesRef = useRef<Set<number>>(new Set());
+
+  // First page at or after `from` not known to be empty, or null past the end
+  const nextReadablePage = useCallback((from: number) => {
+    let page = from;
+    while (page <= (numPages || 0) && emptyPagesRef.current.has(page)) page++;
+    return page <= (numPages || 0) ? page : null;
+  }, [numPages]);
 
   // Cleanup audio on unmount only
   useEffect(() => {
@@ -114,6 +124,9 @@ export const usePageAudio = ({
         return;
       }
 
+      // Set when this page has nothing to read, so the prefetch moves on to the next one
+      let skipTo: number | null = null;
+
       try {
         // Wait for the hidden page to render
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -140,6 +153,12 @@ export const usePageAudio = ({
           return;
         }
         ctx.drawImage(prefetchCanvas, 0, 0);
+
+        if (isBlankCanvas(canvas)) {
+          emptyPagesRef.current.add(prefetchPageNumber);
+          skipTo = nextReadablePage(prefetchPageNumber + 1);
+          return;
+        }
         const imageBase64 = canvas.toDataURL('image/png');
 
         // Get text from API (will use cache if available)
@@ -163,7 +182,8 @@ export const usePageAudio = ({
         }
 
         if (!pageText.trim()) {
-          console.warn('Prefetch: No text found on page', prefetchPageNumber);
+          emptyPagesRef.current.add(prefetchPageNumber);
+          skipTo = nextReadablePage(prefetchPageNumber + 1);
           return;
         }
 
@@ -230,9 +250,16 @@ export const usePageAudio = ({
           console.warn('Prefetch failed for page', prefetchPageNumber, error);
         }
       } finally {
-        setIsPrefetching(false);
-        setPrefetchPageNumber(null);
-        prefetchAbortController.current = null;
+        // A cancelled prefetch has already cleared the controller, so it never chains
+        const stillActive = prefetchAbortController.current && !prefetchAbortController.current.signal.aborted;
+        if (skipTo && stillActive && !prefetchedAudio.has(skipTo)) {
+          prefetchAbortController.current = new AbortController();
+          setPrefetchPageNumber(skipTo);
+        } else {
+          setIsPrefetching(false);
+          setPrefetchPageNumber(null);
+          prefetchAbortController.current = null;
+        }
       }
     };
 
@@ -292,7 +319,9 @@ export const usePageAudio = ({
   }, [pageNumber, prefetchedAudio, cancelPrefetch]);
   
   const handleNextPage = useCallback((autoAdvance: boolean = false) => {
-    const newPage = pageNumber < (numPages || 0) ? pageNumber + 1 : pageNumber;
+    // Auto-advance steps over pages known to be empty; manual navigation still shows them
+    const target = autoAdvance ? nextReadablePage(pageNumber + 1) : pageNumber + 1;
+    const newPage = target && target <= (numPages || 0) ? target : pageNumber;
     if (newPage === pageNumber) return;
     
     setPageNumber(newPage);
@@ -316,7 +345,7 @@ export const usePageAudio = ({
       setAudioDuration(0);
     }
     // Keep auto-play enabled on manual navigation
-  }, [pageNumber, numPages, prefetchedAudio, cancelPrefetch]);
+  }, [pageNumber, numPages, prefetchedAudio, cancelPrefetch, nextReadablePage]);
 
   const handleReadPage = async (useAutoPlay: boolean = false) => {
     if (isReading || isLoadingPersonas) {
@@ -375,8 +404,9 @@ export const usePageAudio = ({
         setIsPlaying(true);
         
         // Start prefetching next page when current audio starts playing
-        if (pageNumber < (numPages || 0)) {
-          prefetchNextPageAudio(pageNumber + 1);
+        const nextPage = nextReadablePage(pageNumber + 1);
+        if (nextPage) {
+          prefetchNextPageAudio(nextPage);
         }
       });
       
@@ -386,7 +416,7 @@ export const usePageAudio = ({
         setAudioCurrentTime(0);
         
         // Auto-advance to next page if enabled
-        if (autoPlayEnabled && pageNumber < (numPages || 0)) {
+        if (autoPlayEnabled && nextReadablePage(pageNumber + 1)) {
           setShouldAutoPlay(true);
           handleNextPage(true);
         }
@@ -425,6 +455,24 @@ export const usePageAudio = ({
       setIsReading(false);
       return;
     }
+
+      // Nothing to read on this page: remember it, and keep going when auto-play is on
+      const handleEmptyPage = () => {
+        emptyPagesRef.current.add(pageNumber);
+        if (autoPlayEnabled && nextReadablePage(pageNumber + 1)) {
+          toast({ title: "Blank Page Skipped", description: `Page ${pageNumber} has nothing to read.`, duration: 2000 });
+          setShouldAutoPlay(true);
+          handleNextPage(true);
+        } else {
+          toast({ title: "No Text Found", description: "Could not find any text on the current page." });
+        }
+      };
+
+      // Blank pages are never sent for text extraction
+      if (isBlankCanvas(canvas)) {
+        handleEmptyPage();
+        return;
+      }
       const imageBase64 = canvas.toDataURL('image/png');
 
       // 2. Get cached text
@@ -454,8 +502,7 @@ export const usePageAudio = ({
       }
 
       if (!pageText || pageText.trim().length === 0) {
-        toast({ title: "No Text Found", description: "Could not find any text on the current page." });
-        setIsReading(false);
+        handleEmptyPage();
         return;
       }
 
@@ -535,8 +582,9 @@ export const usePageAudio = ({
         setIsPlaying(true);
         
         // Start prefetching next page when current audio starts playing
-        if (pageNumber < (numPages || 0)) {
-          prefetchNextPageAudio(pageNumber + 1);
+        const nextPage = nextReadablePage(pageNumber + 1);
+        if (nextPage) {
+          prefetchNextPageAudio(nextPage);
         }
       });
       
@@ -546,7 +594,7 @@ export const usePageAudio = ({
         setAudioCurrentTime(0);
         
         // Auto-advance to next page if enabled
-        if (autoPlayEnabled && pageNumber < (numPages || 0)) {
+        if (autoPlayEnabled && nextReadablePage(pageNumber + 1)) {
           setShouldAutoPlay(true); // Flag to trigger auto-play after page change
           handleNextPage(true); // Auto-advance flag
         }
