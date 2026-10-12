@@ -30,3 +30,6 @@ dist-ssr
 *.sln
 *.sw?
 memory-bank
+
+# Bake-off output (audio, images, PDFs): local only
+bakeoff-output/
