@@ -1,13 +1,14 @@
-import { ReadingArea } from "@/components/ReadingArea";
-import { AIAssistant } from "@/components/AIAssistant";
-import { BackToLibrary } from "@/components/BackToLibrary";
+import { useBooks } from "@/contexts/BooksContext";
+import { ReadingRoomProvider } from "@/components/reading-room/ReadingRoomContext";
+import { ReadingRoom } from "@/components/reading-room/ReadingRoom";
 
 export default function Index() {
+  const { currentBook } = useBooks();
+
+  // Keyed by book so page, playback and pane state never carry over from another book.
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
-      <BackToLibrary />
-      <ReadingArea />
-      <AIAssistant />
-    </div>
+    <ReadingRoomProvider key={currentBook?.id ?? "none"}>
+      <ReadingRoom />
+    </ReadingRoomProvider>
   );
 }
