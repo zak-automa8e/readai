@@ -13,6 +13,12 @@ import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { Slider } from "./ui/slider";
 import apiService from "../services/apiService";
+import { useQuery } from "@tanstack/react-query";
+import { voicePersonaService } from "@/services/voicePersonaService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+
+const BASE_VOICE_NAME = 'Zephyr';
+const BASE_VOICE_OPTION = 'base-voice';
 
 // Worker is configured globally in main.tsx - no need to set it here
 
@@ -52,6 +58,22 @@ export const ReadingArea = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Voice selection: null follows the user's default persona, BASE_VOICE_OPTION forces the base voice
+  const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
+  const { data: personas, isLoading: isLoadingPersonas } = useQuery({
+    queryKey: ['voice-personas', 'my'],
+    queryFn: voicePersonaService.getMyPersonas,
+    retry: false
+  });
+  const defaultPersona = personas?.find(p => p.is_default);
+  const chosenPersona = personas?.find(p => p.id === voiceChoice);
+  const activePersonaId =
+    voiceChoice === BASE_VOICE_OPTION ? null : (chosenPersona ?? defaultPersona)?.id ?? null;
+  const voiceSelectValue = activePersonaId ?? BASE_VOICE_OPTION;
+  // Read at request time so prefetch and playback always use the latest selection
+  const activePersonaIdRef = useRef<string | null>(null);
+  activePersonaIdRef.current = activePersonaId;
 
   useEffect(() => {
     // Handle PDF URL from backend or create Blob URL from local data
@@ -269,14 +291,22 @@ export const ReadingArea = () => {
         }
 
         // Get audio from API (will use cache if available)
+        const requestedPersonaId = activePersonaIdRef.current;
         const audioResponse = await apiService.getCachedPageAudio(
-          currentBook.id, 
-          prefetchPageNumber, 
-          pageText, 
-          'Zephyr'
+          currentBook.id,
+          prefetchPageNumber,
+          pageText,
+          BASE_VOICE_NAME,
+          false,
+          requestedPersonaId
         );
 
         if (prefetchAbortController.current?.signal.aborted) {
+          return;
+        }
+
+        // Voice changed while the request was in flight - discard the stale audio
+        if (requestedPersonaId !== activePersonaIdRef.current) {
           return;
         }
 
@@ -341,6 +371,21 @@ export const ReadingArea = () => {
     setIsPrefetching(false);
   }, []);
 
+  // Switching voice invalidates loaded and prefetched audio, which belongs to the old voice
+  useEffect(() => {
+    cancelPrefetch();
+    setPrefetchedAudio(new Map());
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setAudioPausedAt(0);
+    setCurrentAudioUrl(null);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+  }, [activePersonaId, cancelPrefetch]);
+
   // Navigation
   const handlePrevPage = useCallback(() => {
     const newPage = Math.max(1, pageNumber - 1);
@@ -397,7 +442,7 @@ export const ReadingArea = () => {
   }, [pageNumber, numPages, prefetchedAudio, cancelPrefetch]);
 
   const handleReadPage = async (useAutoPlay: boolean = false) => {
-    if (isReading) {
+    if (isReading || isLoadingPersonas) {
       return;
     }
 
@@ -567,7 +612,7 @@ export const ReadingArea = () => {
       // 3. Get cached audio
       let audioResponse;
       try {
-        audioResponse = await apiService.getCachedPageAudio(currentBook.id, pageNumber, pageText, 'Zephyr');
+        audioResponse = await apiService.getCachedPageAudio(currentBook.id, pageNumber, pageText, BASE_VOICE_NAME, false, activePersonaIdRef.current);
       } catch (error) {
         if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
           toast({ 
@@ -866,7 +911,7 @@ export const ReadingArea = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleReadPage(false)}
-                disabled={isReading}
+                disabled={isReading || isLoadingPersonas}
                 className="hover:bg-primary/10"
               >
                 {isReading ? (
@@ -893,6 +938,23 @@ export const ReadingArea = () => {
               >
                 <Mic className="h-4 lg:h-5 w-4 lg:w-5" />
               </Button>
+              <Select
+                value={voiceSelectValue}
+                onValueChange={setVoiceChoice}
+                disabled={isLoadingPersonas}
+              >
+                <SelectTrigger className="h-8 w-[120px] sm:w-[160px] text-xs lg:text-sm" aria-label="Reading voice">
+                  <SelectValue placeholder="Voice" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={BASE_VOICE_OPTION}>Base voice ({BASE_VOICE_NAME})</SelectItem>
+                  {personas?.map(persona => (
+                    <SelectItem key={persona.id} value={persona.id}>
+                      {persona.name}{persona.is_default ? ' (default)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
 
               <div className="flex items-center gap-2 ml-4">

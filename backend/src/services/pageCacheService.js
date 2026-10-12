@@ -4,7 +4,33 @@ const voicePersonaService = require('./voicePersonaService');
 const { convertToWav } = require('../utils/audioUtils');
 const logger = require('../utils/logger');
 
+const DEFAULT_BASE_VOICE = 'Sadaltager';
+const BASE_VOICE_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
 class PageCacheService {
+  /**
+   * Resolve the requested voice into a base voice, an optional persona and the cache key.
+   * Personas are looked up by id, limited to the user's own or public ones; the cache key
+   * embeds updated_at so editing a persona invalidates its cached audio.
+   */
+  async resolveVoice(voicePersonaId, voicePersona, userId) {
+    if (voicePersonaId) {
+      const persona = await voicePersonaService.getAccessiblePersona(voicePersonaId, userId);
+      if (persona) {
+        const version = Date.parse(persona.updated_at || persona.created_at) || 0;
+        return {
+          persona,
+          baseVoiceName: persona.base_voice_name,
+          cacheKey: `persona:${persona.id}:${version}`
+        };
+      }
+      logger.warn('Persona not found or not accessible, falling back to base voice', { voicePersonaId, userId });
+    }
+
+    const baseVoiceName = BASE_VOICE_PATTERN.test(voicePersona || '') ? voicePersona : DEFAULT_BASE_VOICE;
+    return { persona: null, baseVoiceName, cacheKey: baseVoiceName };
+  }
+
   /**
    * Get or extract page text with caching
    * @param {string} bookId - Book ID
@@ -103,20 +129,23 @@ class PageCacheService {
    * @param {string} bookId - Book ID
    * @param {number} pageNumber - Page number
    * @param {string} text - Text to convert to audio
-   * @param {string} voicePersona - Voice persona name
-   * @param {string} userId - User ID for logging and file paths
+   * @param {string} voicePersona - Base voice name, used when no accessible persona is given
+   * @param {string} userId - User ID for persona access and file paths
    * @param {boolean} forceRefresh - Whether to bypass cache and regenerate
+   * @param {string|null} voicePersonaId - Optional voice persona id (own or public)
    * @returns {Promise<Object>} - { cached: boolean, audioUrl: string, duration: number, page: object }
    */
-  async getOrGeneratePageAudio(bookId, pageNumber, text, voicePersona = 'Sadaltager', userId, forceRefresh = false) {
+  async getOrGeneratePageAudio(bookId, pageNumber, text, voicePersona = DEFAULT_BASE_VOICE, userId, forceRefresh = false, voicePersonaId = null) {
     const startTime = Date.now();
 
     try {
+      const { persona, baseVoiceName, cacheKey } = await this.resolveVoice(voicePersonaId, voicePersona, userId);
+
       // Try to get existing audio from cache
-      const existingAudio = await supabaseService.getPageAudioByBookAndNumber(bookId, pageNumber, voicePersona);
+      const existingAudio = await supabaseService.getPageAudioByBookAndNumber(bookId, pageNumber, cacheKey);
 
       if (existingAudio && existingAudio.audio_url && !forceRefresh) {
-        logger.info('Page audio cache HIT', { bookId, pageNumber, voicePersona, userId });
+        logger.info('Page audio cache HIT', { bookId, pageNumber, cacheKey, userId });
         return {
           cached: true,
           audioUrl: existingAudio.audio_url,
@@ -126,26 +155,15 @@ class PageCacheService {
         };
       }
 
-      logger.info(forceRefresh ? 'Page audio FORCE REFRESH' : 'Page audio cache MISS - generating', { bookId, pageNumber, voicePersona, userId });
+      logger.info(forceRefresh ? 'Page audio FORCE REFRESH' : 'Page audio cache MISS - generating', { bookId, pageNumber, cacheKey, userId });
 
-      // Fetch persona details to build a proper prompt
-      const persona = await voicePersonaService.getPersonaByName(voicePersona, userId);
-      let systemInstruction = null;
-      let baseVoiceName = voicePersona;
-
-      if (persona) {
-        systemInstruction = voicePersonaService.buildPrompt(persona);
-        baseVoiceName = persona.base_voice_name;
-        logger.debug('Using persona-specific system instruction', { voicePersona, baseVoiceName });
-      } else {
-        logger.warn('Persona not found, falling back to base voice', { voicePersona });
-      }
+      const systemInstruction = persona ? voicePersonaService.buildPrompt(persona) : null;
 
       // Get or create page record
       const page = await supabaseService.getOrCreatePage(bookId, pageNumber, 'placeholder');
 
       // Generate audio using Gemini
-      logger.info('Calling Gemini for fresh audio generation...', { bookId, pageNumber, voicePersona });
+      logger.info('Calling Gemini for fresh audio generation...', { bookId, pageNumber, cacheKey });
       const { data: audioData, mimeType } = await geminiService.generateAudio(text, baseVoiceName, systemInstruction);
 
       // Convert to WAV
@@ -154,7 +172,8 @@ class PageCacheService {
       // Save audio file to storage
       // Use a consistent naming scheme that includes persona and timestamp to ensure freshness
       const timestamp = Date.now();
-      const fileName = `page_${pageNumber}_${voicePersona.toLowerCase().replace(/\s+/g, '_')}_${timestamp}.wav`;
+      const safeKey = cacheKey.toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
+      const fileName = `page_${pageNumber}_${safeKey}_${timestamp}.wav`;
       const filePath = `audio/${userId}/${bookId}/${fileName}`;
 
       logger.info('Saving fresh audio file to storage...', { bookId, pageNumber, filePath });
@@ -165,7 +184,7 @@ class PageCacheService {
 
       // Save audio metadata to cache (upsert handles existing records)
       await supabaseService.savePageAudio(page.id, {
-        voice_persona: voicePersona,
+        voice_persona: cacheKey,
         audio_url: audioUrl,
         audio_duration_seconds: estimatedDuration,
         audio_format: 'wav',
@@ -174,12 +193,13 @@ class PageCacheService {
           pace: persona.pace,
           tone: persona.tone,
           emotion: persona.emotion,
-          style: persona.speaking_style
-        } : { voiceName: voicePersona },
+          style: persona.speaking_style,
+          personaId: persona.id
+        } : { voiceName: baseVoiceName },
         processing_duration_ms: Date.now() - startTime
       });
 
-      logger.info('Page audio generated and cached', { bookId, pageNumber, voicePersona, userId, audioUrl });
+      logger.info('Page audio generated and cached', { bookId, pageNumber, cacheKey, userId, audioUrl });
 
       return {
         cached: false,

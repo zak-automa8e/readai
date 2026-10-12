@@ -2,6 +2,8 @@ const supabaseService = require('./supabaseService');
 const logger = require('../utils/logger');
 const config = require('../config/voicePersonaConfig');
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 class VoicePersonaService {
 
     // ==========================================
@@ -210,19 +212,26 @@ IMPORTANT: You must ONLY output audio. Do NOT provide any text response, comment
         return data;
     }
 
-    async getPersonaByName(name, userId = null) {
-        let query = supabaseService.adminClient
+    // Returns the persona only if the user owns it or it is public; null otherwise
+    async getAccessiblePersona(personaId, userId) {
+        if (!UUID_PATTERN.test(personaId || '') || !userId) {
+            return null;
+        }
+
+        const { data, error } = await supabaseService.adminClient
             .from('voice_personas')
             .select('*')
-            .eq('name', name)
-            .eq('is_active', true);
-
-        const { data, error } = await query.maybeSingle();
+            .eq('id', personaId)
+            .eq('is_active', true)
+            .maybeSingle();
 
         if (error) throw error;
+        if (!data) return null;
 
-        // If not found, it might be a base voice name or a template
-        // For now, we return data if found. The service logic will handle the fallback.
+        if (data.user_id !== userId && !data.is_public) {
+            return null;
+        }
+
         return data;
     }
 

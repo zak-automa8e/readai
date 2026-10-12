@@ -72,7 +72,7 @@ const pageController = {
   async getPageAudio(req, res) {
     try {
       const userId = req.user.id;
-      const { bookId, pageNumber, text, voicePersona = 'Sadaltager', forceRefresh } = req.body;
+      const { bookId, pageNumber, text, voicePersona = 'Sadaltager', voicePersonaId, forceRefresh } = req.body;
 
       if (!bookId || !pageNumber || !text) {
         return res.status(400).json({
@@ -80,7 +80,7 @@ const pageController = {
         });
       }
 
-      logger.info('Processing page audio request', { bookId, pageNumber, voicePersona, userId, forceRefresh });
+      logger.info('Processing page audio request', { bookId, pageNumber, voicePersona, voicePersonaId, userId, forceRefresh });
 
       const result = await pageCacheService.getOrGeneratePageAudio(
         bookId,
@@ -88,7 +88,8 @@ const pageController = {
         text,
         voicePersona,
         userId,
-        forceRefresh === true || forceRefresh === 'true'
+        forceRefresh === true || forceRefresh === 'true',
+        typeof voicePersonaId === 'string' ? voicePersonaId : null
       );
 
       res.json({

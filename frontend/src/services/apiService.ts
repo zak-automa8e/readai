@@ -573,11 +573,12 @@ const apiService = {
    * @param {string} bookId - Book ID
    * @param {number} pageNumber - Page number
    * @param {string} text - Page text to convert to audio
-   * @param {string} voicePersona - Voice persona to use (default: 'Sadaltager')
+   * @param {string} voicePersona - Base voice name, used when no persona id is given or accessible (default: 'Sadaltager')
    * @param {boolean} forceRefresh - Force regeneration of audio
+   * @param {string | null} voicePersonaId - Voice persona id to read with (own or public persona)
    * @returns {Promise<Object>} - Page audio response
    */
-  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Sadaltager', forceRefresh: boolean = false) {
+  async getCachedPageAudio(bookId: string, pageNumber: number, text: string, voicePersona: string = 'Sadaltager', forceRefresh: boolean = false, voicePersonaId: string | null = null) {
     try {
       const response = await fetch(`${API_BASE_URL}/pages/audio`, {
         method: 'POST',
@@ -592,6 +593,7 @@ const apiService = {
           pageNumber,
           text,
           voicePersona,
+          ...(voicePersonaId ? { voicePersonaId } : {}),
           forceRefresh
         })
       });
