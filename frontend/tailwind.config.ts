@@ -54,8 +54,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["Outfit", "sans-serif"],
+        serif: ["Newsreader", "Amiri", "Georgia", "serif"],
+        sans: ["IBM Plex Sans", "IBM Plex Sans Arabic", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
