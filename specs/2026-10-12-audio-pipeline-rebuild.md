@@ -446,15 +446,22 @@ Window economics: a 600-s window ≈ 6 000 chars ≈ 15 segments ≈ $0.13 of TT
 
 ---
 
-## 9. Decisions for the owner (defaults applied if unanswered)
+## 9. Owner decisions (2026-10-13 / 2026-10-14) — these SUPERSEDE anything above that conflicts
 
-| # | Decision | Default | Alternative |
-|---|---|---|---|
-| D1 | **Are cache hits billed?** | **Yes** — credits = minutes delivered regardless of whether we generated (predictable for the user, funds the shared cache; the ledger row is `kind='settle'` with `ref_type='cache_hit'`). | Hits are free (cost to us is $0; public books become nearly free to listen after the first listener). |
-| D2 | **Who pays for text extraction?** | **Platform** — $0.70–1.40 per book is not metered against user credits; recorded in `processing_costs` only. | Deduct a fixed credit amount per processed book (needs a price in minutes). |
-| D3 | **Existing books: when does re-processing happen?** | **On first open, automatically** (DEFAULT 1 applied to legacy books too; costs ≈$1 per book; legacy audio keeps working meanwhile). | A "Prepare for listening" button in the room; legacy path stays until clicked. |
+The original defaults D1–D3 are replaced. Sections 3 (data model), 5.3 (credits), and stories 3, 5 and 8 must be reconciled with this table when those stories are planned in detail.
 
-Defaults already stated by the owner and kept here: extraction triggers on **first open** (not upload) with 10 realtime pages then batch; shared audio cache **across users for public/shared books only**, private uploads cached per user; billing unit **audio minutes**.
+| # | Decision (final) | Consequence for the design |
+|---|---|---|
+| O1 | **Two book modes, chosen at upload or before opening: Read and Listen.** Read = the real PDF page + chat + notes, **no extraction, no audio**. Listen = extraction + audio. A Read book can switch to Listen later. | `books.mode` (`read` \| `listen`); extraction jobs are only created for Listen books. Chat keeps using the PDF directly, so it works in both modes. |
+| O2 | **The user pays for extraction**, and only in Listen mode. | No platform-paid extraction (old D2 dropped). |
+| O3 | **Billing is metered like our providers bill us, plus our other costs:** text extraction **per token**, audio **per second**. The page is a **storage unit only**, never a billing unit. | Ledger rows carry `unit` (`tokens` \| `audio_seconds`), quantity, provider cost, and price charged. Price = provider cost × markup (config), not a per-page or per-minute flat rate. |
+| O4 | **A recording belongs to whoever paid to generate it.** Recording = book (PDF content hash) × voice persona snapshot. A new or edited persona is a new recording and a new generation. | New `recordings` table: `book_content_sha256`, `persona_snapshot_sha256`, `owner_user_id`, `visibility` (`private` \| `donated`). `segment_audio` gains `recording_id` + `funded_by_user_id` (a recording may have several funders, e.g. different chapters). |
+| O5 | **Donation:** the owner may donate a recording to everyone; listeners then play its existing audio **free**. Segments not yet generated are paid by whoever generates them, who may donate them too (community recording). Donation requires the uploader to confirm they hold the rights; donations can be taken down. | `recordings.visibility='donated'`, `donated_at`, `rights_attested_at`; a takedown flag. |
+| O6 | **Pay it forward** for private recordings: same book + same voice is **never regenerated**. Another listener pays the normal per-second price; a share goes back to the funder(s) **as credits**, until each funder has recovered **100%** of what they paid; after that the platform keeps it all. Credits only, never cash. A "founding narrator" badge stays on the recording. | Ledger kind `rebate`; per-funder `recovered_amount` vs `paid_amount`, capped at 100%; listener payments split across funders by the seconds of their segments played. Rebate share % is config. |
+| O7 | **Audio clip unit = paragraph; storage unit = page.** A paragraph crossing a page break is ONE clip, stored and generated once, owned by the page it starts on; the next page references it as "continues from". Never cut audio at a page edge. | Per-page index of segments (`parts` already records the page spans); page view flips partway through the shared clip at the page-2 character offset. |
+| O8 | **Non-content pages:** every page is classified in the same extraction call (cover, title, copyright, dedication, author's note, table of contents, blank, body, index, bibliography, back cover). Defaults: skip cover, title, copyright, blank, table of contents, index, back cover, dedication, author's note; read preface/introduction/body. The user reviews the suggestions (rail Pages tab: thumbnail + toggle, plus "read all front matter") and may read any skipped page. Skipped pages are never voiced. | `page_text.page_type`; per-user-per-book skip overrides; the segment builder excludes skipped pages per listener. |
+| O9 | **Existing books re-process automatically on first open** (Listen mode); legacy per-page audio keeps playing until new segments are ready. | Unchanged from old D3. |
+| O10 | **Order:** finish the reading-room epic before starting story 1 of this epic. | — |
 
 ---
 
