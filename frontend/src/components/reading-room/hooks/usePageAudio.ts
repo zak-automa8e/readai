@@ -347,6 +347,31 @@ export const usePageAudio = ({
     // Keep auto-play enabled on manual navigation
   }, [pageNumber, numPages, prefetchedAudio, cancelPrefetch, nextReadablePage]);
 
+  // Jump to any page (page counter, later the rail). Same reset as a manual handleNextPage:
+  // the current page's audio always stops, even when the target page is already prefetched,
+  // otherwise the old page keeps playing over the new one. Prefetched audio stays cached.
+  const goToPage = useCallback((target: number) => {
+    if (!numPages || !Number.isFinite(target)) return;
+    const newPage = Math.min(numPages, Math.max(1, Math.round(target)));
+    if (newPage === pageNumber) return;
+
+    setPageNumber(newPage);
+
+    // Cancel any ongoing prefetch
+    cancelPrefetch();
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setAudioPausedAt(0);
+    setCurrentAudioUrl(null);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    // Keep auto-play enabled on manual navigation
+  }, [pageNumber, numPages, cancelPrefetch, setPageNumber]);
+
   const handleReadPage = async (useAutoPlay: boolean = false) => {
     if (isReading || isLoadingPersonas) {
       return;
@@ -638,6 +663,7 @@ export const usePageAudio = ({
     handleReadPage,
     handlePrevPage,
     handleNextPage,
+    goToPage,
     handleSeek,
   };
 };

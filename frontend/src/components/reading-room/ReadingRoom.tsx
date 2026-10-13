@@ -46,7 +46,7 @@ export const ReadingRoom = () => {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle />
+        <ResizableHandle onDragging={panes.onDividerDragging} />
 
         <ResizablePanel id="canvas" order={2} {...PANE_SIZES.canvas} className="min-w-0 bg-background">
           <CanvasPane>
@@ -54,7 +54,7 @@ export const ReadingRoom = () => {
           </CanvasPane>
         </ResizablePanel>
 
-        <ResizableHandle />
+        <ResizableHandle onDragging={panes.onDividerDragging} />
 
         <ResizablePanel
           id="ai"

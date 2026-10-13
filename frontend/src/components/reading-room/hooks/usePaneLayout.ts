@@ -29,6 +29,9 @@ export const usePaneLayout = () => {
   const [aiCollapsed, setAICollapsed] = useState(false);
   const [railTab, setRailTab] = useState<RailTab>("pages");
   const [aiTab, setAITab] = useState<AITab>("chat");
+  // True while either divider is held; the page canvas defers redraws until release
+  const [dividerDragging, setDividerDragging] = useState(false);
+  const onDividerDragging = useCallback((isDragging: boolean) => setDividerDragging(isDragging), []);
 
   const toggleRail = useCallback(() => togglePanel(railRef.current), []);
   const toggleAI = useCallback(() => togglePanel(aiRef.current), []);
@@ -66,8 +69,12 @@ export const usePaneLayout = () => {
       onRailExpand,
       onAICollapse,
       onAIExpand,
+      dividerDragging,
+      onDividerDragging,
     }),
     [
+      dividerDragging,
+      onDividerDragging,
       railCollapsed,
       aiCollapsed,
       railTab,

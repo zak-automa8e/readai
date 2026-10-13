@@ -5,6 +5,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "../ui/button";
 import { useReadingRoom } from "./ReadingRoomContext";
+import { CAPTURE_WIDTH_PX } from "./pageCapture";
 
 // Worker is configured globally in main.tsx - no need to set it here
 
@@ -15,7 +16,7 @@ import { useReadingRoom } from "./ReadingRoomContext";
  */
 export const CanvasPane = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
-  const { book, pdfUrl, onDocumentLoadSuccess, onDocumentLoadError, prefetchPageNumber, prefetchPageRef, pageWidth } =
+  const { book, pdfUrl, onDocumentLoadSuccess, onDocumentLoadError, prefetchPageNumber, prefetchPageRef } =
     useReadingRoom();
 
   if (!pdfUrl) {
@@ -60,12 +61,14 @@ export const CanvasPane = ({ children }: { children: ReactNode }) => {
       }
     >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      {/* Hidden page for prefetching: rendered in a zero-height clip, not positioned off-screen */}
+      {/* Hidden page for prefetching: rendered in a zero-height clip, not positioned off-screen.
+          Fixed width and pixel ratio, so its OCR input matches capturePage and ignores the pane. */}
       {prefetchPageNumber && (
         <div ref={prefetchPageRef} className="pointer-events-none h-0 overflow-hidden" aria-hidden="true">
           <Page
             pageNumber={prefetchPageNumber}
-            width={pageWidth}
+            width={CAPTURE_WIDTH_PX}
+            devicePixelRatio={1}
             renderAnnotationLayer={false}
             renderTextLayer={false}
           />

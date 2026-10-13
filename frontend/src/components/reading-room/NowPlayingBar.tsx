@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,11 +10,14 @@ import {
   Pause,
   Play,
   Repeat,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Slider } from "../ui/slider";
 import { VoiceSelect } from "./VoiceSelect";
 import { usePlayback, useReadingRoom } from "./ReadingRoomContext";
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "./hooks/usePageFit";
 
 // Helper function to format time in HH:MM:SS
 const formatTime = (seconds: number): string => {
@@ -37,12 +40,76 @@ const useIsFullscreen = () => {
   return isFullscreen;
 };
 
+/** "n / N"; click the current page to type a page number (Enter or blur jumps, Esc cancels). */
+const PageJump = ({
+  pageNumber,
+  numPages,
+  onJump,
+}: {
+  pageNumber: number;
+  numPages: number | null;
+  onJump: (page: number) => void;
+}) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Esc unmounts the input; a blur fired by that removal must not jump
+  const cancelledRef = useRef(false);
+
+  const commit = () => {
+    const target = Number(draft);
+    setDraft(null);
+    if (cancelledRef.current) return;
+    if (draft && Number.isFinite(target)) onJump(target);
+  };
+
+  const startEditing = () => {
+    cancelledRef.current = false;
+    setDraft(String(pageNumber));
+  };
+
+  return (
+    <span className="flex items-center gap-1">
+      {draft === null ? (
+        <button
+          type="button"
+          className="rounded-sm px-1 text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:text-muted-foreground"
+          onClick={startEditing}
+          disabled={!numPages}
+          title="Go to page"
+          aria-label={`Page ${pageNumber}. Go to page`}
+        >
+          {pageNumber}
+        </button>
+      ) : (
+        <input
+          type="text"
+          inputMode="numeric"
+          autoFocus
+          value={draft}
+          onChange={(event) => setDraft(event.target.value.replace(/\D/g, ""))}
+          onFocus={(event) => event.target.select()}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") {
+              cancelledRef.current = true;
+              setDraft(null);
+            }
+          }}
+          className="h-7 w-12 rounded-sm border border-input bg-background px-1 text-center font-serif text-sm tabular-nums text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={`Go to page, 1 to ${numPages}`}
+        />
+      )}
+      / {numPages || "?"}
+    </span>
+  );
+};
+
 /**
  * Full-width bar under all three panes. Listening is the primary mode, so playback stays here at a
  * fixed height regardless of pane sizes or collapse state.
  */
 export const NowPlayingBar = () => {
-  const { pageNumber, numPages, fitMode, setFitMode, zoomScale, setZoomScale, roomRef } = useReadingRoom();
+  const { pageNumber, numPages, goToPage, fitMode, setFitMode, zoomScale, setZoomScale, roomRef } = useReadingRoom();
   const {
     isPlaying,
     isReading,
@@ -86,7 +153,7 @@ export const NowPlayingBar = () => {
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="flex min-w-16 items-center justify-center gap-1 font-serif text-sm tabular-nums text-muted-foreground">
-          {pageNumber} / {numPages || "?"}
+          <PageJump pageNumber={pageNumber} numPages={numPages} onJump={goToPage} />
           {isPrefetching && (
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"
@@ -173,15 +240,39 @@ export const NowPlayingBar = () => {
         >
           {fitMode === "width" ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
         </Button>
-        <Slider
-          value={[zoomScale]}
-          min={50}
-          max={150}
-          step={5}
-          onValueChange={(value) => setZoomScale(value[0])}
-          className="w-20"
-          aria-label="Zoom"
-        />
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setZoomScale(zoomScale - ZOOM_STEP)}
+            disabled={zoomScale <= ZOOM_MIN}
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <Slider
+            value={[zoomScale]}
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
+            step={ZOOM_STEP}
+            onValueChange={(value) => setZoomScale(value[0])}
+            className="w-20"
+            aria-label="Zoom"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setZoomScale(zoomScale + ZOOM_STEP)}
+            disabled={zoomScale >= ZOOM_MAX}
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+        </div>
         <span className="w-10 text-end font-mono text-xs text-muted-foreground">{zoomScale}%</span>
         <Button
           variant="ghost"

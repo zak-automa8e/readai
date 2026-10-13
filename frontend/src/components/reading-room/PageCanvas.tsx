@@ -1,48 +1,74 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { Page } from "react-pdf";
 import { useReadingRoom } from "./ReadingRoomContext";
+import { usePageFit } from "./hooks/usePageFit";
+
+interface DrawnLayer {
+  page: number;
+  width: number;
+}
 
 /**
  * The visible PDF page. Must render inside CanvasPane's <Document>.
- * Re-measures on pane resize (dragging a divider resizes the pane without a window resize event).
+ *
+ * While the pane is resizing, the last drawn canvas is CSS-scaled to the live width instead of being
+ * redrawn every frame. When a new width settles, the new canvas draws hidden on top of the old one
+ * (same grid cell) and replaces it only once it has finished, so the page never flashes blank.
  */
 export const PageCanvas = () => {
-  const { canvasRef, pageRef, pageNumber, pageWidth, pageHeight, setCanvasSize } = useReadingRoom();
+  const { canvasRef, pageRef, pageCanvasRef, pdf, pageNumber, fitMode, zoomScale, panes } = useReadingRoom();
+  const { displayWidth, renderWidth, aspect } = usePageFit({
+    paneRef: canvasRef,
+    pdf,
+    pageNumber,
+    fitMode,
+    zoomScale,
+    dividerDragging: panes.dividerDragging,
+  });
+  const [drawn, setDrawn] = useState<DrawnLayer | null>(null);
 
-  useEffect(() => {
-    const element = canvasRef.current;
-    if (!element) return;
-
-    let frame = 0;
-    const measure = () => {
-      frame = 0;
-      setCanvasSize({ width: element.clientWidth, height: element.clientHeight });
-    };
-    // Coalesce to one update per frame while a divider is dragged.
-    const observer = new ResizeObserver(() => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    });
-    observer.observe(element);
-    measure();
-
-    return () => {
-      observer.disconnect();
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [canvasRef, setCanvasSize]);
+  // Keep the last fully drawn width of this page underneath until the new width has drawn
+  const layers: number[] = [];
+  if (renderWidth !== null) {
+    if (drawn && drawn.page === pageNumber && drawn.width !== renderWidth) layers.push(drawn.width);
+    layers.push(renderWidth);
+  }
 
   return (
     <div ref={canvasRef} className="h-full min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
       <div className="flex min-h-full w-max min-w-full items-center justify-center p-6">
-        <div ref={pageRef} className="pdf-page-container">
-          <Page
-            pageNumber={pageNumber}
-            width={pageWidth}
-            height={pageHeight || undefined}
-            renderAnnotationLayer={false}
-            renderTextLayer={false}
-          />
-        </div>
+        {displayWidth !== null && aspect !== null && (
+          // The page itself has no reading direction; ltr keeps the scale origin on the drawn corner
+          <div
+            ref={pageRef}
+            dir="ltr"
+            className="pdf-page-container grid overflow-hidden bg-card ring-1 ring-border"
+            style={{ width: displayWidth, height: Math.floor(displayWidth / aspect) }}
+          >
+            {layers.map(width => {
+              const isCurrent = width === renderWidth;
+              const isPending = isCurrent && layers.length > 1;
+              const scale = displayWidth / width;
+              return (
+                <div
+                  key={`${pageNumber}@${width}`}
+                  className={`[grid-area:1/1] ${isPending ? "invisible" : ""}`}
+                  style={scale === 1 ? undefined : { transform: `scale(${scale})`, transformOrigin: "top left" }}
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    width={width}
+                    canvasRef={isCurrent ? pageCanvasRef : undefined}
+                    loading={null}
+                    onRenderSuccess={() => setDrawn({ page: pageNumber, width })}
+                    renderAnnotationLayer={false}
+                    renderTextLayer={isCurrent}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
