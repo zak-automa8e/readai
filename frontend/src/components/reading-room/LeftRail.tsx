@@ -2,15 +2,12 @@ import { LayoutGrid, ListTree, PanelLeftClose, StickyNote } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { useReadingRoom } from "./ReadingRoomContext";
+import { ThumbnailList } from "./ThumbnailList";
+import { OutlineList } from "./OutlineList";
+import { RailNotes } from "./RailNotes";
 import type { RailTab } from "./hooks/usePaneLayout";
 
-const PLACEHOLDERS: Record<RailTab, string> = {
-  pages: "Page thumbnails are not available yet.",
-  outline: "The document outline is not available yet.",
-  notes: "Notes by page are not available yet.",
-};
-
-/** Left pane. Tab content is a placeholder until the rail story fills it. */
+/** Left pane: page thumbnails, document outline, and notes by page. */
 export const LeftRail = () => {
   const { panes } = useReadingRoom();
 
@@ -43,11 +40,15 @@ export const LeftRail = () => {
           <PanelLeftClose className="h-4 w-4" />
         </Button>
       </div>
-      {(Object.keys(PLACEHOLDERS) as RailTab[]).map((tab) => (
-        <TabsContent key={tab} value={tab} className="mt-0 min-h-0 flex-1 overflow-auto p-4">
-          <p className="text-sm text-muted-foreground">{PLACEHOLDERS[tab]}</p>
-        </TabsContent>
-      ))}
+      <TabsContent value="pages" className="mt-0 min-h-0 flex-1 overflow-hidden">
+        <ThumbnailList />
+      </TabsContent>
+      <TabsContent value="outline" className="mt-0 min-h-0 flex-1 overflow-auto p-2">
+        <OutlineList />
+      </TabsContent>
+      <TabsContent value="notes" className="mt-0 min-h-0 flex-1 overflow-auto p-2">
+        <RailNotes />
+      </TabsContent>
     </Tabs>
   );
 };
