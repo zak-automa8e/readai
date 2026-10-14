@@ -372,13 +372,14 @@ export const usePageAudio = ({
     // Keep auto-play enabled on manual navigation
   }, [pageNumber, numPages, cancelPrefetch, setPageNumber]);
 
-  const handleReadPage = async (useAutoPlay: boolean = false) => {
+  // forceRefresh re-extracts the page text and regenerates its audio, bypassing both caches
+  const handleReadPage = async (useAutoPlay: boolean = false, forceRefresh: boolean = false) => {
     if (isReading || isLoadingPersonas) {
       return;
     }
 
     // Handle pause
-    if (isPlaying) {
+    if (isPlaying && !forceRefresh) {
       if (audioRef.current) {
         audioRef.current.pause();
         setAudioPausedAt(audioRef.current.currentTime);
@@ -388,7 +389,7 @@ export const usePageAudio = ({
     }
 
     // Handle resume if same audio exists
-    if (audioRef.current && currentAudioUrl && audioPausedAt > 0) {
+    if (!forceRefresh && audioRef.current && currentAudioUrl && audioPausedAt > 0) {
       audioRef.current.currentTime = audioPausedAt;
       audioRef.current.play().catch(error => {
         toast({ title: "Playback Error", description: error.message, variant: "destructive" });
@@ -400,7 +401,7 @@ export const usePageAudio = ({
 
     // Check if we have prefetched audio for current page
     const prefetched = prefetchedAudio.get(pageNumber);
-    if (prefetched && useAutoPlay) {
+    if (prefetched && useAutoPlay && !forceRefresh) {
       // Use prefetched audio
       if (audioRef.current) {
         audioRef.current.pause();
@@ -503,7 +504,7 @@ export const usePageAudio = ({
       // 2. Get cached text
       let textResponse;
       try {
-        textResponse = await apiService.getCachedPageText(currentBook.id, pageNumber, imageBase64);
+        textResponse = await apiService.getCachedPageText(currentBook.id, pageNumber, imageBase64, forceRefresh);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Cannot connect to backend server. Is it running?";
         toast({ 
@@ -543,7 +544,7 @@ export const usePageAudio = ({
       // 3. Get cached audio
       let audioResponse;
       try {
-        audioResponse = await apiService.getCachedPageAudio(currentBook.id, pageNumber, pageText, BASE_VOICE_NAME, false, activePersonaIdRef.current);
+        audioResponse = await apiService.getCachedPageAudio(currentBook.id, pageNumber, pageText, BASE_VOICE_NAME, forceRefresh, activePersonaIdRef.current);
       } catch (error) {
         if (error instanceof Error && error.message === "RATE_LIMIT_EXCEEDED") {
           toast({ 
@@ -640,6 +641,28 @@ export const usePageAudio = ({
     }
   };
 
+  // Re-extract and re-voice the current page when its cached text or audio came out wrong
+  const redoPage = () => {
+    if (isReading || isLoadingPersonas) return;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setAudioPausedAt(0);
+    setCurrentAudioUrl(null);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    emptyPagesRef.current.delete(pageNumber);
+    setPrefetchedAudio(prev => {
+      if (!prev.has(pageNumber)) return prev;
+      const next = new Map(prev);
+      next.delete(pageNumber);
+      return next;
+    });
+    handleReadPage(false, true);
+  };
+
   const handleSeek = (percent: number) => {
     if (audioRef.current && audioRef.current.readyState >= 2 && audioDuration > 0) {
       const newTime = (percent / 100) * audioDuration;
@@ -664,6 +687,7 @@ export const usePageAudio = ({
     handlePrevPage,
     handleNextPage,
     goToPage,
+    redoPage,
     handleSeek,
   };
 };

@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
   Repeat,
+  RotateCcw,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -123,6 +124,7 @@ export const NowPlayingBar = () => {
     handleReadPage,
     handlePrevPage,
     handleNextPage,
+    redoPage,
     handleSeek,
   } = usePlayback();
   const isFullscreen = useIsFullscreen();
@@ -203,6 +205,17 @@ export const NowPlayingBar = () => {
           title={autoPlayEnabled ? "Disable auto-play" : "Enable auto-play"}
         >
           <Repeat className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={redoPage}
+          disabled={isReading || isLoadingPersonas}
+          aria-label="Redo this page"
+          title="Redo this page: extract the text and generate the audio again"
+        >
+          <RotateCcw className="h-4 w-4" />
         </Button>
         <div className="ms-1">
           <VoiceSelect />
