@@ -49,8 +49,11 @@ const config = {
   
   // Gemini models
   geminiModels: {
-    imageToText: 'gemini-2.5-flash-preview-09-2025',
-    textToAudio: 'gemini-2.5-flash-preview-tts',
+    imageToText: process.env.GEMINI_IMAGE_TO_TEXT_MODEL || 'gemini-3.8-flash',
+    // Used when the primary model is overloaded, retired or slower than the timeout
+    imageToTextFallback: process.env.GEMINI_IMAGE_TO_TEXT_FALLBACK_MODEL || 'gemini-3.5-flash-lite',
+    imageToTextTimeoutMs: parseInt(process.env.GEMINI_IMAGE_TO_TEXT_TIMEOUT_MS, 10) || 25000,
+    textToAudio: process.env.GEMINI_TEXT_TO_AUDIO_MODEL || 'gemini-2.5-flash-preview-tts',
     documentChat: process.env.GEMINI_DOCUMENT_CHAT_MODEL || 'gemini-2.5-flash'
   },
 

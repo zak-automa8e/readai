@@ -40,7 +40,8 @@ class GeminiService {
     const modelConfig = {
       temperature: 0,
       thinkingConfig: {
-        thinkingBudget: -1,
+        // Gemini 3.x takes a thinking level; LOW was enough for page extraction in the bake-off
+        thinkingLevel: 'LOW',
       },
       responseMimeType: 'application/json',
       systemInstruction: [
@@ -50,7 +51,6 @@ class GeminiService {
       ],
     };
 
-    const model = config.geminiModels.imageToText;
     const contents = [
       {
         role: 'user',
@@ -65,12 +65,33 @@ class GeminiService {
       },
     ];
 
+    const { imageToText, imageToTextFallback, imageToTextTimeoutMs } = config.geminiModels;
+    try {
+      return await this.extractWithModel(imageToText, modelConfig, contents, imageToTextTimeoutMs);
+    } catch (error) {
+      // An overloaded, slow or retired primary model should not stop the reader
+      if (!imageToTextFallback || imageToTextFallback === imageToText || !this.isUnavailableError(error)) {
+        throw error;
+      }
+      logger.warn(`Image-to-text model ${imageToText} unavailable (${error.message.slice(0, 120)}); falling back to ${imageToTextFallback}`);
+      return this.extractWithModel(imageToTextFallback, modelConfig, contents, imageToTextTimeoutMs);
+    }
+  }
+
+  isUnavailableError(error) {
+    // The SDK wraps an aborted request in a generic Error whose message names AbortError
+    return error.name === 'AbortError' || /\b(404|429|500|503)\b|abort|high demand|overloaded|timed out/i.test(error.message || '');
+  }
+
+  async extractWithModel(model, modelConfig, contents, timeoutMs) {
     logger.debug(`Calling Gemini model ${model} for image-to-text conversion`);
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await this.ai.models.generateContentStream({
         model,
-        config: modelConfig,
+        config: { ...modelConfig, abortSignal: controller.signal },
         contents,
       });
 
@@ -92,8 +113,10 @@ class GeminiService {
 
       return this.parseResponse(fullText);
     } catch (error) {
-      logger.error('Error in Gemini image-to-text processing:', error);
+      logger.error(`Error in Gemini image-to-text processing (${model}):`, error);
       throw error;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
