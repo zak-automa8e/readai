@@ -68,7 +68,7 @@ const PageJump = ({
   };
 
   return (
-    <span className="flex items-center gap-1">
+    <span className="flex items-center gap-1" dir="ltr">
       {draft === null ? (
         <button
           type="button"
@@ -235,7 +235,7 @@ export const NowPlayingBar = () => {
           disabled={!audioRef.current || audioDuration === 0}
           aria-label="Seek"
         />
-        <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
+        <span dir="ltr" className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
           {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
         </span>
       </div>
@@ -286,7 +286,7 @@ export const NowPlayingBar = () => {
             <ZoomIn className="h-4 w-4" />
           </Button>
         </div>
-        <span className="w-10 text-end font-mono text-xs text-muted-foreground">{zoomScale}%</span>
+        <span dir="ltr" className="w-10 text-end font-mono text-xs text-muted-foreground">{zoomScale}%</span>
         <Button
           variant="ghost"
           size="icon"

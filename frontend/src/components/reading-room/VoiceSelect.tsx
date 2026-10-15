@@ -11,10 +11,10 @@ export const VoiceSelect = () => {
         <SelectValue placeholder="Voice" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={BASE_VOICE_OPTION}>Base voice ({BASE_VOICE_NAME})</SelectItem>
+        <SelectItem value={BASE_VOICE_OPTION}>Base voice (<span dir="ltr">{BASE_VOICE_NAME}</span>)</SelectItem>
         {personas?.map(persona => (
           <SelectItem key={persona.id} value={persona.id}>
-            {persona.name}{persona.is_default ? " (default)" : ""}
+            <span dir="auto">{persona.name}</span>{persona.is_default ? " (default)" : ""}
           </SelectItem>
         ))}
       </SelectContent>
