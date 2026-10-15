@@ -24,6 +24,7 @@ export const TextInput = ({ className, onMessageSubmit, placeholder }: TextInput
       <Input 
         value={value}
         onChange={(e) => setValue(e.target.value)}
+        dir="auto"
         className={`bg-secondary/50 ${className || ''}`}
         placeholder={placeholder}
       />

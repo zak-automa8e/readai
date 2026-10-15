@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
 export type RailTab = "pages" | "outline" | "notes";
-export type AITab = "chat" | "notes";
+export type AITab = "chat" | "notes" | "explain";
 
 /** Sizes are percentages of the panel group width (react-resizable-panels 2.x has no pixel units). */
 export const PANE_SIZES = {

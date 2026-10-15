@@ -1,4 +1,3 @@
-  import { Card } from "./ui/card";
   import { ScrollArea } from "./ui/scroll-area";
   import { Button } from "./ui/button";
   import { List, Plus, Trash2 } from "lucide-react";
@@ -9,6 +8,8 @@
   import { useNotes } from "../contexts/NotesContext";
   import ReactMarkdown from 'react-markdown';
   import remarkGfm from 'remark-gfm';
+
+  const card = "rounded-md border border-border bg-card p-3";
 
   export const NotesWindow = () => {
     const { currentBook } = useBooks();
@@ -59,8 +60,8 @@
     }
   return (
     <div className="flex-1 h-full flex flex-col gap-4">
-      <ScrollArea className="flex-1 pr-4 min-h-0 max-h-[calc(100vh-200px)]">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 pe-4 min-h-0 max-h-[calc(100vh-200px)]">
+        <div className="space-y-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <List className="h-4 w-4" />
@@ -68,9 +69,9 @@
             </div>
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
@@ -84,6 +85,7 @@
                     placeholder="Type your note here..."
                     value={newNoteContent}
                     onChange={(e) => setNewNoteContent(e.target.value)}
+                    dir="auto"
                     className="min-h-[100px]"
                   />
                   <div className="flex justify-end gap-2">
@@ -107,42 +109,48 @@
           </div>
 
           {loading && (
-            <Card className="p-3 lg:p-4 card-gradient">
+            <div className={card}>
               <p className="text-sm text-muted-foreground">Loading your notes...</p>
-            </Card>
+            </div>
           )}
 
           {!loading && error && (
-            <Card className="p-3 lg:p-4 card-gradient border-red-500/40">
-              <p className="text-sm text-red-500">{error}</p>
-            </Card>
+            <div className={`${card} border-destructive/40`}>
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
           )}
 
           {!loading && !error && notes.length === 0 ? (
-            <Card className="p-3 lg:p-4 card-gradient">
+            <div className={card}>
               <p className="text-sm text-muted-foreground">
                 No notes yet. Click the "Add Note" button to create your first note.
               </p>
-            </Card>
+            </div>
           ) : (
             notes.map(note => {
               const createdAt = note.created_at ? new Date(note.created_at) : null;
+              const selection = note.text_selection?.trim();
               return (
-                <Card key={note.id} className="p-3 lg:p-4 card-gradient">
+                <div key={note.id} className={card}>
                   <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       {note.title && (
-                        <p className="text-sm font-semibold mb-1">{note.title}</p>
+                        <p dir="auto" className="text-start text-sm font-semibold mb-1">{note.title}</p>
                       )}
-                      <div className="text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1">
+                      {selection && selection !== note.content.trim() && (
+                        <blockquote dir="auto" className="mb-2 rounded-sm bg-muted px-2 py-1 text-start font-serif text-sm text-muted-foreground">
+                          {selection}
+                        </blockquote>
+                      )}
+                      <div dir="auto" className="text-start text-sm text-foreground prose prose-sm dark:prose-invert max-w-none break-words prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {note.content}
                         </ReactMarkdown>
                       </div>
-                      <div className="mt-2 text-xs text-muted-foreground space-x-2">
+                      <div className="mt-2 text-xs text-muted-foreground space-x-2 rtl:space-x-reverse">
                         {createdAt && <span>{createdAt.toLocaleString()}</span>}
                         {note.page_number !== null && note.page_number !== undefined && (
-                          <span>Page {note.page_number}</span>
+                          <span className="font-serif">Page {note.page_number}</span>
                         )}
                       </div>
                     </div>
@@ -156,7 +164,7 @@
                       <span className="sr-only">Delete note</span>
                     </Button>
                   </div>
-                </Card>
+                </div>
               );
             })
           )}

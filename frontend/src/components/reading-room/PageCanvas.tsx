@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Page } from "react-pdf";
 import { useReadingRoom } from "./ReadingRoomContext";
 import { usePageFit } from "./hooks/usePageFit";
+import { SelectionPopover } from "./SelectionPopover";
 
 interface DrawnLayer {
   page: number;
@@ -70,6 +71,7 @@ export const PageCanvas = () => {
           </div>
         )}
       </div>
+      <SelectionPopover />
     </div>
   );
 };

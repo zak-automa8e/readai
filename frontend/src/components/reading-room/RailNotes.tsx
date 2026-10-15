@@ -6,7 +6,7 @@ const noteText = (note: BookNote) => note.title?.trim() || note.content.trim() |
 
 /** Notes for this book in page order. Read-only: the assistant pane keeps the editor. */
 export const RailNotes = () => {
-  const { book, pageNumber, goToPage } = useReadingRoom();
+  const { book, pageNumber, goToPage, panes } = useReadingRoom();
   const { getNotesForBook, fetchNotes, isLoading, getError } = useNotes();
 
   useEffect(() => {
@@ -53,7 +53,10 @@ export const RailNotes = () => {
             {page ? (
               <button
                 type="button"
-                onClick={() => goToPage(page)}
+                onClick={() => {
+                  goToPage(page);
+                  panes.openAITab("notes");
+                }}
                 aria-current={page === pageNumber ? "page" : undefined}
                 className={`w-full rounded-sm border border-border px-3 py-2 text-start hover:bg-muted ${
                   page === pageNumber ? "bg-muted" : ""

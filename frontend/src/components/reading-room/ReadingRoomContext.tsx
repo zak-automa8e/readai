@@ -8,6 +8,7 @@ import { usePageAudio } from "./hooks/usePageAudio";
 import { usePaneLayout, type PaneLayout } from "./hooks/usePaneLayout";
 import { useViewPrefs } from "./hooks/usePageFit";
 import { copyCanvas, renderPageToCanvas } from "./pageCapture";
+import { AssistantProvider } from "./AssistantContext";
 
 export type PdfDocument = Parameters<NonNullable<DocumentProps["onLoadSuccess"]>>[0];
 export type FitMode = "width" | "page";
@@ -167,7 +168,9 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ReadingRoomContext.Provider value={room}>
-      <PlaybackContext.Provider value={playback}>{children}</PlaybackContext.Provider>
+      <AssistantProvider book={currentBook}>
+        <PlaybackContext.Provider value={playback}>{children}</PlaybackContext.Provider>
+      </AssistantProvider>
     </ReadingRoomContext.Provider>
   );
 };
