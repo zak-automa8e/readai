@@ -26,7 +26,8 @@ const limiter = rateLimit({
   max: config.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests from this IP, please try again later.'
+  // JSON like every other API error, so the frontend can show it instead of failing to parse
+  message: { error: 'RATE_LIMITED', message: 'Too many requests from this IP, please try again later.' }
 });
 
 // Apply rate limiting to API routes

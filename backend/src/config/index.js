@@ -41,7 +41,8 @@ const config = {
   
   // Rate limiting
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+  // Local development shares one IP across the app, tests and tooling, so it gets more headroom
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 100 : 1000),
   
   // Retry configuration
   maxRetries: parseInt(process.env.MAX_RETRIES, 10) || 3,
