@@ -1,5 +1,14 @@
 require('dotenv').config();
 
+const geminiModels = {
+  imageToText: process.env.GEMINI_IMAGE_TO_TEXT_MODEL || 'gemini-3.8-flash',
+  // Used when the primary model is overloaded, retired or slower than the timeout
+  imageToTextFallback: process.env.GEMINI_IMAGE_TO_TEXT_FALLBACK_MODEL || 'gemini-3.5-flash-lite',
+  imageToTextTimeoutMs: parseInt(process.env.GEMINI_IMAGE_TO_TEXT_TIMEOUT_MS, 10) || 25000,
+  textToAudio: process.env.GEMINI_TEXT_TO_AUDIO_MODEL || 'gemini-2.5-flash-preview-tts',
+  documentChat: process.env.GEMINI_DOCUMENT_CHAT_MODEL || 'gemini-2.5-flash'
+};
+
 const config = {
   // Server configuration
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -48,17 +57,41 @@ const config = {
   maxRetries: parseInt(process.env.MAX_RETRIES, 10) || 3,
   retryDelay: parseInt(process.env.RETRY_DELAY, 10) || 1000,
   
-  // Gemini models
-  geminiModels: {
-    imageToText: process.env.GEMINI_IMAGE_TO_TEXT_MODEL || 'gemini-3.8-flash',
-    // Used when the primary model is overloaded, retired or slower than the timeout
-    imageToTextFallback: process.env.GEMINI_IMAGE_TO_TEXT_FALLBACK_MODEL || 'gemini-3.5-flash-lite',
-    imageToTextTimeoutMs: parseInt(process.env.GEMINI_IMAGE_TO_TEXT_TIMEOUT_MS, 10) || 25000,
-    textToAudio: process.env.GEMINI_TEXT_TO_AUDIO_MODEL || 'gemini-2.5-flash-preview-tts',
-    documentChat: process.env.GEMINI_DOCUMENT_CHAT_MODEL || 'gemini-2.5-flash'
+  // Gemini models, used by the Google adapter in services/llm
+  geminiModels,
+
+  // Model gateway. 'openrouter' is the production path; 'google' calls Gemini directly and is
+  // dev-only (free-tier keys allow about 10 TTS calls a day and throttle parallel extraction)
+  llm: {
+    provider: process.env.LLM_PROVIDER || (process.env.OPENROUTER_API_KEY ? 'openrouter' : 'google'),
+    retry: {
+      attempts: parseInt(process.env.LLM_RETRY_ATTEMPTS, 10) || 6,
+      baseDelayMs: parseInt(process.env.LLM_RETRY_BASE_DELAY_MS, 10) || 4000,
+    },
+    openrouter: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+      models: {
+        extract: process.env.OPENROUTER_EXTRACTION_MODEL || 'google/gemini-3.8-flash',
+        extractBatch: 'google/gemini-3.8-flash:batch',
+        tts: process.env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-tts',
+        ttsLite: 'google/gemini-3.8-flash-lite-tts',
+        chat: process.env.OPENROUTER_CHAT_MODEL || 'google/gemini-3.8-flash',
+      },
+      timeouts: {
+        extractMs: parseInt(process.env.OPENROUTER_EXTRACTION_TIMEOUT_MS, 10) || 60000,
+        ttsMs: parseInt(process.env.OPENROUTER_TTS_TIMEOUT_MS, 10) || 120000,
+        chatMs: parseInt(process.env.OPENROUTER_CHAT_TIMEOUT_MS, 10) || 120000,
+      },
+      // 25 audio tokens per second at $9 per million (list price, measured in the OpenRouter spike)
+      ttsUsdPerAudioSecond: 0.000225,
+    },
+    google: {
+      models: geminiModels,
+    },
   },
 
-  // 'openrouter' routes page extraction and speech through OpenRouter; 'google' calls Gemini directly
+  // Superseded by `llm`; removed with openRouterService
   llmProvider: process.env.LLM_PROVIDER || (process.env.OPENROUTER_API_KEY ? 'openrouter' : 'google'),
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY,
