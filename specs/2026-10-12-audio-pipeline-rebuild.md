@@ -120,98 +120,159 @@ Bugs confirmed in code, folded into story 3: `pageCacheService.js:183` (duration
 
 ---
 
-## 3. Data model — diff against the LIVE schema
+## 3. Data model — diff against the LIVE schema (revised 2026-10-16 to match §9 O1–O11)
 
-Every `+` below is a **SCHEMA CHANGE — REQUIRES OWNER APPROVAL** (applied in the Supabase console from the migration files; the live DB is the truth, repo migrations are the record). RLS: enable on every new table with **no policies** (anon/authenticated see nothing); the backend reaches them with the service key and performs ownership checks in code via `supabaseService.ensureUserHasBookAccess(userId, bookId)` — same pattern CLAUDE.md mandates for personas. The frontend never queries these tables directly.
+The 2026-10-12 version of this section billed in audio seconds and scoped audio by book visibility. Both are replaced by
+the owner decisions in §9: money-metered billing (O3), recordings owned by whoever paid (O4–O6), Read/Listen modes (O1)
+and page classification (O8). Git history holds the old version.
+
+Every `+` below is a **SCHEMA CHANGE — REQUIRES OWNER APPROVAL** (migration files in the repo are the record; the owner
+approves each file before it is applied). RLS: enable on every new table with **no policies**; the backend reaches them
+with the service key and checks ownership in code via `supabaseService.ensureUserHasBookAccess(userId, bookId)`. The
+frontend never queries these tables directly.
+
+**Money unit.** Every amount is an integer in **micro-USD** (`*_micros bigint`, 1 USD = 1 000 000). Users see "credits";
+the display conversion lives in the frontend. Price charged = provider cost × `config.credits.markup` (O3).
+
+**Identity of "the same book".** `books.content_sha256` = SHA-256 of the PDF bytes. Two uploads of the same PDF share one
+extraction and one set of recordings; a library entry (`user_books`) already points at one `books` row.
 
 ```diff
- books            (id, user_id, parent_book_id, title, author, description, isbn, language, voice_persona, voice_settings,
-                   pdf_url, pdf_source, thumbnail_url, total_pages, visibility, shared_with, processing_status, processing_error, …)
-+                 total_pages is finally written (by pdfinfo in extractPages). No column change.
+ books            (id, user_id, parent_book_id, title, author, …, pdf_url, total_pages, visibility, processing_status, …)
++  mode               text NOT NULL DEFAULT 'read' CHECK (mode IN ('read','listen'))      -- O1; set at upload or before opening
++  content_sha256     text NULL                                                            -- backfilled by script for existing rows
++  INDEX books_content_sha256_idx (content_sha256)
++                     total_pages finally written (pdfinfo, story 4). No column change.
 
- pages            (id, book_id, page_number, image_url, image_width, image_height, created_at)
-+                 rows bulk-created for every page of a book at extraction start (today: lazily). No column change.
+ user_books       (user_id, book_id, last_read_page, …)
++  read_front_matter  boolean NOT NULL DEFAULT false                                       -- O8 "read all front matter" toggle
 
- page_text        (id, page_id UNIQUE, extracted_text text, extraction_confidence, extraction_metadata jsonb, processed_at, processing_duration_ms)
-+  blocks               jsonb      -- [{i, role, text, footnote_markers[], starts_mid_sentence, ends_mid_sentence}] (bakeoff schema, roles enum)
-+  extraction_id        uuid NULL REFERENCES book_extractions(id)
-+  prompt_version       int        -- extraction.js PROMPT_VERSION
-+  model                text       -- e.g. 'openrouter:google/gemini-3.8-flash'
-+  image_sha256         text       -- hash of the rendered PNG → re-extraction skips unchanged pages
-+  validation           jsonb      -- {latin_glue: n, loop: bool, length_ratio: x, retries: n, suspect: bool}
-+  extracted_text keeps the LEGACY {header:'', body:<spoken text joined>, footer:''} string so /api/pages/* keep working unchanged
+ pages            (id, book_id, page_number, image_url, …)  -- rows bulk-created at extraction start. No column change.
+
+ page_text        (id, page_id UNIQUE, extracted_text, extraction_confidence, extraction_metadata, processed_at, processing_duration_ms)
++  blocks             jsonb      -- [{i, role, text, footnote_markers[], starts_mid_sentence, ends_mid_sentence}]
++  page_type          text NULL CHECK (page_type IN ('cover','title','copyright','dedication','author_note','toc','blank',
++                                                    'preface','introduction','body','index','bibliography','back_cover'))   -- O8
++  extraction_id      uuid NULL REFERENCES book_extractions(id)
++  prompt_version     int · model text · image_sha256 text · validation jsonb · usage jsonb   -- usage = tokens + cost of this page
++  funded_by_user_id  uuid · cost_micros bigint · price_micros bigint   -- who paid to extract this page, provider cost, price charged
++  extracted_text keeps the LEGACY {header:'', body, footer} string so /api/pages/* keep working
 +  INDEX page_text_extraction_idx (extraction_id)
 
-+book_extractions (one versioned run per book; the thing segments belong to)
-+  id uuid PK · book_id uuid FK books ON DELETE CASCADE · status text CHECK IN ('queued','running','partial','complete','failed')
++page_skip_overrides   (O8: the listener's departures from the default skip list)
++  user_id uuid · book_id uuid FK books ON DELETE CASCADE · page_number int · skip boolean NOT NULL · updated_at
++  PRIMARY KEY (user_id, book_id, page_number)
+
++book_extractions      (one versioned run per PDF content; segments belong to it)
++  id uuid PK · content_sha256 text NOT NULL · source_book_id uuid FK books   -- the books row whose pages/page_text hold the blocks
++  status text CHECK IN ('queued','running','partial','complete','failed')
 +  model text · prompt_version int · dpi int DEFAULT 200 · pages_total int · pages_done int DEFAULT 0 · pages_failed int DEFAULT 0
-+  finalized_through_page int DEFAULT 0   -- segments are final for pages ≤ this
-+  requested_by uuid · started_at · finished_at · error text · created_at
-+  UNIQUE (book_id, prompt_version, model) WHERE status <> 'failed'   -- one live extraction per recipe
-+  INDEX (book_id, created_at DESC)
++  finalized_through_page int DEFAULT 0
++  started_by uuid                                    -- O2: the Listen user who started it; per-page money lives on page_text
++  started_at · finished_at · error text · created_at
++  UNIQUE (content_sha256, prompt_version, model) WHERE status <> 'failed'
 
-+segments         (playback unit)
-+  id uuid PK · extraction_id uuid FK book_extractions ON DELETE CASCADE · book_id uuid FK books
-+  seq int                      -- 1-based order within the extraction; append-only (never renumbered)
-+  role text CHECK IN ('body','heading')
-+  start_page int · end_page int · parts jsonb   -- [{page, chars}] from segmentBuilder → page-flip timing
-+  text text · text_sha256 text · char_count int
-+  sentence_offsets int[]       -- char offset where each sentence starts → highlight timing
-+  footnote_markers text[]
-+  status text CHECK IN ('open','final') DEFAULT 'final'   -- 'open' = last segment of the prefix, may still grow
-+  UNIQUE (extraction_id, seq) · INDEX (book_id, start_page) · INDEX (text_sha256)
++segments              (playback unit; unchanged from the 10-12 design)
++  id uuid PK · extraction_id uuid FK book_extractions ON DELETE CASCADE
++  seq int · role text CHECK IN ('body','heading') · start_page int · end_page int · parts jsonb   -- O7: owned by start_page
++  text text · text_sha256 text · char_count int · sentence_offsets int[] · footnote_markers text[]
++  status text CHECK IN ('open','final') DEFAULT 'final'
++  text_price_micros bigint     -- this clip's share of its pages' extraction price, by characters (from parts)
++  UNIQUE (extraction_id, seq) · INDEX (extraction_id, start_page) · INDEX (text_sha256)
++  Segments are built for EVERY page with text; skipping happens per listener when the window is planned (O8).
 
-+segment_audio    (content-addressed cache; NOT linked to a segment row — found by hash at request time)
-+  id uuid PK
-+  content_sha256 text          -- sha256(canonical JSON {text_sha256, model, base_voice, style_prompt, audio_format})
-+  text_sha256 text · model text · voice_key text   -- voice_key as pageCacheService.resolveVoice: 'Zephyr' | 'persona:<id>:<updated_at ms>'
-+  owner_user_id uuid NULL      -- NULL = shared row (generated for a public/shared book); set = private to that user
-+  scope_key text GENERATED ALWAYS AS (coalesce(owner_user_id::text, 'shared')) STORED
++recordings            (O4: one PDF content × one voice snapshot; never regenerated — O6)
++  id uuid PK · content_sha256 text NOT NULL
++  voice_snapshot_sha256 text NOT NULL · voice_snapshot jsonb   -- {model, base_voice, instructions} canonical JSON; persona edit ⇒ new hash
++  persona_id uuid NULL · created_by uuid NOT NULL              -- founding narrator badge
++  visibility text NOT NULL DEFAULT 'private' CHECK IN ('private','donated')    -- O5
++  donated_at · rights_attested_at · taken_down_at · takedown_reason text · created_at
++  UNIQUE (content_sha256, voice_snapshot_sha256)
+
++segment_audio         (one clip of one recording; found by text hash so unchanged paragraphs survive a re-extraction)
++  id uuid PK · recording_id uuid FK recordings ON DELETE CASCADE · text_sha256 text NOT NULL
 +  status text CHECK IN ('pending','ready','failed') · error text
 +  audio_url text · audio_format text · sample_rate int · channels int · duration_seconds numeric(8,2) · size_bytes int
-+  usage jsonb                  -- {prompt_tokens, completion_tokens, cost_usd, provider, latency_ms}
-+  created_at · ready_at · last_used_at · use_count int DEFAULT 0
-+  UNIQUE (content_sha256, scope_key) · INDEX (status, created_at)
++  funded_by_user_id uuid NOT NULL · cost_micros bigint · price_micros bigint · usage jsonb   -- audio only; text share is on segments
++  created_at · ready_at
++  UNIQUE (recording_id, text_sha256) · INDEX (status, created_at)
 
-+book_processing_jobs (the queue)
-+  id uuid PK · kind text CHECK IN ('extract_pages','tts_segment','tts_chapter')
-+  book_id uuid FK books ON DELETE CASCADE · user_id uuid NULL · extraction_id uuid NULL
-+  payload jsonb                -- extract_pages: {pages:[…], mode:'realtime'|'batch', provider_batch_id?}  tts_segment: {segment_id, voice_key, persona_id?, reservation_id}
-+  idempotency_key text UNIQUE  -- 'extract:<extraction_id>:<first>-<last>' | 'tts:<content_sha256>:<scope_key>'
-+  priority int DEFAULT 100     -- lower runs first; tts distance in seconds from the listener
-+  status text CHECK IN ('queued','running','done','failed','cancelled') · attempts int DEFAULT 0 · max_attempts int DEFAULT 5
-+  run_after timestamptz DEFAULT now() · locked_by text · locked_at timestamptz · last_error text · created_at · finished_at
++extraction_funders    (O6 for text: what each user paid to extract this content and has recovered)
++  extraction_id uuid FK book_extractions ON DELETE CASCADE · user_id uuid
++  paid_micros bigint NOT NULL DEFAULT 0 · recovered_micros bigint NOT NULL DEFAULT 0
++  CHECK (recovered_micros <= paid_micros) · PRIMARY KEY (extraction_id, user_id)
+
++recording_funders     (O6 for audio: what each funder paid and has recovered)
++  recording_id uuid FK recordings ON DELETE CASCADE · user_id uuid
++  paid_micros bigint NOT NULL DEFAULT 0 · recovered_micros bigint NOT NULL DEFAULT 0
++  CHECK (recovered_micros <= paid_micros) · PRIMARY KEY (recording_id, user_id)
+
++audio_entitlements    (who may replay a clip without paying again)
++  user_id uuid · segment_audio_id uuid FK segment_audio ON DELETE CASCADE · paid_micros bigint · created_at
++  PRIMARY KEY (user_id, segment_audio_id)
++  The funder gets a row at generation; a listener gets one when charged; donated clips need none.
+
++book_processing_jobs  (the queue; unchanged from the 10-12 design except the payload)
++  id · kind CHECK IN ('extract_pages','tts_segment','tts_chapter') · book_id · user_id · extraction_id
++  payload jsonb   -- tts_segment: {recording_id, segment_id, reservation_id}
++  idempotency_key text UNIQUE  -- 'extract:<extraction_id>:<first>-<last>' | 'tts:<recording_id>:<text_sha256>'
++  priority · status · attempts · max_attempts · run_after · locked_by · locked_at · last_error · created_at · finished_at
 +  INDEX (status, run_after, priority) · INDEX (book_id, kind)
 
-+credit_accounts  (user_id uuid PK · balance_seconds bigint NOT NULL DEFAULT 0 · updated_at)   -- cached sum; ledger is the truth
-+credit_ledger    (id uuid PK · user_id uuid · kind text CHECK IN ('grant','reserve','settle','release','refund','adjust')
-+                  · seconds int NOT NULL   -- signed: grant +, reserve −, settle 0 or ±delta, release +
-+                  · reservation_id uuid NULL · ref_type text · ref_id uuid · note text · created_at)
-+                  INDEX (user_id, created_at DESC) · INDEX (reservation_id)
++credit_accounts       (user_id uuid PK · balance_micros bigint NOT NULL DEFAULT 0 · updated_at)   -- cached sum; ledger is the truth
++credit_ledger         (id uuid PK · user_id uuid
++                       · kind text CHECK IN ('grant','reserve','settle','release','charge','rebate','refund','adjust')
++                       · amount_micros bigint NOT NULL          -- signed: grant/release/rebate +, reserve/charge −, settle ±
++                       · unit text NULL CHECK IN ('tokens','audio_seconds') · quantity numeric NULL      -- O3
++                       · provider_cost_micros bigint NULL · reservation_id uuid NULL
++                       · ref_type text · ref_id uuid · note text · created_at)
++                       INDEX (user_id, created_at DESC) · INDEX (reservation_id)
 
-+RPC claim_jobs(worker text, kinds text[], n int) RETURNS SETOF book_processing_jobs
-+  UPDATE … SET status='running', locked_by=worker, locked_at=now(), attempts=attempts+1
-+  WHERE id IN (SELECT id FROM book_processing_jobs WHERE status='queued' AND run_after<=now() AND kind = ANY(kinds)
-+               ORDER BY priority, created_at LIMIT n FOR UPDATE SKIP LOCKED) RETURNING *;
-+RPC credit_apply(user uuid, kind text, seconds int, reservation uuid, ref_type text, ref_id uuid, note text) RETURNS bigint
-+  inserts the ledger row and updates credit_accounts.balance_seconds in one transaction; raises when a reserve would go negative
++RPC claim_jobs(worker text, kinds text[], n int)  -- unchanged: FOR UPDATE SKIP LOCKED, ordered by priority, created_at
++RPC credit_apply(p_user uuid, p_kind text, p_amount bigint, p_unit text, p_quantity numeric, p_provider_cost bigint,
++                 p_reservation uuid, p_ref_type text, p_ref_id uuid, p_note text) RETURNS bigint
++  ledger row + balance update in one transaction; raises when the balance would go negative
++RPC charge_playback(p_listener uuid, p_segment_audio uuid) RETURNS jsonb
++  one transaction: skip if donated / entitled / listener funded both the audio and the text; else charge the listener
++  audio price + text share (minus any part the listener funded), insert the entitlement, and rebate p_rebate_share of each
++  part to the user who funded it (audio → recording funder, text → page funder), each capped at paid − recovered (O6)
 
- page_audio       (legacy, unchanged shape) — 84 rows get audio_duration_seconds corrected by the story-3 backfill (data fix, not DDL)
+ page_audio       (legacy) — 102 rows get audio_duration_seconds corrected by the backfill (data fix, not DDL)
 ```
 
-Rejected alternative — a `page_blocks` table with one row per block: more rows (≈1 200 per 300-page book) for no query we need; blocks are only ever read per page, and the owner-approved unit is the page. Kept as jsonb on `page_text` so the legacy row and the new data live together and `page_id UNIQUE` keeps idempotency for free.
+**Money flows (O2, O3, O5, O6).**
+
+| Event | Who pays | Ledger rows | Side effects |
+|---|---|---|---|
+Rule (owner, 2026-10-16): text exists only to make the audio, so **every clip is priced at its total — audio + its share
+of the text** — and pay-it-forward applies to both parts. Nobody pays twice for the same thing.
+
+| Event | Who pays | Ledger rows | Side effects |
+|---|---|---|---|
+| Listen user starts an extraction | that user, per token, page by page | `reserve` (estimate) → `settle` (actual `usage.cost` × markup), `unit='tokens'` | `page_text.funded_by_user_id`, `extraction_funders.paid_micros +=` |
+| Same PDF, another user | nothing up front — the text is reused | — | — |
+| A clip is generated | the listener: audio per second + the clip's text share (waived on pages they funded) | `reserve` → `settle` (`audio_seconds`) · `charge` (`tokens`) for the text share | `segment_audio.funded_by_user_id`, `recording_funders.paid_micros +=`, entitlement; text share rebated to the page funders |
+| Someone else's private clip is played | the listener: the same total price | `charge` · `rebate` to the audio funder and to the page funders | entitlement; each funder's `recovered_micros +=` until it equals `paid_micros` |
+| A donated clip is played | nobody | — | — |
+| Replay of a clip the listener paid for | nobody | — | — |
+
+Defaults (owner, 2026-10-16), in `config.credits`: `markup = 2.0`, `rebateShare = 0.5`, `starterGrantMicros = 1 000 000` ($1 ≈ 37 min of new audio).
+
+Rejected alternatives: **seconds as the money unit** (O3 bills tokens and seconds at different rates, so the common unit
+must be money); **one `scope_key` per audio row** (the 10-12 design) — replaced by `recordings`, because O4 makes
+ownership a property of the recording, not of the book's visibility; **per-listener segment builds for skipped pages** —
+one build per extraction, filtered when the window is planned, keeps segments shared.
 
 ### 3.1 Migration and backfill plan
 
 | Step | What | Data loss? | Who |
 |---|---|---|---|
-| M1 | Apply `01_page_text_blocks.sql` (add columns, index) | none; additive | owner |
-| M2 | Apply `02_segments.sql`, `03_jobs.sql`, `04_credits.sql`, `05_claim_jobs_rpc.sql` | none; new tables | owner |
-| M3 | Run `scripts/backfill-page-audio-duration.js --dry-run` → prints 84 old/new values; owner re-runs with `--apply` | none; fixes wrong numbers | owner |
-| M4 | Grant starter credits: `credit_apply(user, 'grant', 3600, …)` per existing user (DEFAULT 60 min; owner sets the number) | none | owner |
-| M5 | Deploy backend with `LLM_PROVIDER=openrouter`, `JOBS_MODE=inline` | none; legacy routes unchanged | agent (after owner confirms env vars are set — never read `.env`) |
-| M6 | Existing books: nothing happens until the owner opens one (DEFAULT 1 → first open triggers extraction). Legacy `page_audio` keeps playing through `/api/pages/*` until `book_extractions.status='complete'` for that book; then the client switches to segments. Legacy files are **not** deleted in this epic. | none | — |
-| M7 | Later (not in this epic): delete legacy `page_audio` rows/files for re-processed books; drop `/api/pages/audio` | owner decision | — |
+| M1 | `01_books_modes_and_pages.sql`: `books.mode`, `books.content_sha256`, `user_books.read_front_matter`, `page_text` columns, `page_skip_overrides` | none; additive | agent applies through the Supabase MCP after the owner approves the file |
+| M2 | `02_extractions_segments.sql`, `03_recordings_audio.sql`, `04_jobs.sql`, `05_credits.sql`, `06_rpcs.sql` | none; new tables | same |
+| M3 | `07_backfill_page_audio_duration.sql`: rows whose bytes/second > 100 000 (old formula; 102 live on 2026-10-16, 2 already correct) get `round((audio_size_bytes − 44) / 48000)` | none; fixes wrong numbers | agent, after approval |
+| M4 | `scripts/backfill-book-hashes.js`: download each PDF, write `content_sha256`; set `mode='listen'` on the existing books (they were all listened to; O9) | none | agent, after approval |
+| M5 | Starter credits: one `grant` per existing user (amount = `config.credits.starterGrantMicros`) | none | agent, after approval |
+| M6 | Legacy `page_audio` keeps playing until the book's extraction is complete; legacy files are **not** deleted in this epic | none | — |
 
 ---
 
