@@ -462,6 +462,7 @@ The original defaults D1–D3 are replaced. Sections 3 (data model), 5.3 (credit
 | O8 | **Non-content pages:** every page is classified in the same extraction call (cover, title, copyright, dedication, author's note, table of contents, blank, body, index, bibliography, back cover). Defaults: skip cover, title, copyright, blank, table of contents, index, back cover, dedication, author's note; read preface/introduction/body. The user reviews the suggestions (rail Pages tab: thumbnail + toggle, plus "read all front matter") and may read any skipped page. Skipped pages are never voiced. | `page_text.page_type`; per-user-per-book skip overrides; the segment builder excludes skipped pages per listener. |
 | O9 | **Existing books re-process automatically on first open** (Listen mode); legacy per-page audio keeps playing until new segments are ready. | Unchanged from old D3. |
 | O10 | **Order:** finish the reading-room epic before starting story 1 of this epic. | — |
+| O11 | **Selection on scanned books waits for the extracted-text view** (2026-10-15). Most books are scanned or have an unusable PDF text layer, so the reading-room Explain / Save-as-note popover only works on text PDFs today. No "Explain this page" stopgap. | Story 7's `ExtractedTextView` must support text selection wired to the existing `AssistantContext` explain API and `SelectionPopover` (Explain / Save as note with `textSelection` + the page the selected text came from). |
 
 ---
 
