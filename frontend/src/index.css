@@ -78,6 +78,21 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif tracking-tight;
   }
+  :lang(ar) {
+    --font-ar-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif;
+    --font-ar-serif: "Amiri", "Newsreader", Georgia, serif;
+  }
+  :lang(ar) body {
+    font-family: var(--font-ar-sans);
+  }
+  :lang(ar) .font-sans {
+    font-family: var(--font-ar-sans);
+  }
+  :lang(ar) .font-serif,
+  :lang(ar) h1, :lang(ar) h2, :lang(ar) h3, :lang(ar) h4, :lang(ar) h5, :lang(ar) h6 {
+    font-family: var(--font-ar-serif);
+    letter-spacing: 0;
+  }
 }
 
 /* Handle mobile viewport height */

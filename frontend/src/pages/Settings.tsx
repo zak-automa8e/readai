@@ -19,9 +19,11 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { useUI, type Lang } from "@/contexts/UIContext";
 
 const Settings = () => {
   const { theme: activeTheme, setTheme } = useTheme();
+  const { lang, setLang } = useUI();
 
   // Mock settings state (in a real app, this would be managed by a settings context)
   const [settings, setSettings] = useState({
@@ -320,6 +322,22 @@ const Settings = () => {
                     <SelectItem value="es">Español</SelectItem>
                     <SelectItem value="fr">Français</SelectItem>
                     <SelectItem value="de">Deutsch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="interface-language">Interface language</Label>
+                <Select
+                  value={lang}
+                  onValueChange={(value) => setLang(value as Lang)}
+                >
+                  <SelectTrigger id="interface-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="ar">العربية</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
