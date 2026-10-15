@@ -358,7 +358,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
           onClick={handleChooseDifferentFile}
           className="gap-2"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
           Choose Different File
         </Button>
         

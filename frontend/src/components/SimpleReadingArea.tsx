@@ -16,9 +16,9 @@ export const SimpleReadingArea = () => {
             variant="ghost"
             size="sm"
             onClick={() => navigate('/library')}
-            className="mr-4"
+            className="me-4"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" />
+            <ChevronLeft className="h-4 w-4 me-1 rtl:rotate-180" />
             Back to Library
           </Button>
           <h1 className="text-lg font-semibold">No PDF available</h1>
@@ -38,9 +38,9 @@ export const SimpleReadingArea = () => {
           variant="ghost"
           size="sm"
           onClick={() => navigate('/library')}
-          className="mr-4"
+          className="me-4"
         >
-          <ChevronLeft className="h-4 w-4 mr-1" />
+          <ChevronLeft className="h-4 w-4 me-1 rtl:rotate-180" />
           Back to Library
         </Button>
         <div className="flex-1">

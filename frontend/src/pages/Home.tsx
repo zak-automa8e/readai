@@ -66,7 +66,7 @@ const Home = () => {
             >
               <BookOpen className="h-5 w-5" />
               {books.length > 0 ? 'Go to Library' : 'Upload Your First Book'}
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 rtl:rotate-180" />
             </Button>
             <Button
               variant="outline"

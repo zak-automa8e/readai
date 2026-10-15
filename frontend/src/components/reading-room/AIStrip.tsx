@@ -7,7 +7,7 @@ export const AIStrip = () => {
 
   return (
     <nav className="flex h-full flex-col items-center gap-1 overflow-hidden py-2" aria-label="AI assistant">
-      <PaneStripButton icon={PanelRightOpen} label="Expand assistant" onClick={panes.toggleAI} />
+      <PaneStripButton icon={PanelRightOpen} label="Expand assistant" onClick={panes.toggleAI} mirror />
       <div className="my-1 h-px w-6 bg-border" aria-hidden="true" />
       <PaneStripButton icon={MessageSquare} label="Chat" onClick={() => panes.openAITab("chat")} />
       <PaneStripButton icon={StickyNote} label="Notes" onClick={() => panes.openAITab("notes")} />

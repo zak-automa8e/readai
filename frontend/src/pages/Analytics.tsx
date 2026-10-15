@@ -133,7 +133,7 @@ const Analytics = () => {
         {/* Time Range Selector */}
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold text-foreground">Overview</h2>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -227,7 +227,7 @@ const Analytics = () => {
                 <h3 className="text-lg font-semibold text-foreground mb-4">Daily Reading Activity</h3>
                 <div className="space-y-4">
                   {analytics.weeklyData.map((day) => (
-                    <div key={day.day} className="flex items-center space-x-4">
+                    <div key={day.day} className="flex items-center gap-4">
                       <div className="w-8 text-sm text-muted-foreground">{day.day}</div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
@@ -265,7 +265,7 @@ const Analytics = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Reading Consistency</span>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">
                         {analytics.readingPattern.consistency}%
                       </span>
@@ -350,7 +350,7 @@ const Analytics = () => {
                       </div>
                       
                       {achievement.earned ? (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2">
                           <Badge variant="default" className="text-xs">Earned</Badge>
                           <span className="text-xs text-muted-foreground">
                             {new Date(achievement.date!).toLocaleDateString()}
@@ -409,7 +409,7 @@ const Analytics = () => {
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/10">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3">
                       <Eye className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Focus Score</span>
                     </div>
@@ -420,7 +420,7 @@ const Analytics = () => {
                   </div>
                   
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/10">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3">
                       <Headphones className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Audio Engagement</span>
                     </div>
@@ -431,7 +431,7 @@ const Analytics = () => {
                   </div>
                   
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/10">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3">
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Learning Velocity</span>
                     </div>

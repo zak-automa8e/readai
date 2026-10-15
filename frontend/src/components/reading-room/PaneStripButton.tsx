@@ -5,10 +5,11 @@ interface PaneStripButtonProps {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  mirror?: boolean;
 }
 
 /** One icon in a collapsed pane's strip. */
-export const PaneStripButton = ({ icon: Icon, label, onClick }: PaneStripButtonProps) => (
+export const PaneStripButton = ({ icon: Icon, label, onClick, mirror }: PaneStripButtonProps) => (
   <Button
     variant="ghost"
     size="icon"
@@ -17,6 +18,6 @@ export const PaneStripButton = ({ icon: Icon, label, onClick }: PaneStripButtonP
     aria-label={label}
     title={label}
   >
-    <Icon className="h-5 w-5" />
+    <Icon className={mirror ? "h-5 w-5 rtl:rotate-180" : "h-5 w-5"} />
   </Button>
 );

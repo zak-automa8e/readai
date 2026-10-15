@@ -152,7 +152,7 @@ export const NowPlayingBar = () => {
           disabled={pageNumber <= 1}
           aria-label="Previous page"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <span className="flex min-w-16 items-center justify-center gap-1 font-serif text-sm tabular-nums text-muted-foreground">
           <PageJump pageNumber={pageNumber} numPages={numPages} onJump={goToPage} />
@@ -172,7 +172,7 @@ export const NowPlayingBar = () => {
           disabled={!numPages || pageNumber >= numPages}
           aria-label="Next page"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>
       </div>
 

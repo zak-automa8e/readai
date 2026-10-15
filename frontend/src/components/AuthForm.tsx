@@ -160,7 +160,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
                 <Button
@@ -223,7 +223,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                   Create Account
                 </Button>
               </form>
@@ -235,7 +235,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
               <Label htmlFor="reset-email" className="text-sm text-muted-foreground">
                 Reset Password
               </Label>
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <Input
                   id="reset-email"
                   type="email"

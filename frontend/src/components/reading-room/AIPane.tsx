@@ -35,7 +35,7 @@ export const AIPane = () => {
           aria-label="Collapse assistant"
           title="Collapse assistant"
         >
-          <PanelRightClose className="h-4 w-4" />
+          <PanelRightClose className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <TabsList className="grid h-8 min-w-0 flex-1 grid-cols-3 p-0.5">
           {TABS.map(({ value, label, icon: Icon }) => (

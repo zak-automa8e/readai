@@ -18,7 +18,7 @@ export const RoomHeader = () => {
         className="h-8 shrink-0 gap-2 px-2 text-muted-foreground"
         onClick={() => navigate("/library")}
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
         Library
       </Button>
       <div className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />

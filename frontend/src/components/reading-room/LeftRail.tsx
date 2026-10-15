@@ -37,7 +37,7 @@ export const LeftRail = () => {
           aria-label="Collapse rail"
           title="Collapse rail"
         >
-          <PanelLeftClose className="h-4 w-4" />
+          <PanelLeftClose className="h-4 w-4 rtl:rotate-180" />
         </Button>
       </div>
       <TabsContent value="pages" className="mt-0 min-h-0 flex-1 overflow-hidden">

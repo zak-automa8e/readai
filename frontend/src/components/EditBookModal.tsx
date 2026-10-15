@@ -102,7 +102,7 @@ export function EditBookModal({ book, isOpen, onClose, onSave }: EditBookModalPr
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 bg-background/80 hover:bg-background"
+                        className="absolute top-1 end-1 h-6 w-6 bg-background/80 hover:bg-background"
                         onClick={() => setPreviewUrl(null)}
                       >
                         <X className="h-4 w-4" />
@@ -123,7 +123,7 @@ export function EditBookModal({ book, isOpen, onClose, onSave }: EditBookModalPr
                   className="w-full"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="h-4 w-4 mr-2" />
+                  <Upload className="h-4 w-4 me-2" />
                   Upload New Cover
                 </Button>
                 <input
