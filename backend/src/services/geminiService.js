@@ -1,8 +1,11 @@
 const { GoogleGenAI } = require('@google/genai');
 const config = require('../config');
 const logger = require('../utils/logger');
-const openRouterService = require('./openRouterService');
 
+/**
+ * Google-direct Gemini calls, used through services/llm/googleProvider.
+ * Dev-only fallback: free-tier keys throttle hard, so production runs through OpenRouter.
+ */
 class GeminiService {
   constructor() {
     this.ai = new GoogleGenAI({
@@ -13,12 +16,17 @@ class GeminiService {
   }
 
   /**
-   * Process an image and extract text content
-   * @param {string} imageData - Base64 encoded image data
-   * @param {string} mimeType - MIME type of the image
-   * @returns {Promise<Object>} - Extracted text in JSON format
+   * Run an image through Gemini with a system prompt and return the raw JSON text.
+   * Falls back to the secondary model when the primary one is unavailable.
+   * @param {Object} args
+   * @param {string} args.imageData - Base64 encoded image data
+   * @param {string} args.mimeType - MIME type of the image
+   * @param {string} args.systemPrompt - System instruction
+   * @param {Object} [args.responseSchema] - Gemini response schema
+   * @param {string} [args.thinkingLevel='LOW'] - Gemini 3.x thinking level
+   * @returns {Promise<{text: string, usage: Object|null, model: string}>}
    */
-  async processImageToText(imageData, mimeType) {
+  async imageToJsonText({ imageData, mimeType, systemPrompt, responseSchema, thinkingLevel = 'LOW' }) {
     // Validate input parameters
     if (!imageData) {
       throw new Error('Image data is required');
@@ -40,17 +48,11 @@ class GeminiService {
 
     const modelConfig = {
       temperature: 0,
-      thinkingConfig: {
-        // Gemini 3.x takes a thinking level; LOW was enough for page extraction in the bake-off
-        thinkingLevel: 'LOW',
-      },
+      thinkingConfig: { thinkingLevel },
       responseMimeType: 'application/json',
-      systemInstruction: [
-        {
-          text: this.getDigitalMuhaqqiqPrompt(),
-        },
-      ],
+      systemInstruction: [{ text: systemPrompt }],
     };
+    if (responseSchema) modelConfig.responseSchema = responseSchema;
 
     const contents = [
       {
@@ -65,15 +67,6 @@ class GeminiService {
         ],
       },
     ];
-
-    if (openRouterService.isEnabled()) {
-      try {
-        const text = await openRouterService.extractPageText(imageData, mimeType, this.getDigitalMuhaqqiqPrompt());
-        return this.parseResponse(text);
-      } catch (error) {
-        logger.warn(`OpenRouter extraction failed (${error.message.slice(0, 160)}); falling back to Gemini direct`);
-      }
-    }
 
     const { imageToText, imageToTextFallback, imageToTextTimeoutMs } = config.geminiModels;
     try {
@@ -106,8 +99,10 @@ class GeminiService {
       });
 
       let fullText = '';
+      let usage = null;
       for await (const chunk of response) {
         try {
+          if (chunk.usageMetadata) usage = chunk.usageMetadata;
           if (chunk.text && typeof chunk.text === 'function') {
             fullText += chunk.text();
           } else if (chunk.candidates && chunk.candidates[0] && chunk.candidates[0].content) {
@@ -121,7 +116,7 @@ class GeminiService {
         }
       }
 
-      return this.parseResponse(fullText);
+      return { text: fullText, usage, model };
     } catch (error) {
       logger.error(`Error in Gemini image-to-text processing (${model}):`, error);
       throw error;
@@ -135,18 +130,9 @@ class GeminiService {
    * @param {string} text - Text to convert to audio
    * @param {string} [voiceName='Sadaltager'] - Voice name to use
    * @param {string} [systemInstruction] - Optional system instruction for style control
-   * @returns {Promise<Object>} - Object containing audio data and mime type
+   * @returns {Promise<Object>} - { data: base64 audio, mimeType, usage }
    */
   async generateAudio(text, voiceName = '6tager', systemInstruction = null) {
-    const truncatedText = text.length > config.maxTextLength
-      ? text.substring(0, config.maxTextLength) + "..."
-      : text;
-
-    // Style goes in OpenRouter's `instructions` field; text placed in the input would be read aloud
-    if (openRouterService.isEnabled()) {
-      return this.retryWithBackoff(() => openRouterService.synthesize(truncatedText, voiceName, systemInstruction));
-    }
-
     const modelConfig = {
       responseModalities: ['AUDIO'],
       speechConfig: {
@@ -163,7 +149,7 @@ class GeminiService {
       {
         parts: [
           {
-            text: truncatedText
+            text
           }
         ]
       }
@@ -171,91 +157,42 @@ class GeminiService {
 
     logger.debug(`Calling Gemini model ${model} for text-to-audio conversion`);
 
-    return this.retryWithBackoff(async () => {
-      try {
-        const request = {
-          model,
-          contents,
-          config: modelConfig,
-        };
-
-        // A senior developer approach: enforce strict modality in system instructions
-        // This prevents the model from "thinking out loud" or generating text preludes
-        const strictAudioInstruction = "IMPORTANT: You are a TTS (Text-to-Speech) engine. You MUST ONLY generate audio. Do NOT generate any text, explanations, or preludes. Your response must be 100% audio data.";
-
-        const finalSystemInstruction = systemInstruction
-          ? `${systemInstruction}\n\n${strictAudioInstruction}`
-          : strictAudioInstruction;
-
-        if (finalSystemInstruction) {
-          request.systemInstruction = {
-            parts: [{ text: finalSystemInstruction }]
-          };
-        }
-
-        const response = await this.ai.models.generateContent(request);
-
-        const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!audioData) {
-          throw new Error('No audio data in response');
-        }
-
-        return {
-          data: audioData,
-          mimeType: response.candidates[0].content.parts[0].inlineData.mimeType || ''
-        };
-      } catch (error) {
-        logger.error('Error in Gemini text-to-audio processing:', error);
-        throw error;
-      }
-    });
-  }
-
-  /**
-   * Retry an operation with exponential backoff
-   * @param {Function} operation - Async operation to retry
-   * @returns {Promise<any>} - Result of the operation
-   */
-  async retryWithBackoff(operation) {
-    let attempts = 0;
-    const maxAttempts = config.maxRetries;
-
-    while (attempts < maxAttempts) {
-      try {
-        return await operation();
-      } catch (error) {
-        attempts++;
-
-        if (error.message && error.message.includes('429') && attempts < maxAttempts) {
-          const waitTime = Math.pow(2, attempts) * config.retryDelay;
-          logger.warn(`Rate limited, waiting ${waitTime}ms before retry ${attempts} of ${maxAttempts}`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        }
-
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * Parse JSON response from Gemini
-   * @param {string} fullText - Response text from Gemini
-   * @returns {Object} - Parsed JSON or fallback object
-   */
-  parseResponse(fullText) {
-    if (!fullText || fullText.trim() === '') {
-      throw new Error('Gemini returned an empty response');
-    }
-
     try {
-      return JSON.parse(fullText);
-    } catch (parseError) {
-      logger.error('Failed to parse JSON response from Gemini:', {
-        error: parseError.message,
-        text: fullText.substring(0, 500)
-      });
-      throw new Error('Failed to parse extraction result as JSON');
+      const request = {
+        model,
+        contents,
+        config: modelConfig,
+      };
+
+      // A senior developer approach: enforce strict modality in system instructions
+      // This prevents the model from "thinking out loud" or generating text preludes
+      const strictAudioInstruction = "IMPORTANT: You are a TTS (Text-to-Speech) engine. You MUST ONLY generate audio. Do NOT generate any text, explanations, or preludes. Your response must be 100% audio data.";
+
+      const finalSystemInstruction = systemInstruction
+        ? `${systemInstruction}\n\n${strictAudioInstruction}`
+        : strictAudioInstruction;
+
+      if (finalSystemInstruction) {
+        request.systemInstruction = {
+          parts: [{ text: finalSystemInstruction }]
+        };
+      }
+
+      const response = await this.ai.models.generateContent(request);
+
+      const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!audioData) {
+        throw new Error('No audio data in response');
+      }
+
+      return {
+        data: audioData,
+        mimeType: response.candidates[0].content.parts[0].inlineData.mimeType || '',
+        usage: response.usageMetadata || null
+      };
+    } catch (error) {
+      logger.error('Error in Gemini text-to-audio processing:', error);
+      throw error;
     }
   }
 

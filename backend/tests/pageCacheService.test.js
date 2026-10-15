@@ -1,12 +1,12 @@
 const pageCacheService = require('../src/services/pageCacheService');
 const supabaseService = require('../src/services/supabaseService');
-const geminiService = require('../src/services/geminiService');
+const llm = require('../src/services/llm');
 const voicePersonaService = require('../src/services/voicePersonaService');
 const logger = require('../src/utils/logger');
 
 // Mock dependencies
 jest.mock('../src/services/supabaseService');
-jest.mock('../src/services/geminiService');
+jest.mock('../src/services/llm', () => ({ extractBlocks: jest.fn(), synthesize: jest.fn() }));
 jest.mock('../src/services/voicePersonaService');
 jest.mock('../src/utils/logger');
 
@@ -16,6 +16,8 @@ describe('PageCacheService', () => {
     const userId = 'user-456';
     const imageData = 'base64-image-data';
     const mimeType = 'image/png';
+
+    const pcmResult = (pcm) => ({ pcm, sampleRate: 24000, channels: 1, bitsPerSample: 16, usage: {} });
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -35,7 +37,7 @@ describe('PageCacheService', () => {
             expect(result.cached).toBe(true);
             expect(result.text.header).toBe('Header');
             expect(supabaseService.getPageTextByBookAndNumber).toHaveBeenCalledWith(bookId, pageNumber);
-            expect(geminiService.processImageToText).not.toHaveBeenCalled();
+            expect(llm.extractBlocks).not.toHaveBeenCalled();
         });
 
         it('should re-extract text when forceRefresh is true', async () => {
@@ -43,19 +45,25 @@ describe('PageCacheService', () => {
                 extracted_text: JSON.stringify({ header: 'Old Header', body: 'Old Body' }),
                 pages: { id: 'page-1' }
             };
-            const freshText = JSON.stringify({ header: 'New Header', body: 'New Body' });
+            const freshBlocks = [
+                { role: 'heading', text: 'New Header' },
+                { role: 'body', text: 'New Body' },
+                { role: 'page_number', text: '٧' }
+            ];
             const pageRecord = { id: 'page-1' };
 
             supabaseService.getPageTextByBookAndNumber.mockResolvedValue(existingText);
             supabaseService.getOrCreatePage.mockResolvedValue(pageRecord);
-            geminiService.processImageToText.mockResolvedValue(freshText);
+            llm.extractBlocks.mockResolvedValue({ blocks: freshBlocks });
 
             const result = await pageCacheService.getOrExtractPageText(bookId, pageNumber, imageData, mimeType, userId, true);
 
             expect(result.cached).toBe(false);
-            expect(result.text.header).toBe('New Header');
-            expect(geminiService.processImageToText).toHaveBeenCalled();
-            expect(supabaseService.savePageText).toHaveBeenCalled();
+            expect(result.text).toEqual({ header: 'New Header', body: 'New Body', footer: '٧' });
+            expect(llm.extractBlocks).toHaveBeenCalledWith({ pngBase64: imageData, mimeType });
+            expect(supabaseService.savePageText).toHaveBeenCalledWith('page-1', expect.objectContaining({
+                extracted_text: { header: 'New Header', body: 'New Body', footer: '٧' }
+            }));
         });
     });
 
@@ -76,7 +84,7 @@ describe('PageCacheService', () => {
 
             expect(result.cached).toBe(true);
             expect(result.audioUrl).toBe('http://example.com/audio.wav');
-            expect(geminiService.generateAudio).not.toHaveBeenCalled();
+            expect(llm.synthesize).not.toHaveBeenCalled();
         });
 
         it('should re-generate audio when forceRefresh is true', async () => {
@@ -84,17 +92,14 @@ describe('PageCacheService', () => {
                 name: 'Sadaltager',
                 base_voice_name: 'en-US-Standard-A'
             };
-            const audioResult = {
-                data: Buffer.from('audio-data'),
-                mimeType: 'audio/wav'
-            };
+            const audioResult = pcmResult(Buffer.alloc(48000 * 27));
             const pageRecord = { id: 'page-1' };
 
             supabaseService.getPageAudioByBookAndNumber.mockResolvedValue({ audio_url: 'old-url' });
             voicePersonaService.getAccessiblePersona.mockResolvedValue(persona);
             voicePersonaService.buildPrompt.mockReturnValue('System prompt');
             supabaseService.getOrCreatePage.mockResolvedValue(pageRecord);
-            geminiService.generateAudio.mockResolvedValue(audioResult);
+            llm.synthesize.mockResolvedValue(audioResult);
             supabaseService.saveAudioFile.mockResolvedValue('http://example.com/new-audio.wav');
             supabaseService.savePageAudio.mockResolvedValue({});
 
@@ -102,8 +107,11 @@ describe('PageCacheService', () => {
 
             expect(result.cached).toBe(false);
             expect(result.audioUrl).toContain('http://example.com/new-audio.wav');
-            expect(geminiService.generateAudio).toHaveBeenCalled();
-            expect(supabaseService.savePageAudio).toHaveBeenCalled();
+            expect(llm.synthesize).toHaveBeenCalled();
+            expect(supabaseService.savePageAudio).toHaveBeenCalledWith('page-1', expect.objectContaining({
+                audio_duration_seconds: 27,
+                audio_size_bytes: 48000 * 27 + 44
+            }));
         });
     });
 
@@ -181,14 +189,14 @@ describe('PageCacheService', () => {
             voicePersonaService.buildPrompt.mockReturnValue('System prompt');
             supabaseService.getPageAudioByBookAndNumber.mockResolvedValue(null);
             supabaseService.getOrCreatePage.mockResolvedValue({ id: 'page-1' });
-            geminiService.generateAudio.mockResolvedValue({ data: Buffer.from('audio-data'), mimeType: 'audio/wav' });
+            llm.synthesize.mockResolvedValue(pcmResult(Buffer.alloc(480)));
             supabaseService.saveAudioFile.mockResolvedValue('http://example.com/new-audio.wav');
             supabaseService.savePageAudio.mockResolvedValue({});
 
             await pageCacheService.getOrGeneratePageAudio(bookId, pageNumber, 'Sample text', 'Zephyr', userId, false, personaId);
 
             expect(supabaseService.getPageAudioByBookAndNumber).toHaveBeenCalledWith(bookId, pageNumber, cacheKey);
-            expect(geminiService.generateAudio).toHaveBeenCalledWith('Sample text', 'Enceladus', 'System prompt');
+            expect(llm.synthesize).toHaveBeenCalledWith({ text: 'Sample text', baseVoice: 'Enceladus', styleInstruction: 'System prompt' });
             expect(supabaseService.savePageAudio).toHaveBeenCalledWith('page-1', expect.objectContaining({ voice_persona: cacheKey }));
             const filePath = supabaseService.saveAudioFile.mock.calls[0][1];
             expect(filePath).toMatch(/^audio\/user-456\/book-123\/page_1_persona_[a-z0-9_-]+\.wav$/);
@@ -198,14 +206,14 @@ describe('PageCacheService', () => {
             voicePersonaService.getAccessiblePersona.mockResolvedValue(null);
             supabaseService.getPageAudioByBookAndNumber.mockResolvedValue(null);
             supabaseService.getOrCreatePage.mockResolvedValue({ id: 'page-1' });
-            geminiService.generateAudio.mockResolvedValue({ data: Buffer.from('audio-data'), mimeType: 'audio/wav' });
+            llm.synthesize.mockResolvedValue(pcmResult(Buffer.alloc(480)));
             supabaseService.saveAudioFile.mockResolvedValue('http://example.com/new-audio.wav');
             supabaseService.savePageAudio.mockResolvedValue({});
 
             await pageCacheService.getOrGeneratePageAudio(bookId, pageNumber, 'Sample text', 'Zephyr', userId, false, personaId);
 
             expect(supabaseService.getPageAudioByBookAndNumber).toHaveBeenCalledWith(bookId, pageNumber, 'Zephyr');
-            expect(geminiService.generateAudio).toHaveBeenCalledWith('Sample text', 'Zephyr', null);
+            expect(llm.synthesize).toHaveBeenCalledWith({ text: 'Sample text', baseVoice: 'Zephyr', styleInstruction: null });
             expect(voicePersonaService.buildPrompt).not.toHaveBeenCalled();
         });
     });

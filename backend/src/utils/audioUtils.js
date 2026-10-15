@@ -1,3 +1,5 @@
+const config = require('../config');
+
 /**
  * Utility functions for audio processing
  */
@@ -85,7 +87,19 @@ function createWavHeader(dataLength, options) {
   return buffer;
 }
 
+/**
+ * Cut text to config.maxTextLength the way the legacy page and preview routes always have.
+ * @param {string} text
+ * @returns {string}
+ */
+function truncateForLegacyAudio(text) {
+  return text.length > config.maxTextLength
+    ? text.substring(0, config.maxTextLength) + '...'
+    : text;
+}
+
 module.exports = {
+  truncateForLegacyAudio,
   convertToWav,
   parseMimeType,
   createWavHeader

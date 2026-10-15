@@ -1,7 +1,9 @@
 const supabaseService = require('./supabaseService');
-const geminiService = require('./geminiService');
+const llm = require('./llm');
+const { pcmToWav, durationSeconds } = require('./llm/audio');
 const voicePersonaService = require('./voicePersonaService');
-const { convertToWav } = require('../utils/audioUtils');
+const { truncateForLegacyAudio } = require('../utils/audioUtils');
+const { blocksToLegacyText } = require('../utils/legacyPageText');
 const logger = require('../utils/logger');
 
 const DEFAULT_BASE_VOICE = 'Sadaltager';
@@ -63,12 +65,13 @@ class PageCacheService {
       // Get or create page record with placeholder image URL
       const page = await supabaseService.getOrCreatePage(bookId, pageNumber, 'placeholder');
 
-      // Extract text using Gemini
-      logger.info('Calling Gemini for fresh text extraction...', { bookId, pageNumber });
-      const extractedText = await geminiService.processImageToText(imageData, mimeType);
+      // Extract text through the LLM layer, stored in the legacy header/body/footer shape
+      logger.info('Calling LLM for fresh text extraction...', { bookId, pageNumber });
+      const { blocks } = await llm.extractBlocks({ pngBase64: imageData, mimeType });
+      const extractedText = blocksToLegacyText(blocks);
 
       const normalized = this.normalizeExtractedText(extractedText);
-      logger.info('Gemini extraction complete', {
+      logger.info('LLM extraction complete', {
         bookId,
         pageNumber,
         textPreview: normalized.body ? normalized.body.substring(0, 50) + '...' : 'empty'
@@ -162,12 +165,16 @@ class PageCacheService {
       // Get or create page record
       const page = await supabaseService.getOrCreatePage(bookId, pageNumber, 'placeholder');
 
-      // Generate audio using Gemini
-      logger.info('Calling Gemini for fresh audio generation...', { bookId, pageNumber, cacheKey });
-      const { data: audioData, mimeType } = await geminiService.generateAudio(text, baseVoiceName, systemInstruction);
+      // Generate audio through the LLM layer
+      logger.info('Calling LLM for fresh audio generation...', { bookId, pageNumber, cacheKey });
+      const audio = await llm.synthesize({
+        text: truncateForLegacyAudio(text),
+        baseVoice: baseVoiceName,
+        styleInstruction: systemInstruction
+      });
 
       // Convert to WAV
-      const wavBuffer = convertToWav(audioData, mimeType);
+      const wavBuffer = pcmToWav(audio);
 
       // Save audio file to storage
       // Use a consistent naming scheme that includes persona and timestamp to ensure freshness
@@ -179,8 +186,8 @@ class PageCacheService {
       logger.info('Saving fresh audio file to storage...', { bookId, pageNumber, filePath });
       const audioUrl = await supabaseService.saveAudioFile(wavBuffer, filePath);
 
-      // Calculate audio duration (approximate: WAV file size / bitrate)
-      const estimatedDuration = Math.round(wavBuffer.length / (44100 * 2 * 2));
+      // Duration from the WAV header; the column is an integer
+      const estimatedDuration = Math.round(durationSeconds(wavBuffer));
 
       // Save audio metadata to cache (upsert handles existing records)
       await supabaseService.savePageAudio(page.id, {

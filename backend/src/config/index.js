@@ -91,16 +91,6 @@ const config = {
     },
   },
 
-  // Superseded by `llm`; removed with openRouterService
-  llmProvider: process.env.LLM_PROVIDER || (process.env.OPENROUTER_API_KEY ? 'openrouter' : 'google'),
-  openRouter: {
-    apiKey: process.env.OPENROUTER_API_KEY,
-    extractionModel: process.env.OPENROUTER_EXTRACTION_MODEL || 'google/gemini-3.8-flash',
-    ttsModel: process.env.OPENROUTER_TTS_MODEL || 'google/gemini-3.8-flash-tts',
-    extractionTimeoutMs: parseInt(process.env.OPENROUTER_EXTRACTION_TIMEOUT_MS, 10) || 60000,
-    ttsTimeoutMs: parseInt(process.env.OPENROUTER_TTS_TIMEOUT_MS, 10) || 120000,
-  },
-
   geminiChat: {
     defaultCacheTtl: process.env.GEMINI_CACHE_TTL || '3600s',
     maxConversationHistory: parseInt(process.env.MAX_CONVERSATION_HISTORY, 10) || 10,

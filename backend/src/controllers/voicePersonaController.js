@@ -1,6 +1,7 @@
 const voicePersonaService = require('../services/voicePersonaService');
-const geminiService = require('../services/geminiService');
-const { convertToWav } = require('../utils/audioUtils');
+const llm = require('../services/llm');
+const { pcmToWav } = require('../services/llm/audio');
+const { truncateForLegacyAudio } = require('../utils/audioUtils');
 const supabaseService = require('../services/supabaseService');
 const logger = require('../utils/logger');
 const config = require('../config/voicePersonaConfig');
@@ -98,27 +99,16 @@ exports.generatePreview = async (req, res) => {
         const systemInstruction = voicePersonaService.buildPrompt(tempPersona);
 
         // Generate audio
-        const { data: audioData, mimeType } = await geminiService.generateAudio(
-            textToSpeak,
-            tempPersona.base_voice_name,
-            systemInstruction
-        );
+        const audio = await llm.synthesize({
+            text: truncateForLegacyAudio(textToSpeak),
+            baseVoice: tempPersona.base_voice_name,
+            styleInstruction: systemInstruction
+        });
 
-        logger.info(`Preview generation - Gemini response: mimeType=${mimeType}, dataLength=${audioData ? audioData.length : 0}`);
+        logger.info(`Preview generation - ${audio.usage.provider} response: sampleRate=${audio.sampleRate}, pcmBytes=${audio.pcm.length}`);
 
-        let wavBase64;
-
-        // If it's already WAV or MP3, don't wrap it. Only wrap if it looks like raw PCM or if forced.
-        // Usually Gemini returns "audio/pcm; rate=24000".
-        // If it returns "audio/wav", we should leave it alone.
-        if (mimeType.includes('wav') || mimeType.includes('mpeg') || mimeType.includes('mp3')) {
-            logger.info('Audio appears to be already formatted, skipping WAV conversion');
-            wavBase64 = audioData; // Already base64
-        } else {
-            logger.info('Converting raw audio to WAV');
-            const wavBuffer = convertToWav(audioData, mimeType);
-            wavBase64 = wavBuffer.toString('base64');
-        }
+        // The layer returns raw PCM, so the preview always needs a WAV header
+        const wavBase64 = pcmToWav(audio).toString('base64');
 
         // Record usage
         await voicePersonaService.recordPreviewUsage(userId);
@@ -127,7 +117,7 @@ exports.generatePreview = async (req, res) => {
             success: true,
             data: {
                 audio: wavBase64,
-                mimeType: mimeType.includes('wav') ? mimeType : 'audio/wav', // Ensure frontend treats it as WAV if we converted it
+                mimeType: 'audio/wav',
                 previewText: textToSpeak,
                 remaining: limitCheck.remaining - 1
             }

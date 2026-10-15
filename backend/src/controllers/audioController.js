@@ -1,6 +1,9 @@
-const geminiService = require('../services/geminiService');
-const { convertToWav } = require('../utils/audioUtils');
+const llm = require('../services/llm');
+const { pcmToWav } = require('../services/llm/audio');
 const logger = require('../utils/logger');
+
+// The voice this route has always asked for, kept as is
+const LEGACY_DEFAULT_VOICE = '6tager';
 
 /**
  * Audio processing controller
@@ -28,17 +31,17 @@ const audioController = {
       
       logger.info(`Processing text-to-audio request, text length: ${text.length} chars (${truncatedText.length} after truncation if needed)`);
       
-      // Generate audio with Gemini
-      const { data, mimeType } = await geminiService.generateAudio(truncatedText);
-      
-      if (!data) {
+      // Generate audio through the LLM layer
+      const audio = await llm.synthesize({ text: truncatedText, baseVoice: LEGACY_DEFAULT_VOICE });
+
+      if (!audio.pcm.length) {
         throw new Error('No audio data received from service');
       }
-      
-      logger.debug('Audio data received, length:', data.length);
-      
+
+      logger.debug('Audio data received, bytes:', audio.pcm.length);
+
       // Convert to WAV format
-      const wavBuffer = convertToWav(data, mimeType);
+      const wavBuffer = pcmToWav(audio);
       
       // Set headers for audio file
       res.set({

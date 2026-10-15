@@ -1,4 +1,5 @@
-const geminiService = require('../services/geminiService');
+const llm = require('../services/llm');
+const { blocksToLegacyText } = require('../utils/legacyPageText');
 const logger = require('../utils/logger');
 
 /**
@@ -38,8 +39,9 @@ const imageController = {
       
       logger.info(`Processing image-to-text request with mime type: ${mimeType}`);
       
-      // Process the image with Gemini
-      const jsonData = await geminiService.processImageToText(data, mimeType);
+      // Extract the page text through the LLM layer, in the legacy header/body/footer shape
+      const { blocks } = await llm.extractBlocks({ pngBase64: data, mimeType });
+      const jsonData = blocksToLegacyText(blocks);
       
       // Set CORS headers explicitly
       res.header('Access-Control-Allow-Origin', '*');
