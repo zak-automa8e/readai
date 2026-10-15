@@ -1,5 +1,5 @@
 -- Audio pipeline story 3 · spec §3 (revised 2026-10-16)
--- One versioned extraction per PDF content; per-page blocks and money; segments (the playback unit).
+-- One versioned extraction per PDF content; per-page blocks and cost; segments (the playback unit).
 
 create table public.book_extractions (
   id uuid primary key default gen_random_uuid(),
@@ -40,23 +40,9 @@ alter table public.page_text
   add column image_sha256 text,
   add column validation jsonb,
   add column usage jsonb,
-  add column funded_by_user_id uuid references auth.users (id) on delete set null,
-  add column cost_micros bigint,
-  add column price_micros bigint;
+  add column cost_micros bigint;             -- our provider cost for this page, micro-USD
 
 create index page_text_extraction_idx on public.page_text (extraction_id);
-
--- What each user paid to extract this content and has recovered through rebates (O6, text part).
-create table public.extraction_funders (
-  extraction_id uuid not null references public.book_extractions (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  paid_micros bigint not null default 0 check (paid_micros >= 0),
-  recovered_micros bigint not null default 0 check (recovered_micros >= 0),
-  check (recovered_micros <= paid_micros),
-  primary key (extraction_id, user_id)
-);
-
-alter table public.extraction_funders enable row level security;
 
 create table public.segments (
   id uuid primary key default gen_random_uuid(),
@@ -72,7 +58,6 @@ create table public.segments (
   sentence_offsets int[] not null default '{}',
   footnote_markers text[] not null default '{}',
   status text not null default 'final' check (status in ('open', 'final')),
-  text_price_micros bigint not null default 0, -- this clip's share of its pages' extraction price
   created_at timestamptz not null default now(),
   check (end_page >= start_page),
   unique (extraction_id, seq)

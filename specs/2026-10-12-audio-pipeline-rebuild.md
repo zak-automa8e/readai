@@ -120,159 +120,99 @@ Bugs confirmed in code, folded into story 3: `pageCacheService.js:183` (duration
 
 ---
 
-## 3. Data model — diff against the LIVE schema (revised 2026-10-16 to match §9 O1–O11)
+## 3. Data model — diff against the LIVE schema (revised 2026-10-16: subscription plans, O12)
 
-The 2026-10-12 version of this section billed in audio seconds and scoped audio by book visibility. Both are replaced by
-the owner decisions in §9: money-metered billing (O3), recordings owned by whoever paid (O4–O6), Read/Listen modes (O1)
-and page classification (O8). Git history holds the old version.
+Billing is a **subscription with a daily page limit** (O12). The per-token/per-second money model, credits, recording
+ownership, donation and pay-it-forward rebates (O3–O6) are dropped; git history holds that version. Audio is still
+generated once per paragraph and voice and reused by everyone — now purely a cost saving.
 
 Every `+` below is a **SCHEMA CHANGE — REQUIRES OWNER APPROVAL** (migration files in the repo are the record; the owner
-approves each file before it is applied). RLS: enable on every new table with **no policies**; the backend reaches them
-with the service key and checks ownership in code via `supabaseService.ensureUserHasBookAccess(userId, bookId)`. The
-frontend never queries these tables directly.
-
-**Money unit.** Every amount is an integer in **micro-USD** (`*_micros bigint`, 1 USD = 1 000 000). Users see "credits";
-the display conversion lives in the frontend. Price charged = provider cost × `config.credits.markup` (O3).
+approves before they are applied). RLS: enable on every new table with **no policies**; the backend reaches them with
+the service key and checks ownership in code via `supabaseService.ensureUserHasBookAccess(userId, bookId)`. The frontend
+never queries these tables directly.
 
 **Identity of "the same book".** `books.content_sha256` = SHA-256 of the PDF bytes. Two uploads of the same PDF share one
-extraction and one set of recordings; a library entry (`user_books`) already points at one `books` row.
+extraction. **Identity of a clip** = paragraph text hash × voice snapshot hash, so any book containing the same paragraph
+read in the same voice reuses it.
 
 ```diff
  books            (id, user_id, parent_book_id, title, author, …, pdf_url, total_pages, visibility, processing_status, …)
-+  mode               text NOT NULL DEFAULT 'read' CHECK (mode IN ('read','listen'))      -- O1; set at upload or before opening
-+  content_sha256     text NULL                                                            -- backfilled by script for existing rows
-+  INDEX books_content_sha256_idx (content_sha256)
++  mode               text NOT NULL DEFAULT 'read' CHECK (mode IN ('read','listen'))      -- O1
++  content_sha256     text NULL · INDEX                                                    -- backfilled by script
 +                     total_pages finally written (pdfinfo, story 4). No column change.
 
  user_books       (user_id, book_id, last_read_page, …)
-+  read_front_matter  boolean NOT NULL DEFAULT false                                       -- O8 "read all front matter" toggle
++  read_front_matter  boolean NOT NULL DEFAULT false                                       -- O8
 
  pages            (id, book_id, page_number, image_url, …)  -- rows bulk-created at extraction start. No column change.
 
  page_text        (id, page_id UNIQUE, extracted_text, extraction_confidence, extraction_metadata, processed_at, processing_duration_ms)
-+  blocks             jsonb      -- [{i, role, text, footnote_markers[], starts_mid_sentence, ends_mid_sentence}]
-+  page_type          text NULL CHECK (page_type IN ('cover','title','copyright','dedication','author_note','toc','blank',
-+                                                    'preface','introduction','body','index','bibliography','back_cover'))   -- O8
-+  extraction_id      uuid NULL REFERENCES book_extractions(id)
-+  prompt_version     int · model text · image_sha256 text · validation jsonb · usage jsonb   -- usage = tokens + cost of this page
-+  funded_by_user_id  uuid · cost_micros bigint · price_micros bigint   -- who paid to extract this page, provider cost, price charged
++  blocks jsonb · page_type text CHECK (13 types, O8) · extraction_id uuid FK book_extractions
++  prompt_version int · model text · image_sha256 text · validation jsonb
++  usage jsonb · cost_micros bigint   -- our provider cost for this page (micro-USD), to tune plan limits
 +  extracted_text keeps the LEGACY {header:'', body, footer} string so /api/pages/* keep working
-+  INDEX page_text_extraction_idx (extraction_id)
 
-+page_skip_overrides   (O8: the listener's departures from the default skip list)
-+  user_id uuid · book_id uuid FK books ON DELETE CASCADE · page_number int · skip boolean NOT NULL · updated_at
-+  PRIMARY KEY (user_id, book_id, page_number)
++page_skip_overrides   (user_id, book_id, page_number, skip, updated_at) PK (user_id, book_id, page_number)   -- O8
 
-+book_extractions      (one versioned run per PDF content; segments belong to it)
-+  id uuid PK · content_sha256 text NOT NULL · source_book_id uuid FK books   -- the books row whose pages/page_text hold the blocks
-+  status text CHECK IN ('queued','running','partial','complete','failed')
-+  model text · prompt_version int · dpi int DEFAULT 200 · pages_total int · pages_done int DEFAULT 0 · pages_failed int DEFAULT 0
-+  finalized_through_page int DEFAULT 0
-+  started_by uuid                                    -- O2: the Listen user who started it; per-page money lives on page_text
-+  started_at · finished_at · error text · created_at
++book_extractions      (one versioned run per PDF content)
++  id · content_sha256 · source_book_id FK books · status (queued|running|partial|complete|failed)
++  model · prompt_version · dpi · pages_total · pages_done · pages_failed · finalized_through_page
++  started_by · started_at · finished_at · error · created_at
 +  UNIQUE (content_sha256, prompt_version, model) WHERE status <> 'failed'
 
-+segments              (playback unit; unchanged from the 10-12 design)
-+  id uuid PK · extraction_id uuid FK book_extractions ON DELETE CASCADE
-+  seq int · role text CHECK IN ('body','heading') · start_page int · end_page int · parts jsonb   -- O7: owned by start_page
-+  text text · text_sha256 text · char_count int · sentence_offsets int[] · footnote_markers text[]
-+  status text CHECK IN ('open','final') DEFAULT 'final'
-+  text_price_micros bigint     -- this clip's share of its pages' extraction price, by characters (from parts)
++segments              (playback unit: one paragraph or heading, stitched across pages, owned by its start page — O7)
++  id · extraction_id FK · seq · role (body|heading) · start_page · end_page · parts jsonb [{page, chars}]
++  text · text_sha256 · char_count · sentence_offsets int[] · footnote_markers text[] · status (open|final)
 +  UNIQUE (extraction_id, seq) · INDEX (extraction_id, start_page) · INDEX (text_sha256)
-+  Segments are built for EVERY page with text; skipping happens per listener when the window is planned (O8).
++  Built for EVERY page with text; skipped pages are filtered per listener when the window is planned (O8).
 
-+recordings            (O4: one PDF content × one voice snapshot; never regenerated — O6)
-+  id uuid PK · content_sha256 text NOT NULL
-+  voice_snapshot_sha256 text NOT NULL · voice_snapshot jsonb   -- {model, base_voice, instructions} canonical JSON; persona edit ⇒ new hash
-+  persona_id uuid NULL · created_by uuid NOT NULL              -- founding narrator badge
-+  visibility text NOT NULL DEFAULT 'private' CHECK IN ('private','donated')    -- O5
-+  donated_at · rights_attested_at · taken_down_at · takedown_reason text · created_at
-+  UNIQUE (content_sha256, voice_snapshot_sha256)
++segment_audio         (content-addressed clip cache)
++  id · text_sha256 · voice_snapshot_sha256 · voice_snapshot jsonb {model, base_voice, instructions}
++  status (pending|ready|failed) · error · audio_url · audio_format · sample_rate · channels
++  duration_seconds numeric(8,2) · size_bytes · usage jsonb · cost_micros bigint · created_at · ready_at
++  UNIQUE (text_sha256, voice_snapshot_sha256)   -- a persona edit is a new snapshot hash ⇒ a new generation
 
-+segment_audio         (one clip of one recording; found by text hash so unchanged paragraphs survive a re-extraction)
-+  id uuid PK · recording_id uuid FK recordings ON DELETE CASCADE · text_sha256 text NOT NULL
-+  status text CHECK IN ('pending','ready','failed') · error text
-+  audio_url text · audio_format text · sample_rate int · channels int · duration_seconds numeric(8,2) · size_bytes int
-+  funded_by_user_id uuid NOT NULL · cost_micros bigint · price_micros bigint · usage jsonb   -- audio only; text share is on segments
-+  created_at · ready_at
-+  UNIQUE (recording_id, text_sha256) · INDEX (status, created_at)
++book_processing_jobs  (the queue; unchanged) · RPC claim_jobs (FOR UPDATE SKIP LOCKED, 5-minute lease)
 
-+extraction_funders    (O6 for text: what each user paid to extract this content and has recovered)
-+  extraction_id uuid FK book_extractions ON DELETE CASCADE · user_id uuid
-+  paid_micros bigint NOT NULL DEFAULT 0 · recovered_micros bigint NOT NULL DEFAULT 0
-+  CHECK (recovered_micros <= paid_micros) · PRIMARY KEY (extraction_id, user_id)
-
-+recording_funders     (O6 for audio: what each funder paid and has recovered)
-+  recording_id uuid FK recordings ON DELETE CASCADE · user_id uuid
-+  paid_micros bigint NOT NULL DEFAULT 0 · recovered_micros bigint NOT NULL DEFAULT 0
-+  CHECK (recovered_micros <= paid_micros) · PRIMARY KEY (recording_id, user_id)
-
-+audio_entitlements    (who may replay a clip without paying again)
-+  user_id uuid · segment_audio_id uuid FK segment_audio ON DELETE CASCADE · paid_micros bigint · created_at
-+  PRIMARY KEY (user_id, segment_audio_id)
-+  The funder gets a row at generation; a listener gets one when charged; donated clips need none.
-
-+book_processing_jobs  (the queue; unchanged from the 10-12 design except the payload)
-+  id · kind CHECK IN ('extract_pages','tts_segment','tts_chapter') · book_id · user_id · extraction_id
-+  payload jsonb   -- tts_segment: {recording_id, segment_id, reservation_id}
-+  idempotency_key text UNIQUE  -- 'extract:<extraction_id>:<first>-<last>' | 'tts:<recording_id>:<text_sha256>'
-+  priority · status · attempts · max_attempts · run_after · locked_by · locked_at · last_error · created_at · finished_at
-+  INDEX (status, run_after, priority) · INDEX (book_id, kind)
-
-+credit_accounts       (user_id uuid PK · balance_micros bigint NOT NULL DEFAULT 0 · updated_at)   -- cached sum; ledger is the truth
-+credit_ledger         (id uuid PK · user_id uuid
-+                       · kind text CHECK IN ('grant','reserve','settle','release','charge','rebate','refund','adjust')
-+                       · amount_micros bigint NOT NULL          -- signed: grant/release/rebate +, reserve/charge −, settle ±
-+                       · unit text NULL CHECK IN ('tokens','audio_seconds') · quantity numeric NULL      -- O3
-+                       · provider_cost_micros bigint NULL · reservation_id uuid NULL
-+                       · ref_type text · ref_id uuid · note text · created_at)
-+                       INDEX (user_id, created_at DESC) · INDEX (reservation_id)
-
-+RPC claim_jobs(worker text, kinds text[], n int)  -- unchanged: FOR UPDATE SKIP LOCKED, ordered by priority, created_at
-+RPC credit_apply(p_user uuid, p_kind text, p_amount bigint, p_unit text, p_quantity numeric, p_provider_cost bigint,
-+                 p_reservation uuid, p_ref_type text, p_ref_id uuid, p_note text) RETURNS bigint
-+  ledger row + balance update in one transaction; raises when the balance would go negative
-+RPC charge_playback(p_listener uuid, p_segment_audio uuid) RETURNS jsonb
-+  one transaction: skip if donated / entitled / listener funded both the audio and the text; else charge the listener
-+  audio price + text share (minus any part the listener funded), insert the entitlement, and rebate p_rebate_share of each
-+  part to the user who funded it (audio → recording funder, text → page funder), each capped at paid − recovered (O6)
++plans                 (id text PK 'free'|'basic'|'pro' · name · price_cents · currency · daily_page_limit · active · sort_order)
++                      seeded: free 0¢ 2/day · basic 500¢ 10/day · pro 1500¢ 50/day (owner defaults 2026-10-16; edit the rows)
++subscriptions         (user_id PK · plan_id FK plans · status (active|canceled) · started_at · ends_at · updated_at)
++                      no row, or not active ⇒ the free plan. Plans are assigned by hand until the payment story.
++daily_page_usage      (user_id · usage_date · book_id · page_number · first_listened_at)
++                      PRIMARY KEY (user_id, usage_date, book_id, page_number) — a page counts once per day
++RPC record_page_listen(p_user, p_book, p_page) RETURNS jsonb {allowed, counted, used, limit, plan}
++  one transaction per user (advisory lock): already counted today ⇒ allowed; under the limit ⇒ insert + allowed;
++  at the limit ⇒ not allowed. Day = UTC date.
 
  page_audio       (legacy) — 102 rows get audio_duration_seconds corrected by the backfill (data fix, not DDL)
 ```
 
-**Money flows (O2, O3, O5, O6).**
+**Daily limit rules (O12).**
 
-| Event | Who pays | Ledger rows | Side effects |
-|---|---|---|---|
-Rule (owner, 2026-10-16): text exists only to make the audio, so **every clip is priced at its total — audio + its share
-of the text** — and pay-it-forward applies to both parts. Nobody pays twice for the same thing.
+| Situation | Counts? | Result |
+|---|---|---|
+| Listening reaches a page in Listen mode for the first time today | yes | allowed while `used < limit` |
+| The same page again today (replay, seek back) | no | allowed |
+| Limit reached | — | audio stops at the page boundary; Read mode, text view, chat and notes keep working |
+| Read mode | never | — |
+| Audio already cached | still counts | the limit is about pages heard, not our cost |
 
-| Event | Who pays | Ledger rows | Side effects |
-|---|---|---|---|
-| Listen user starts an extraction | that user, per token, page by page | `reserve` (estimate) → `settle` (actual `usage.cost` × markup), `unit='tokens'` | `page_text.funded_by_user_id`, `extraction_funders.paid_micros +=` |
-| Same PDF, another user | nothing up front — the text is reused | — | — |
-| A clip is generated | the listener: audio per second + the clip's text share (waived on pages they funded) | `reserve` → `settle` (`audio_seconds`) · `charge` (`tokens`) for the text share | `segment_audio.funded_by_user_id`, `recording_funders.paid_micros +=`, entitlement; text share rebated to the page funders |
-| Someone else's private clip is played | the listener: the same total price | `charge` · `rebate` to the audio funder and to the page funders | entitlement; each funder's `recovered_micros +=` until it equals `paid_micros` |
-| A donated clip is played | nobody | — | — |
-| Replay of a clip the listener paid for | nobody | — | — |
+The window planner (story 5) never prepares audio for pages beyond the remaining allowance, so prefetching cannot
+spend money the plan does not cover.
 
-Defaults (owner, 2026-10-16), in `config.credits`: `markup = 2.0`, `rebateShare = 0.5`, `starterGrantMicros = 1 000 000` ($1 ≈ 37 min of new audio).
-
-Rejected alternatives: **seconds as the money unit** (O3 bills tokens and seconds at different rates, so the common unit
-must be money); **one `scope_key` per audio row** (the 10-12 design) — replaced by `recordings`, because O4 makes
-ownership a property of the recording, not of the book's visibility; **per-listener segment builds for skipped pages** —
-one build per extraction, filtered when the window is planned, keeps segments shared.
+Rejected alternatives: **credits / per-second billing** (O3–O6) — dropped by the owner as too complex for the product
+stage; **counting only newly generated pages** — tracks our cost but users cannot predict it; **a `recordings` table** —
+without ownership, a clip only needs text hash × voice hash.
 
 ### 3.1 Migration and backfill plan
 
 | Step | What | Data loss? | Who |
 |---|---|---|---|
-| M1 | `01_books_modes_and_pages.sql`: `books.mode`, `books.content_sha256`, `user_books.read_front_matter`, `page_text` columns, `page_skip_overrides` | none; additive | agent applies through the Supabase MCP after the owner approves the file |
-| M2 | `02_extractions_segments.sql`, `03_recordings_audio.sql`, `04_jobs.sql`, `05_credits.sql`, `06_rpcs.sql` | none; new tables | same |
-| M3 | `07_backfill_page_audio_duration.sql`: rows whose bytes/second > 100 000 (old formula; 102 live on 2026-10-16, 2 already correct) get `round((audio_size_bytes − 44) / 48000)` | none; fixes wrong numbers | agent, after approval |
-| M4 | `scripts/backfill-book-hashes.js`: download each PDF, write `content_sha256`; set `mode='listen'` on the existing books (they were all listened to; O9) | none | agent, after approval |
-| M5 | Starter credits: one `grant` per existing user (amount = `config.credits.starterGrantMicros`) | none | agent, after approval |
-| M6 | Legacy `page_audio` keeps playing until the book's extraction is complete; legacy files are **not** deleted in this epic | none | — |
+| M1 | `01_books_modes_and_skips.sql`, `02_extractions_and_segments.sql`, `03_segment_audio.sql`, `04_processing_jobs.sql` | none; additive | agent, after owner approval |
+| M2 | `05_plans_and_usage.sql` (tables + 3 seeded plans), `06_rpcs.sql` | none; new tables | same |
+| M3 | `07_backfill_legacy_data.sql`: 102 `page_audio` rows on the old formula get `round((audio_size_bytes − 44) / 48000)`; the 5 existing books → `mode='listen'` (O9) | none; fixes wrong numbers | same |
+| M4 | `scripts/backfill-book-hashes.js`: download each PDF, write `content_sha256` | none | agent |
+| M5 | Legacy `page_audio` keeps playing until the book's extraction is complete; legacy files are **not** deleted in this epic | none | — |
 
 ---
 
@@ -325,6 +265,10 @@ after each job:   finalizePrefix(extraction): walk pages from finalized_through_
 - **Resume**: everything is in the table; on boot the runner re-claims jobs whose `locked_at < now() − 5 min`.
 
 ### 5.3 TTS window, credits, chapter-ahead
+
+> **O12 (2026-10-16):** the credit steps below (`credit_apply` reserve / settle / release, scope rule, D1–D3) are
+> superseded. The window is capped by the pages left in today's allowance (`record_page_listen`, §3), and cached clips
+> are shared by text hash × voice hash. The orchestration (window, priorities, chapter-ahead, idempotency) stands.
 
 ```text
 POST /listen {fromSeq, voice} ─▶ voiceKey = resolveVoice (reuse pageCacheService.resolveVoice)
@@ -406,22 +350,22 @@ Acceptance (running app, a 20–40 page Arabic PDF in the owner's library):
 - Force a validation failure in a unit test (`أserver`) → one retry at `medium`, then `validation.suspect=true` and the page is still saved.
 - Log lines per page include tokens and cost (`usage`); `processing_costs` gets one row per page (reuse `recordProcessingCost`).
 
-### Story 5 — Segment audio, window, credits (L) · **Opus**
+### Story 5 — Segment audio, window, daily limit (L) · **Opus**
 
-Files: `backend/src/services/audio/{segmentAudioService.js, windowService.js}`, `backend/src/services/credits/creditService.js`, `backend/src/services/jobs/handlers/ttsSegment.js`, `backend/src/controllers/{segmentsController.js (+listen, +audio), creditsController.js}`, routes, `supabaseService` (+segment_audio CRUD, `credit_apply` RPC wrapper), tests (hash canonicalisation, scope rule, reserve/settle/release arithmetic, 402 path, conflict path).
+Files: `backend/src/services/audio/{segmentAudioService.js, windowService.js}`, `backend/src/services/plans/planService.js`, `backend/src/services/jobs/handlers/ttsSegment.js`, `backend/src/controllers/{segmentsController.js (+listen, +audio), planController.js}`, routes (`GET /api/plan` → `{plan, limit, usedToday, remainingToday}`), `supabaseService` (+segment_audio CRUD, `record_page_listen` RPC wrapper), tests (voice snapshot hash canonicalisation, window stops at the remaining allowance, page counted once per day, 402 path, conflict path).
 
 Acceptance (running app, processed book from story 4, owner's persona + base voice):
-- `POST /listen {fromSeq:1}` → items for ≈600 s of text; within ~30 s the first item is `ready`; `segment_audio.duration_seconds` equals the WAV header (within 0.1 s); `credit_ledger` shows one `reserve` per generated segment and one `settle` with the true delta; `GET /credits` balance moved by the delivered seconds only.
-- Same request again → every item `ready, cached:true`, no new jobs, no new reservation (D1 default: a `settle`-style `charge` row for delivered seconds; see §9).
-- Switch voice (persona) → new hashes, new generation; edit the persona (updated_at changes) → new hashes again (mirrors today's `persona:<id>:<version>` key).
-- Make the book `visibility='public'` (owner, in the console), add it to a second test user's library: that user's `/listen` hits the shared rows (`owner_user_id IS NULL`); set the book back to private and generate a new voice → rows carry `owner_user_id`.
-- Drain the account (`credit_apply(…,'adjust', −balance)` by the owner): `/listen` → `402`, cached items still returned, no job enqueued.
+- `POST /listen {fromSeq:1}` → items for ≈600 s of text, but never past the pages left in today's allowance; within ~30 s the first item is `ready`; `segment_audio.duration_seconds` equals the WAV header (within 0.1 s); `segment_audio.cost_micros` is filled.
+- Listening reaches a page → `daily_page_usage` gets one row; replaying the page adds none; `GET /api/plan` shows `usedToday` moving.
+- Same request again → every item `ready, cached:true`, no new jobs.
+- Switch voice (persona) → new snapshot hash, new generation; edit the persona (updated_at changes) → new hash again. A second test user listening to the same book and voice hits the existing clips.
+- Free plan (2 pages) → the third new page returns `402 { code:'DAILY_LIMIT_REACHED', used, limit, plan }`; cached items for counted pages still play; no job enqueued. Assign `basic` by hand in `subscriptions` → the limit becomes 10 immediately.
 
 ### Story 6 — Chapter-ahead generation + progress (M) · **Sonnet**
 
-Files: `backend/src/services/audio/windowService.js` (+`planChapter`), `backend/src/services/jobs/handlers/ttsChapter.js`, `segmentsController.progress`, `supabaseService.updateBookProgress` (+`listened_seconds` on `reading_sessions` — **uses the existing empty table, no DDL**), config `credits.engagedAfterSeconds = 1200`, tests for the trigger (not engaged / engaged no credits / engaged with credits).
+Files: `backend/src/services/audio/windowService.js` (+`planChapter`), `backend/src/services/jobs/handlers/ttsChapter.js`, `segmentsController.progress`, `supabaseService.updateBookProgress` (+`listened_seconds` on `reading_sessions` — **uses the existing empty table, no DDL**), config `audio.engagedAfterSeconds = 1200`, tests for the trigger (not engaged / engaged at the daily limit / engaged with allowance left).
 
-Acceptance: with a test override `ENGAGED_AFTER_SECONDS=30`, listening past 30 s enqueues `tts_chapter` for the next heading-to-heading span at priority 500; live `/listen` jobs (priority < 500) are still claimed first (observe in `book_processing_jobs`); without credits nothing is enqueued and `/credits` is unchanged.
+Acceptance: with a test override `ENGAGED_AFTER_SECONDS=30`, listening past 30 s enqueues `tts_chapter` for the next heading-to-heading span at priority 500, capped at the pages left in today's allowance; live `/listen` jobs (priority < 500) are still claimed first (observe in `book_processing_jobs`); at the daily limit nothing is enqueued.
 
 ### Story 7 — Frontend: segment playback, text view, highlight, page flip (L) · **Opus** for `useSegmentPlayback`; **Sonnet** for `ExtractedTextView` + bar changes
 
@@ -432,7 +376,7 @@ Behaviour:
 - `useSegmentPlayback`: `segments` from `GET /segments`; `play(seq)` → `/listen {fromSeq}` → plays the first `ready` item with one `<audio>`; while playing, polls `GET /segments/:id/audio` for the next 2 items and preloads them (`new Audio(url).load()`); on `ended` → next segment (no page-level blank skipping needed: pages with no body blocks produce no segments); every 20 s and on pause → `POST /progress`.
 - **Highlight clock**: `t → charIndex = t / duration × charCount` → current sentence = last `sentenceOffsets[i] ≤ charIndex`; **page flip**: when `charIndex ≥ Σ parts[0..k].chars` → `setPageNumber(parts[k+1].page)`; also `setPageNumber(startPage)` when a segment starts. Seeking inside a segment stays proportional. (Forced alignment is story 11.)
 - `ExtractedTextView`: paragraphs grouped by `startPage` with a hairline page marker ("ص ٩" / "p. 9"), headings in `font-serif`, current sentence `bg-muted` + `text-primary` (tokens from the reading-room spec §3; no coloured bars), click a sentence → `seekTo(seq, charOffset)` → `/listen {fromSeq:seq}` + `audio.currentTime = offset/charCount × duration`; `dir="rtl"` when `book.language === 'ar'` or the text is ≥ 60 % Arabic code points; Latin runs wrapped `dir="ltr"`. View switch in `CanvasPane`: PDF | Text (DEFAULT: Text while audio plays if the user has not chosen).
-- `NowPlayingBar`: prev/next now step **segments** (page buttons stay for navigation); progress = position in book (Σ durations known / estimated); `pending` → spinner on the play button with "preparing…"; `402` → credits chip turns `text-destructive` and a toast "Out of listening credits — cached audio and text still work".
+- `NowPlayingBar`: prev/next now step **segments** (page buttons stay for navigation); progress = position in book (Σ durations known / estimated); `pending` → spinner on the play button with "preparing…"; `402 DAILY_LIMIT_REACHED` → the usage chip turns `text-destructive` and a toast "Today's listening limit is reached — reading, text and chat still work".
 
 Acceptance (running app):
 - Open a never-processed Arabic book → within ~60 s play starts at page 1; the text view shows the first paragraph with the highlighted sentence moving; when the segment that spans pages 5→6 plays, the PDF pane flips to 6 at roughly the right moment (±1 sentence).
@@ -441,10 +385,10 @@ Acceptance (running app):
 - Change voice mid-segment → playback stops, `/listen` re-plans with the new voice, resumes at the same segment.
 - `tsc` + `build` pass; `grep -rn "isBlankCanvas" frontend/src` still only in the legacy hook.
 
-### Story 8 — Credits UI + states (S) · **Sonnet**
+### Story 8 — Plan + daily usage UI (S) · **Sonnet**
 
-Files: `hooks/useCredits.ts`, `NowPlayingBar.tsx` (chip), `pages/Settings.tsx` (balance + last 20 ledger rows, mono font), `apiService.ts`.
-Acceptance: balance in `mm:ss` of listening left; updates after each settled segment (poll 15 s or after `/listen`); 402 state visible; no emoji, no gradient.
+Files: `hooks/usePlan.ts`, `NowPlayingBar.tsx` (chip "3 / 10 pages today"), `pages/Settings.tsx` (current plan, limit, pages used today, the plan list read-only), `apiService.ts`.
+Acceptance: the chip updates when listening reaches a new page (after `/listen` and on page flip); the limit-reached state is visible; no emoji, no gradient. No upgrade button until story 12.
 
 ### Story 9 — Document chat on OpenRouter (M) · **Sonnet** (shape fixed by spike P7)
 
@@ -459,6 +403,12 @@ Only after the owner has re-processed every live book: remove the client-side he
 
 Python sidecar (MMS forced aligner per `docs/research/2026-10-arabic-tts.md` §2c) producing word timings per `segment_audio` row (`segment_audio.alignment jsonb` — **new column, owner approval**); client prefers alignment, falls back to proportional. Not scheduled in this epic.
 
+### Story 12 — Payments (M) · **Opus** · after every functional story is done and owner-tested (O12)
+
+Checkout and plan changes through a payment provider (provider chosen at that time); `subscriptions` gains the
+provider's ids and period dates; webhooks keep `status` and `ends_at` in sync; Settings gets upgrade / cancel. Until
+this story, plans are assigned by hand in `subscriptions`.
+
 ### Delegation summary
 
 | Story | Who | Why |
@@ -470,6 +420,7 @@ Python sidecar (MMS forced aligner per `docs/research/2026-10-arabic-tts.md` §2
 | 6, 8, 9 | Sonnet | Spec'd, checkable |
 | 7 | Opus hook / Sonnet view | Highlight + flip clock is careful work; the view is spec'd |
 | 10 | Haiku + Sonnet review | Mechanical sweep with a grep gate |
+| 12 | Opus | Money and webhooks; runs last |
 
 ---
 
@@ -514,16 +465,17 @@ The original defaults D1–D3 are replaced. Sections 3 (data model), 5.3 (credit
 | # | Decision (final) | Consequence for the design |
 |---|---|---|
 | O1 | **Two book modes, chosen at upload or before opening: Read and Listen.** Read = the real PDF page + chat + notes, **no extraction, no audio**. Listen = extraction + audio. A Read book can switch to Listen later. | `books.mode` (`read` \| `listen`); extraction jobs are only created for Listen books. Chat keeps using the PDF directly, so it works in both modes. |
-| O2 | **The user pays for extraction**, and only in Listen mode. | No platform-paid extraction (old D2 dropped). |
-| O3 | **Billing is metered like our providers bill us, plus our other costs:** text extraction **per token**, audio **per second**. The page is a **storage unit only**, never a billing unit. | Ledger rows carry `unit` (`tokens` \| `audio_seconds`), quantity, provider cost, and price charged. Price = provider cost × markup (config), not a per-page or per-minute flat rate. |
-| O4 | **A recording belongs to whoever paid to generate it.** Recording = book (PDF content hash) × voice persona snapshot. A new or edited persona is a new recording and a new generation. | New `recordings` table: `book_content_sha256`, `persona_snapshot_sha256`, `owner_user_id`, `visibility` (`private` \| `donated`). `segment_audio` gains `recording_id` + `funded_by_user_id` (a recording may have several funders, e.g. different chapters). |
-| O5 | **Donation:** the owner may donate a recording to everyone; listeners then play its existing audio **free**. Segments not yet generated are paid by whoever generates them, who may donate them too (community recording). Donation requires the uploader to confirm they hold the rights; donations can be taken down. | `recordings.visibility='donated'`, `donated_at`, `rights_attested_at`; a takedown flag. |
-| O6 | **Pay it forward** for private recordings: same book + same voice is **never regenerated**. Another listener pays the normal per-second price; a share goes back to the funder(s) **as credits**, until each funder has recovered **100%** of what they paid; after that the platform keeps it all. Credits only, never cash. A "founding narrator" badge stays on the recording. | Ledger kind `rebate`; per-funder `recovered_amount` vs `paid_amount`, capped at 100%; listener payments split across funders by the seconds of their segments played. Rebate share % is config. |
+| O2 | ~~**The user pays for extraction**, and only in Listen mode.~~ **Superseded by O12.** | Extraction still runs only for Listen books (O1). |
+| O3 | ~~**Billing is metered like our providers bill us, plus our other costs:** text extraction **per token**, audio **per second**. The page is a **storage unit only**, never a billing unit.~~ **Superseded by O12.** | Ledger rows carry `unit` (`tokens` \| `audio_seconds`), quantity, provider cost, and price charged. Price = provider cost × markup (config), not a per-page or per-minute flat rate. |
+| O4 | **Superseded by O12** (kept: same paragraph + same voice is never regenerated). ~~**A recording belongs to whoever paid to generate it.** Recording = book (PDF content hash) × voice persona snapshot. A new or edited persona is a new recording and a new generation.~~ | New `recordings` table: `book_content_sha256`, `persona_snapshot_sha256`, `owner_user_id`, `visibility` (`private` \| `donated`). `segment_audio` gains `recording_id` + `funded_by_user_id` (a recording may have several funders, e.g. different chapters). |
+| O5 | **Superseded by O12.** **Donation:** the owner may donate a recording to everyone; listeners then play its existing audio **free**. Segments not yet generated are paid by whoever generates them, who may donate them too (community recording). Donation requires the uploader to confirm they hold the rights; donations can be taken down. | `recordings.visibility='donated'`, `donated_at`, `rights_attested_at`; a takedown flag. |
+| O6 | **Superseded by O12.** **Pay it forward** for private recordings: same book + same voice is **never regenerated**. Another listener pays the normal per-second price; a share goes back to the funder(s) **as credits**, until each funder has recovered **100%** of what they paid; after that the platform keeps it all. Credits only, never cash. A "founding narrator" badge stays on the recording. | Ledger kind `rebate`; per-funder `recovered_amount` vs `paid_amount`, capped at 100%; listener payments split across funders by the seconds of their segments played. Rebate share % is config. |
 | O7 | **Audio clip unit = paragraph; storage unit = page.** A paragraph crossing a page break is ONE clip, stored and generated once, owned by the page it starts on; the next page references it as "continues from". Never cut audio at a page edge. | Per-page index of segments (`parts` already records the page spans); page view flips partway through the shared clip at the page-2 character offset. |
 | O8 | **Non-content pages:** every page is classified in the same extraction call (cover, title, copyright, dedication, author's note, table of contents, blank, body, index, bibliography, back cover). Defaults: skip cover, title, copyright, blank, table of contents, index, back cover, dedication, author's note; read preface/introduction/body. The user reviews the suggestions (rail Pages tab: thumbnail + toggle, plus "read all front matter") and may read any skipped page. Skipped pages are never voiced. | `page_text.page_type`; per-user-per-book skip overrides; the segment builder excludes skipped pages per listener. |
 | O9 | **Existing books re-process automatically on first open** (Listen mode); legacy per-page audio keeps playing until new segments are ready. | Unchanged from old D3. |
 | O10 | **Order:** finish the reading-room epic before starting story 1 of this epic. | — |
 | O11 | **Selection on scanned books waits for the extracted-text view** (2026-10-15). Most books are scanned or have an unusable PDF text layer, so the reading-room Explain / Save-as-note popover only works on text PDFs today. No "Explain this page" stopgap. | Story 7's `ExtractedTextView` must support text selection wired to the existing `AssistantContext` explain API and `SelectionPopover` (Explain / Save as note with `textSelection` + the page the selected text came from). |
+| O12 | **Subscription plans with a daily page limit** (2026-10-16), replacing O2–O6. Defaults: Free 2 pages/day, Basic $5/month 10 pages/day, Pro $15/month 50 pages/day (rows in `plans`, editable). A page counts once per day when listening first reaches it in Listen mode, cached or not; Read mode never counts. At the limit, audio stops; reading, text, chat and notes keep working. **Payment is delayed** until the functional stories are done and tested (story 12); plans are assigned by hand until then. | §3 rewritten: `plans`, `subscriptions`, `daily_page_usage`, `record_page_listen`; no credits, ledger, recordings or funders. Stories 5, 6 and 8 reworded; story 12 added. Worst-case cost of an uncached page ≈ $0.03, so $5 breaks even at ≈ 5 new pages/day with no cache hits. |
 
 ---
 
