@@ -1,6 +1,7 @@
 const { GoogleGenAI } = require('@google/genai');
 const config = require('../config');
 const logger = require('../utils/logger');
+const openRouterService = require('./openRouterService');
 
 class GeminiService {
   constructor() {
@@ -64,6 +65,15 @@ class GeminiService {
         ],
       },
     ];
+
+    if (openRouterService.isEnabled()) {
+      try {
+        const text = await openRouterService.extractPageText(imageData, mimeType, this.getDigitalMuhaqqiqPrompt());
+        return this.parseResponse(text);
+      } catch (error) {
+        logger.warn(`OpenRouter extraction failed (${error.message.slice(0, 160)}); falling back to Gemini direct`);
+      }
+    }
 
     const { imageToText, imageToTextFallback, imageToTextTimeoutMs } = config.geminiModels;
     try {
@@ -131,6 +141,11 @@ class GeminiService {
     const truncatedText = text.length > config.maxTextLength
       ? text.substring(0, config.maxTextLength) + "..."
       : text;
+
+    // Style goes in OpenRouter's `instructions` field; text placed in the input would be read aloud
+    if (openRouterService.isEnabled()) {
+      return this.retryWithBackoff(() => openRouterService.synthesize(truncatedText, voiceName, systemInstruction));
+    }
 
     const modelConfig = {
       responseModalities: ['AUDIO'],
