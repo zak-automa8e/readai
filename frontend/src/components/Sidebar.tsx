@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,25 +78,26 @@ export const Sidebar = () => {
   };
 
   return (
-    <Card className={cn(
-      "h-full flex flex-col glass border-border/50 border-r transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
+    <aside className={cn(
+      "h-full flex flex-col bg-background border-e border-border transition-[width] duration-200",
+      isCollapsed ? "w-14" : "w-64"
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border/50">
+      <div className={cn(
+        "flex items-center border-b border-border h-14",
+        isCollapsed ? "justify-center px-2" : "justify-between px-4"
+      )}>
         {!isCollapsed && (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold text-foreground">ReadAI</span>
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <span className="font-serif text-xl font-semibold tracking-tight text-foreground">ReadAI</span>
           </div>
         )}
         <Button
           variant="ghost"
           size="sm"
           onClick={toggleSidebar}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           {isCollapsed ? (
             <ChevronRight className="h-4 w-4" />
@@ -118,17 +118,17 @@ export const Sidebar = () => {
               key={item.path}
               variant="ghost"
               className={cn(
-                "w-full justify-start text-left transition-colors",
-                isActive 
-                  ? "bg-accent text-accent-foreground" 
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                isCollapsed ? "px-2" : "px-3"
+                "w-full justify-start text-start transition-colors",
+                isActive
+                  ? "bg-muted text-primary hover:bg-muted hover:text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                isCollapsed ? "px-2 justify-center" : "px-3"
               )}
               onClick={() => navigate(item.path)}
             >
               <Icon className={cn(
                 "h-4 w-4",
-                isCollapsed ? "" : "mr-2"
+                isCollapsed ? "" : "me-2"
               )} />
               {!isCollapsed && (
                 <span className="text-sm font-medium">{item.label}</span>
@@ -139,14 +139,14 @@ export const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border/50">
+      <div className="p-2 border-t border-border">
         {!isCollapsed ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="w-full justify-start p-2 h-auto">
-                <div className="flex items-center space-x-2 text-muted-foreground">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="h-4 w-4" />
-                  <div className="flex flex-col text-left">
+                  <div className="flex flex-col text-start">
                     <span className="text-sm font-medium text-foreground">
                       {user?.display_name || user?.email || 'User'}
                     </span>
@@ -175,7 +175,7 @@ export const Sidebar = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="w-full text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <User className="h-4 w-4" />
               </Button>
@@ -198,6 +198,6 @@ export const Sidebar = () => {
           </DropdownMenu>
         )}
       </div>
-    </Card>
+    </aside>
   );
 };

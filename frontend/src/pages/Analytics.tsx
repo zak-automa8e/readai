@@ -103,11 +103,11 @@ const Analytics = () => {
   };
 
   const StatCard = ({ icon: Icon, title, value, subtitle, trend }: any) => (
-    <Card className="glass p-6">
+    <Card className="shadow-none p-6">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold text-foreground">{value}</p>
+          <p className="font-serif text-2xl font-semibold text-foreground">{value}</p>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}
@@ -132,7 +132,7 @@ const Analytics = () => {
       <div className="space-y-8">
         {/* Time Range Selector */}
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-foreground">Overview</h2>
+          <h2 className="font-serif text-xl font-semibold text-foreground">Overview</h2>
           <div className="flex items-center space-x-4">
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-32">
@@ -185,7 +185,7 @@ const Analytics = () => {
         </div>
 
         {/* Weekly Goal Progress */}
-        <Card className="glass p-6">
+        <Card className="shadow-none p-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">Weekly Reading Goal</h3>
@@ -223,7 +223,7 @@ const Analytics = () => {
           <TabsContent value="patterns" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Daily Activity Chart */}
-              <Card className="glass p-6">
+              <Card className="shadow-none p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Daily Reading Activity</h3>
                 <div className="space-y-4">
                   {analytics.weeklyData.map((day) => (
@@ -242,7 +242,7 @@ const Analytics = () => {
               </Card>
 
               {/* Reading Insights */}
-              <Card className="glass p-6">
+              <Card className="shadow-none p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Reading Insights</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -281,7 +281,7 @@ const Analytics = () => {
           <TabsContent value="books" className="space-y-6">
             <div className="space-y-4">
               {analytics.books.map((book, index) => (
-                <Card key={index} className="glass p-6">
+                <Card key={index} className="shadow-none p-6">
                   <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">
                       <div>
@@ -321,7 +321,7 @@ const Analytics = () => {
                       </div>
                     </div>
 
-                    <div className="ml-4">
+                    <div className="ms-4">
                       <Badge variant={book.completionRate === 100 ? "default" : "secondary"}>
                         {book.completionRate === 100 ? "Completed" : "In Progress"}
                       </Badge>
@@ -336,11 +336,9 @@ const Analytics = () => {
           <TabsContent value="achievements" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {analytics.achievements.map((achievement) => (
-                <Card key={achievement.id} className={`glass p-6 ${achievement.earned ? 'ring-2 ring-primary/20' : ''}`}>
-                  <div className="flex items-start space-x-4">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      achievement.earned ? 'bg-primary/20' : 'bg-muted/20'
-                    }`}>
+                <Card key={achievement.id} className={`shadow-none p-6 ${achievement.earned ? 'border-primary/40' : ''}`}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
                       <Award className={`h-6 w-6 ${achievement.earned ? 'text-primary' : 'text-muted-foreground'}`} />
                     </div>
                     <div className="flex-1 space-y-2">
@@ -377,25 +375,25 @@ const Analytics = () => {
           {/* AI Insights Tab */}
           <TabsContent value="insights" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="glass p-6">
-                <div className="flex items-center space-x-3 mb-4">
+              <Card className="shadow-none p-6">
+                <div className="flex items-center gap-3 mb-4">
                   <Brain className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-semibold text-foreground">Reading Recommendations</h3>
                 </div>
                 <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="p-4 rounded-md bg-muted border border-border">
                     <p className="text-sm text-foreground mb-2">
                       <strong>Optimal Reading Time:</strong> Your peak focus appears to be between 7-9 PM. 
                       Consider scheduling longer reading sessions during this window.
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="p-4 rounded-md bg-muted border border-border">
                     <p className="text-sm text-foreground mb-2">
                       <strong>Speed Optimization:</strong> You're reading 23% faster than average. 
                       Try increasing to 1.4x speed for technical content to maintain comprehension.
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="p-4 rounded-md bg-muted border border-border">
                     <p className="text-sm text-foreground mb-2">
                       <strong>Note-Taking Pattern:</strong> Your retention improves 34% when you take notes. 
                       Consider the Cornell note-taking method for better organization.
@@ -404,8 +402,8 @@ const Analytics = () => {
                 </div>
               </Card>
 
-              <Card className="glass p-6">
-                <div className="flex items-center space-x-3 mb-4">
+              <Card className="shadow-none p-6">
+                <div className="flex items-center gap-3 mb-4">
                   <Zap className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-semibold text-foreground">Performance Insights</h3>
                 </div>
@@ -415,7 +413,7 @@ const Analytics = () => {
                       <Eye className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Focus Score</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-sm font-medium text-foreground">87%</div>
                       <div className="text-xs text-muted-foreground">Above average</div>
                     </div>
@@ -426,7 +424,7 @@ const Analytics = () => {
                       <Headphones className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Audio Engagement</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-sm font-medium text-foreground">92%</div>
                       <div className="text-xs text-muted-foreground">Excellent</div>
                     </div>
@@ -437,7 +435,7 @@ const Analytics = () => {
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-foreground">Learning Velocity</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-sm font-medium text-foreground">+15%</div>
                       <div className="text-xs text-muted-foreground">This month</div>
                     </div>

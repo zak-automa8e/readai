@@ -79,72 +79,64 @@ export default function Library() {
       <div className="space-y-6">
         {/* Library Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="glass p-4">
+          <Card className="shadow-none p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Books</p>
-                <p className="text-2xl font-bold text-foreground">{books.length}</p>
+                <p className="font-serif text-2xl font-semibold text-foreground">{books.length}</p>
               </div>
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Grid className="w-4 h-4 text-primary" />
-              </div>
+              <Grid className="w-4 h-4 text-muted-foreground" />
             </div>
           </Card>
           
-          <Card className="glass p-4">
+          <Card className="shadow-none p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Recent Uploads</p>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="font-serif text-2xl font-semibold text-foreground">
                   {books.filter(book => 
                     new Date(book.uploadDate).getTime() > Date.now() - (7 * 24 * 60 * 60 * 1000)
                   ).length}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <SortAsc className="w-4 h-4 text-green-500" />
-              </div>
+              <SortAsc className="w-4 h-4 text-muted-foreground" />
             </div>
           </Card>
           
-          <Card className="glass p-4">
+          <Card className="shadow-none p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Pages</p>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="font-serif text-2xl font-semibold text-foreground">
                   {books.length > 0 ? (books.length * 150) : 0}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <List className="w-4 h-4 text-blue-500" />
-              </div>
+              <List className="w-4 h-4 text-muted-foreground" />
             </div>
           </Card>
           
-          <Card className="glass p-4">
+          <Card className="shadow-none p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Storage Used</p>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="font-serif text-2xl font-semibold text-foreground">
                   {books.length > 0 ? `${(books.length * 2.5).toFixed(1)}MB` : '0MB'}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <Filter className="w-4 h-4 text-purple-500" />
-              </div>
+              <Filter className="w-4 h-4 text-muted-foreground" />
             </div>
           </Card>
         </div>
 
         {/* Quick Upload Section */}
-        <Card className="glass p-6">
+        <Card className="shadow-none p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Add New Book</h2>
+            <h2 className="font-serif text-lg font-semibold text-foreground">Add New Book</h2>
             <Button
               variant="outline"
               onClick={() => setAddBookModalOpen(true)}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 me-2" />
               Add Book
             </Button>
           </div>
@@ -154,23 +146,23 @@ export default function Library() {
         </Card>
 
         {/* Search and Filter Controls */}
-        <Card className="glass p-4">
+        <Card className="shadow-none p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex flex-col sm:flex-row gap-3 flex-1">
               {/* Search */}
               <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Search books by title or author..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-background/50 border-border/50"
+                  className="ps-10"
                 />
               </div>
 
               {/* Filter */}
               <Select value={filterBy} onValueChange={(value: any) => setFilterBy(value)}>
-                <SelectTrigger className="w-32 bg-background/50 border-border/50">
+                <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -182,7 +174,7 @@ export default function Library() {
 
               {/* Sort */}
               <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                <SelectTrigger className="w-32 bg-background/50 border-border/50">
+                <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -204,12 +196,12 @@ export default function Library() {
                 {sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
               </Button>
               
-              <div className="flex rounded-lg border border-border/50 bg-background/50">
+              <div className="flex rounded-md border border-border">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('grid')}
-                  className="rounded-r-none border-r border-border/50"
+                  className="rounded-e-none border-e border-border"
                 >
                   <Grid className="w-4 h-4" />
                 </Button>
@@ -217,7 +209,7 @@ export default function Library() {
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className="rounded-l-none"
+                  className="rounded-s-none"
                 >
                   <List className="w-4 h-4" />
                 </Button>
@@ -234,7 +226,7 @@ export default function Library() {
                   Search: "{searchTerm}"
                   <button
                     onClick={() => setSearchTerm("")}
-                    className="ml-1 hover:text-destructive"
+                    className="ms-1 hover:text-destructive"
                   >
                     ×
                   </button>
@@ -245,7 +237,7 @@ export default function Library() {
                   Filter: {filterBy}
                   <button
                     onClick={() => setFilterBy('all')}
-                    className="ml-1 hover:text-destructive"
+                    className="ms-1 hover:text-destructive"
                   >
                     ×
                   </button>
@@ -266,10 +258,10 @@ export default function Library() {
               viewMode === 'grid' ? (
                 <Card 
                   key={book.id}
-                  className="glass bg-card/95 p-4 flex flex-col relative cursor-pointer hover:shadow-lg transition-shadow group"
+                  className="shadow-none p-4 flex flex-col relative cursor-pointer transition-colors hover:border-primary/40 group"
                   onClick={() => handleBookClick(book)}
                 >
-                  <div className="aspect-[3/4] bg-muted mb-4 rounded-lg overflow-hidden">
+                  <div className="aspect-[3/4] bg-muted mb-4 rounded-sm overflow-hidden">
                     {(() => {
                       const coverSrc = book.thumbnail_url || book.coverUrl || book.defaultCover;
                       return coverSrc ? (
@@ -285,7 +277,7 @@ export default function Library() {
                   </div>
                   
                   <div className="flex-1">
-                    <h3 className="font-medium mb-1 line-clamp-2 text-sm leading-tight">{book.title}</h3>
+                    <h3 className="font-serif font-medium mb-1 line-clamp-2 text-base leading-tight">{book.title}</h3>
                     {book.author && (
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-1">{book.author}</p>
                     )}
@@ -294,7 +286,7 @@ export default function Library() {
                     </p>
                   </div>
 
-                  <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-2 end-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -339,17 +331,17 @@ export default function Library() {
               ) : (
                 <Card 
                   key={book.id}
-                  className="glass p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                  className="shadow-none p-4 hover:bg-accent/50 transition-colors cursor-pointer"
                   onClick={() => handleBookClick(book)}
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex-shrink-0">
-                      <div className="w-12 h-16 bg-muted rounded-lg flex items-center justify-center">
+                      <div className="w-12 h-16 bg-muted rounded-sm flex items-center justify-center">
                         {(book.coverUrl || book.defaultCover || book.thumbnail_url) ? (
                           <img 
                             src={book.thumbnail_url || book.coverUrl || book.defaultCover}
                             alt={book.title}
-                            className="w-full h-full object-cover rounded-lg"
+                            className="w-full h-full object-cover rounded-sm"
                           />
                         ) : (
                           <FileText className="w-6 h-6 text-muted-foreground" />
@@ -360,7 +352,7 @@ export default function Library() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-foreground line-clamp-2 text-sm leading-tight">
+                          <h3 className="font-serif font-medium text-foreground line-clamp-2 text-base leading-tight">
                             {book.title}
                           </h3>
                           {book.author && (
@@ -373,7 +365,7 @@ export default function Library() {
                           </p>
                         </div>
                         
-                        <div className="flex items-center gap-2 ml-4">
+                        <div className="flex items-center gap-2 ms-4">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -404,25 +396,25 @@ export default function Library() {
               )
             ))
           ) : books.length === 0 ? (
-            <Card className="glass p-12 text-center col-span-full">
-              <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
-                <FileText className="w-12 h-12 text-muted-foreground" />
+            <Card className="shadow-none p-12 text-center col-span-full">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-md flex items-center justify-center mb-4">
+                <FileText className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No books in your library</h3>
+              <h3 className="font-serif text-xl font-semibold text-foreground mb-2">No books in your library</h3>
               <p className="text-muted-foreground mb-6">
                 Upload your first book to get started with AI-powered reading
               </p>
               <Button onClick={() => setAddBookModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 me-2" />
                 Add Your First Book
               </Button>
             </Card>
           ) : (
-            <Card className="glass p-12 text-center col-span-full">
-              <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Search className="w-12 h-12 text-muted-foreground" />
+            <Card className="shadow-none p-12 text-center col-span-full">
+              <div className="mx-auto w-16 h-16 bg-muted rounded-md flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No books found</h3>
+              <h3 className="font-serif text-xl font-semibold text-foreground mb-2">No books found</h3>
               <p className="text-muted-foreground mb-6">
                 Try adjusting your search terms or filters
               </p>

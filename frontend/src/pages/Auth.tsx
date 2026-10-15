@@ -89,17 +89,15 @@ export const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-none">
         <CardHeader className="space-y-4">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold text-foreground">ReadAI</span>
+          <div className="flex items-center justify-center gap-2">
+            <BookOpen className="w-6 h-6 text-primary" />
+            <span className="font-serif text-2xl font-semibold tracking-tight text-foreground">ReadAI</span>
           </div>
           <div className="text-center">
-            <CardTitle className="text-2xl">Welcome</CardTitle>
+            <CardTitle className="font-serif text-2xl">Welcome</CardTitle>
             <CardDescription>
               Sign in to your account or create a new one
             </CardDescription>
@@ -151,7 +149,7 @@ export const AuthPage = () => {
                 )}
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
               </form>
@@ -216,7 +214,7 @@ export const AuthPage = () => {
                 )}
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                   Create Account
                 </Button>
               </form>

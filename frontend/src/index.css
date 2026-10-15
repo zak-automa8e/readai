@@ -105,14 +105,6 @@
 }
 
 @layer utilities {
-  .glass {
-    @apply bg-card border border-border rounded-md;
-  }
-  
-  .card-gradient {
-    @apply bg-card border border-border;
-  }
-
   .text-balance {
     text-wrap: balance;
   }

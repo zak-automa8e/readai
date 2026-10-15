@@ -70,12 +70,12 @@ const Settings = () => {
       <div className="space-y-8 max-w-4xl">
         {/* Reading Preferences */}
         <section>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             <Eye className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold text-foreground">Reading Preferences</h2>
           </div>
           
-          <Card className="glass p-6 space-y-6">
+          <Card className="shadow-none p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="fontSize">Font Size: {settings.fontSize[0]}px</Label>
@@ -139,12 +139,12 @@ const Settings = () => {
 
         {/* TTS Settings */}
         <section>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             <Volume2 className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold text-foreground">Text-to-Speech</h2>
           </div>
           
-          <Card className="glass p-6 space-y-6">
+          <Card className="shadow-none p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="voiceSpeed">Speech Speed: {settings.voiceSpeed[0]}x</Label>
@@ -221,12 +221,12 @@ const Settings = () => {
 
         {/* AI Assistant */}
         <section>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             <SettingsIcon className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold text-foreground">AI Assistant</h2>
           </div>
           
-          <Card className="glass p-6 space-y-6">
+          <Card className="shadow-none p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="aiResponseLength">Response Length</Label>
@@ -282,12 +282,12 @@ const Settings = () => {
 
         {/* App Preferences */}
         <section>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             <Palette className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold text-foreground">App Preferences</h2>
           </div>
           
-          <Card className="glass p-6 space-y-6">
+          <Card className="shadow-none p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <Label htmlFor="theme">Theme</Label>
@@ -359,12 +359,12 @@ const Settings = () => {
 
         {/* Data Management */}
         <section>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center gap-2 mb-6">
             <Download className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold text-foreground">Data Management</h2>
           </div>
           
-          <Card className="glass p-6">
+          <Card className="shadow-none p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Button variant="outline" className="gap-2">
                 <Download className="h-4 w-4" />
@@ -387,7 +387,7 @@ const Settings = () => {
         </section>
 
         {/* Save Button */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end gap-4">
           <Button variant="outline">Reset to Defaults</Button>
           <Button>Save Settings</Button>
         </div>

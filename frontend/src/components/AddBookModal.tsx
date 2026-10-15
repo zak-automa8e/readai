@@ -286,7 +286,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
               disabled={!urlInput.trim()}
               className="flex-shrink-0"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 me-2" />
               Add
             </Button>
           </div>
@@ -300,9 +300,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
       {/* Selected file info */}
       <div className="border rounded-lg p-4 bg-muted/50">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-            <FileText className="h-5 w-5 text-blue-500" />
-          </div>
+          <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <h4 className="font-medium text-sm truncate flex-1 min-w-0">{selectedFile?.name}</h4>
@@ -383,9 +381,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
 
   const renderUploadingState = () => (
     <div className="text-center py-8 space-y-4">
-      <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
-        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-      </div>
+      <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mx-auto" />
       <div>
         <h3 className="font-medium text-lg">Uploading your book...</h3>
         <p className="text-muted-foreground text-sm">
@@ -400,9 +396,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
 
   const renderSuccessState = () => (
     <div className="text-center py-6 space-y-6">
-      <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
-        <Check className="h-8 w-8 text-green-500" />
-      </div>
+      <Check className="h-8 w-8 text-primary mx-auto" />
       
       <div>
         <h3 className="font-medium text-lg">Book added successfully!</h3>
@@ -412,11 +406,9 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
       </div>
 
       {uploadedBook && (
-        <div className="border rounded-lg p-4 bg-muted/50 text-left">
+        <div className="border rounded-lg p-4 bg-muted/50 text-start">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <FileText className="h-5 w-5 text-green-500" />
-            </div>
+            <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm truncate">{uploadedBook.title}</h4>
               {uploadedBook.author && (
@@ -453,9 +445,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
 
   const renderErrorState = () => (
     <div className="text-center py-6 space-y-6">
-      <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
-        <AlertCircle className="h-8 w-8 text-red-500" />
-      </div>
+      <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
       
       <div>
         <h3 className="font-medium text-lg">Upload failed</h3>

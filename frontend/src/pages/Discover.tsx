@@ -30,7 +30,6 @@ const Discover = () => {
       rating: 4.8,
       downloads: 2847,
       readingTime: "3h 20m",
-      coverColor: "from-blue-500 to-purple-600",
       isPublic: true,
       tags: ["AI", "Education", "Technology"]
     },
@@ -43,7 +42,6 @@ const Discover = () => {
       rating: 4.6,
       downloads: 1923,
       readingTime: "2h 45m",
-      coverColor: "from-green-500 to-teal-600",
       isPublic: true,
       tags: ["Mindfulness", "Reading", "Productivity"]
     },
@@ -56,7 +54,6 @@ const Discover = () => {
       rating: 4.7,
       downloads: 3156,
       readingTime: "4h 10m",
-      coverColor: "from-orange-500 to-red-600",
       isPublic: true,
       tags: ["Speed Reading", "Digital", "Efficiency"]
     }
@@ -87,12 +84,12 @@ const Discover = () => {
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search books, authors, or topics..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="ps-10"
               />
             </div>
             <Button 
@@ -113,7 +110,7 @@ const Discover = () => {
                 variant={selectedCategory === category ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
-                className="rounded-full"
+                className="rounded-md"
               >
                 {category}
               </Button>
@@ -124,7 +121,7 @@ const Discover = () => {
         {/* Featured Section */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">Featured Books</h2>
+            <h2 className="font-serif text-xl font-semibold text-foreground">Featured Books</h2>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <TrendingUp className="h-4 w-4" />
               Trending this week
@@ -135,16 +132,14 @@ const Discover = () => {
             {filteredBooks.map((book) => (
               <Card 
                 key={book.id}
-                className="glass overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                className="shadow-none overflow-hidden transition-colors cursor-pointer"
               >
                 {/* Book Cover */}
-                <div className={`h-48 bg-gradient-to-br ${book.coverColor} relative`}>
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <BookOpen className="h-12 w-12 text-white" />
-                  </div>
-                  <div className="absolute top-3 right-3">
-                    <Badge variant="secondary" className="bg-white/90 text-foreground">
-                      <Star className="h-3 w-3 mr-1 fill-current" />
+                <div className="h-48 bg-muted border-b border-border relative flex items-center justify-center">
+                  <BookOpen className="h-12 w-12 text-muted-foreground" />
+                  <div className="absolute top-3 end-3">
+                    <Badge variant="secondary" className="bg-card text-foreground border-border">
+                      <Star className="h-3 w-3 me-1 fill-current" />
                       {book.rating}
                     </Badge>
                   </div>
@@ -153,7 +148,7 @@ const Discover = () => {
                 {/* Book Info */}
                 <div className="p-4 space-y-3">
                   <div>
-                    <h3 className="font-semibold text-foreground line-clamp-1">{book.title}</h3>
+                    <h3 className="font-serif font-semibold text-foreground line-clamp-1">{book.title}</h3>
                     <p className="text-sm text-muted-foreground">by {book.author}</p>
                   </div>
 
@@ -200,17 +195,15 @@ const Discover = () => {
 
         {/* Categories Grid */}
         <section className="space-y-6">
-          <h2 className="text-xl font-semibold text-foreground">Browse by Category</h2>
+          <h2 className="font-serif text-xl font-semibold text-foreground">Browse by Category</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {categories.slice(1).map((category) => ( // Skip "All"
-              <Card 
-                className="glass p-4 text-center cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+              <Card key={category} 
+                className="shadow-none p-4 text-center cursor-pointer transition-colors hover:border-primary/40"
                 onClick={() => setSelectedCategory(category)}
               >
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="h-6 w-6 text-primary" />
-                </div>
+                <BookOpen className="h-6 w-6 text-muted-foreground mx-auto mb-3" />
                 <h3 className="font-medium text-foreground">{category}</h3>
                 <p className="text-sm text-muted-foreground">
                   {Math.floor(Math.random() * 50) + 10} books
@@ -222,7 +215,7 @@ const Discover = () => {
 
         {/* Coming Soon Notice */}
         <section className="text-center py-12">
-          <Card className="glass p-8 max-w-2xl mx-auto">
+          <Card className="shadow-none p-8 max-w-2xl mx-auto">
             <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">
               Public Library Coming Soon

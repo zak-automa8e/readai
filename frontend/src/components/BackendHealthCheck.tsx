@@ -78,12 +78,12 @@ export function BackendHealthCheck() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-md">
+    <div className="fixed bottom-4 end-4 z-50 max-w-md">
       {isBackendAvailable === true && (
-        <Alert className="bg-green-100 border-green-400">
-          <CheckCircle className="h-4 w-4 text-green-700" />
-          <AlertTitle className="text-green-800">Connected</AlertTitle>
-          <AlertDescription className="text-green-700">
+        <Alert className="bg-card border-primary">
+          <CheckCircle className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary">Connected</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
             Successfully connected to the backend server.
           </AlertDescription>
         </Alert>
@@ -96,7 +96,7 @@ export function BackendHealthCheck() {
           <AlertDescription>
             Cannot connect to the backend server. Some features may not work properly.
             <div className="mt-2">
-              <ul className="list-disc pl-5 text-sm">
+              <ul className="list-disc ps-5 text-sm">
                 <li>Make sure the backend server is running</li>
                 <li>Check if it's running on the correct port (3001)</li>
                 <li>Restart the application if problems persist</li>

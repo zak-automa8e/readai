@@ -19,9 +19,9 @@ export const ContentLayout = ({
       className
     )}>
       {(title || description) && (
-        <div className="flex-shrink-0 p-6 border-b border-border/50">
+        <div className="flex-shrink-0 p-6 border-b border-border">
           {title && (
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+            <h1 className="font-serif text-2xl font-semibold text-foreground mb-2">
               {title}
             </h1>
           )}

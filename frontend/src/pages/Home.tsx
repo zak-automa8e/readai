@@ -48,7 +48,7 @@ const Home = () => {
           <div className="space-y-3">
             <h1 className="text-4xl lg:text-6xl font-light text-foreground">
               Welcome to{" "}
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent font-semibold">
+              <span className="text-primary font-semibold">
                 ReadAI
               </span>
             </h1>
@@ -87,13 +87,11 @@ const Home = () => {
             return (
               <Card 
                 key={index}
-                className="glass p-6 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                className="shadow-none p-6 transition-colors"
               >
-                <div className="flex items-start space-x-4">
+                <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
+                    <Icon className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -114,13 +112,11 @@ const Home = () => {
           <h2 className="text-2xl font-semibold text-center">Quick Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card 
-              className="glass p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+              className="shadow-none p-4 cursor-pointer transition-colors hover:border-primary/40"
               onClick={() => navigate('/library')}
             >
               <div className="text-center space-y-3">
-                <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto">
-                  <BookOpen className="h-6 w-6 text-blue-500" />
-                </div>
+                <BookOpen className="h-6 w-6 text-muted-foreground mx-auto" />
                 <div>
                   <h3 className="font-medium">Library</h3>
                   <p className="text-sm text-muted-foreground">
@@ -131,13 +127,11 @@ const Home = () => {
             </Card>
 
             <Card 
-              className="glass p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+              className="shadow-none p-4 cursor-pointer transition-colors hover:border-primary/40"
               onClick={() => navigate('/library')}
             >
               <div className="text-center space-y-3">
-                <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center mx-auto">
-                  <Upload className="h-6 w-6 text-green-500" />
-                </div>
+                <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
                 <div>
                   <h3 className="font-medium">Upload</h3>
                   <p className="text-sm text-muted-foreground">Add new book</p>
@@ -146,13 +140,11 @@ const Home = () => {
             </Card>
 
             <Card 
-              className="glass p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+              className="shadow-none p-4 cursor-pointer transition-colors hover:border-primary/40"
               onClick={() => navigate('/settings')}
             >
               <div className="text-center space-y-3">
-                <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto">
-                  <Mic className="h-6 w-6 text-purple-500" />
-                </div>
+                <Mic className="h-6 w-6 text-muted-foreground mx-auto" />
                 <div>
                   <h3 className="font-medium">Voice Settings</h3>
                   <p className="text-sm text-muted-foreground">Configure TTS</p>
@@ -161,13 +153,11 @@ const Home = () => {
             </Card>
 
             <Card 
-              className="glass p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+              className="shadow-none p-4 cursor-pointer transition-colors hover:border-primary/40"
               onClick={() => navigate('/analytics')}
             >
               <div className="text-center space-y-3">
-                <div className="w-12 h-12 bg-orange-500/10 rounded-lg flex items-center justify-center mx-auto">
-                  <BarChart3 className="h-6 w-6 text-orange-500" />
-                </div>
+                <BarChart3 className="h-6 w-6 text-muted-foreground mx-auto" />
                 <div>
                   <h3 className="font-medium">Analytics</h3>
                   <p className="text-sm text-muted-foreground">View insights</p>
@@ -185,26 +175,26 @@ const Home = () => {
               {books.slice(0, 3).map((book) => (
                 <Card 
                   key={book.id}
-                  className="glass p-4 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                  className="shadow-none p-4 cursor-pointer transition-colors hover:border-primary/40"
                   onClick={() => {
                     // Note: We'll need to ensure the book selection still works
                     navigate('/library');
                   }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-16 bg-muted rounded flex items-center justify-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-16 bg-muted rounded-sm flex items-center justify-center">
                       {book.defaultCover ? (
                         <img 
                           src={book.defaultCover}
                           alt={book.title}
-                          className="w-full h-full object-cover rounded"
+                          className="w-full h-full object-cover rounded-sm"
                         />
                       ) : (
                         <BookOpen className="h-6 w-6 text-muted-foreground" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{book.title}</h3>
+                      <h3 className="font-serif font-medium truncate">{book.title}</h3>
                       {book.author && (
                         <p className="text-sm text-muted-foreground truncate">
                           {book.author}

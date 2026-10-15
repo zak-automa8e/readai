@@ -143,7 +143,7 @@ const VoiceStudio = () => {
         {/* Voice Gallery */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">My Personas</h2>
+            <h2 className="font-serif text-xl font-semibold text-foreground">My Personas</h2>
             <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               Create New Persona
@@ -151,7 +151,7 @@ const VoiceStudio = () => {
           </div>
 
           {!personas || personas.length === 0 ? (
-            <div className="text-center py-12 glass rounded-xl">
+            <div className="text-center py-12 bg-card border border-border rounded-md">
               <p className="text-muted-foreground mb-4">You haven't created any voice personas yet.</p>
               <Button onClick={() => setIsCreateOpen(true)}>Get Started</Button>
             </div>
@@ -160,26 +160,25 @@ const VoiceStudio = () => {
               {personas.map((voice: VoicePersona) => (
                 <Card
                   key={voice.id}
-                  className={`glass transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer ${selectedVoice?.id === voice.id ? 'ring-2 ring-primary' : ''
-                    }`}
+                  className={`shadow-none transition-colors cursor-pointer hover:border-primary/40 ${selectedVoice?.id === voice.id ? 'border-primary' : ''}`}
                   onClick={() => setSelectedVoiceId(voice.id)}
                 >
                   <div className="p-4 space-y-4">
                     {/* Voice Header */}
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center">
-                          <User className="h-6 w-6 text-primary" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                          <User className="h-6 w-6 text-muted-foreground" />
                         </div>
                         <div>
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-semibold text-foreground">{voice.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-serif font-semibold text-foreground">{voice.name}</h3>
                             {voice.is_featured && (
-                              <Crown className="h-4 w-4 text-yellow-500" />
+                              <Crown className="h-4 w-4 text-primary" />
                             )}
                             {voice.total_usage_count > 100 && (
                               <Badge variant="secondary" className="text-xs">
-                                <Zap className="h-3 w-3 mr-1" />
+                                <Zap className="h-3 w-3 me-1" />
                                 Popular
                               </Badge>
                             )}
@@ -238,16 +237,16 @@ const VoiceStudio = () => {
         {selectedVoice && (
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground">Selected Voice</h2>
+              <h2 className="font-serif text-xl font-semibold text-foreground">Selected Voice</h2>
 
-              <Card className="glass p-6">
+              <Card className="shadow-none p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center">
-                      <User className="h-8 w-8 text-primary" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                      <User className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-foreground">{selectedVoice.name}</h3>
                         {selectedVoice.is_default && <Badge>Default</Badge>}
                       </div>
@@ -257,7 +256,7 @@ const VoiceStudio = () => {
                     </div>
                   </div>
 
-                  <p className="text-sm text-muted-foreground bg-muted/20 p-3 rounded-md">
+                  <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
                     <strong>Prompt Logic:</strong> Read in a {selectedVoice.pace} pace, with a {selectedVoice.tone} tone and {selectedVoice.emotion} emotion.
                   </p>
 
@@ -285,8 +284,8 @@ const VoiceStudio = () => {
 
             {/* Stats (Placeholder for now) */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground">Usage</h2>
-              <Card className="glass p-6">
+              <h2 className="font-serif text-xl font-semibold text-foreground">Usage</h2>
+              <Card className="shadow-none p-6">
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Times Used</span>
@@ -308,10 +307,10 @@ const VoiceStudio = () => {
 
         {/* Coming Soon Features */}
         <section>
-          <h2 className="text-xl font-semibold text-foreground mb-6">Coming Soon</h2>
+          <h2 className="font-serif text-xl font-semibold text-foreground mb-6">Coming Soon</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="glass p-6 text-center">
+            <Card className="shadow-none p-6 text-center">
               <AudioWaveform className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-semibold text-foreground mb-2">Voice Cloning</h3>
               <p className="text-sm text-muted-foreground">
@@ -319,7 +318,7 @@ const VoiceStudio = () => {
               </p>
             </Card>
 
-            <Card className="glass p-6 text-center">
+            <Card className="shadow-none p-6 text-center">
               <Volume2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-semibold text-foreground mb-2">Emotion Detection</h3>
               <p className="text-sm text-muted-foreground">
@@ -327,7 +326,7 @@ const VoiceStudio = () => {
               </p>
             </Card>
 
-            <Card className="glass p-6 text-center">
+            <Card className="shadow-none p-6 text-center">
               <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-semibold text-foreground mb-2">Advanced Controls</h3>
               <p className="text-sm text-muted-foreground">
