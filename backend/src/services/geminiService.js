@@ -132,7 +132,7 @@ class GeminiService {
    * @param {string} [systemInstruction] - Optional system instruction for style control
    * @returns {Promise<Object>} - { data: base64 audio, mimeType, usage }
    */
-  async generateAudio(text, voiceName = '6tager', systemInstruction = null) {
+  async generateAudio(text, voiceName = 'Sadaltager', systemInstruction = null) {
     const modelConfig = {
       responseModalities: ['AUDIO'],
       speechConfig: {

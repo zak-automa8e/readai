@@ -3,7 +3,7 @@ const { pcmToWav } = require('../services/llm/audio');
 const logger = require('../utils/logger');
 
 // The voice this route has always asked for, kept as is
-const LEGACY_DEFAULT_VOICE = '6tager';
+const LEGACY_DEFAULT_VOICE = 'Sadaltager';
 
 /**
  * Audio processing controller
