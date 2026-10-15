@@ -10,7 +10,9 @@ export interface PageSelection {
   rect: DOMRect;
 }
 
-const TEXT_LAYER = ".react-pdf__Page__textContent";
+const TOUCH_SETTLE_MS = 350;
+
+const TEXT_LAYER =".react-pdf__Page__textContent";
 
 const elementOf = (node: Node | null) => (node instanceof Element ? node : node?.parentElement ?? null);
 
@@ -32,11 +34,14 @@ export const useTextSelection = ({
   scrollRef,
   keepRef,
   pageNumber,
+  settleOnSelectionChange = false,
 }: {
   pageRef: RefObject<HTMLElement>;
   scrollRef: RefObject<HTMLElement>;
   keepRef: RefObject<HTMLElement>;
   pageNumber: number;
+  /** Also read the selection a moment after it changes (touch devices). */
+  settleOnSelectionChange?: boolean;
 }) => {
   const [selection, setSelection] = useState<PageSelection | null>(null);
   const rangeRef = useRef<Range | null>(null);
@@ -89,8 +94,14 @@ export const useTextSelection = ({
       if (keepRef.current?.contains(event.target as Node)) return;
       clear();
     };
+    let settleTimer = 0;
     const onSelectionChange = () => {
       if (rangeRef.current && document.getSelection()?.isCollapsed) clear();
+      // A touch selection ends without a pointerup: wait until the handles stop moving
+      if (settleOnSelectionChange) {
+        window.clearTimeout(settleTimer);
+        settleTimer = window.setTimeout(update, TOUCH_SETTLE_MS);
+      }
     };
 
     document.addEventListener("pointerup", onPointerUp);
@@ -104,8 +115,9 @@ export const useTextSelection = ({
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("selectionchange", onSelectionChange);
+      window.clearTimeout(settleTimer);
     };
-  }, [read, clear, keepRef]);
+  }, [read, clear, keepRef, settleOnSelectionChange]);
 
   // Keep the anchor on the text while the canvas or window scrolls/resizes
   const hasSelection = selection !== null;

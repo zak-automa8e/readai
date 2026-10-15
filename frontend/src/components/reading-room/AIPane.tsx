@@ -1,4 +1,4 @@
-import { MessageSquare, PanelRightClose, Sparkles, StickyNote } from "lucide-react";
+import { MessageSquare, PanelRightClose, Sparkles, StickyNote, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatWindow } from "../ChatWindow";
@@ -17,8 +17,10 @@ const contentClass =
   "mt-0 min-h-0 flex-1 overflow-hidden p-3 data-[state=active]:flex data-[state=active]:flex-col";
 
 /** Right pane: Chat | Notes | Explain over the book's shared conversation (AssistantContext). */
-export const AIPane = () => {
+export const AIPane = ({ onClose }: { onClose?: () => void }) => {
   const { panes } = useReadingRoom();
+  const CollapseIcon = onClose ? X : PanelRightClose;
+  const collapseLabel = onClose ? "Close" : "Collapse assistant";
 
   return (
     <Tabs
@@ -31,11 +33,11 @@ export const AIPane = () => {
           variant="ghost"
           size="icon"
           className="h-8 w-8 shrink-0 text-muted-foreground"
-          onClick={panes.toggleAI}
-          aria-label="Collapse assistant"
-          title="Collapse assistant"
+          onClick={onClose ?? panes.toggleAI}
+          aria-label={collapseLabel}
+          title={collapseLabel}
         >
-          <PanelRightClose className="h-4 w-4 rtl:rotate-180" />
+          <CollapseIcon className={onClose ? "h-4 w-4" : "h-4 w-4 rtl:rotate-180"} />
         </Button>
         <TabsList className="grid h-8 min-w-0 flex-1 grid-cols-3 p-0.5">
           {TABS.map(({ value, label, icon: Icon }) => (

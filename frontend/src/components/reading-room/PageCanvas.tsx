@@ -15,15 +15,17 @@ interface DrawnLayer {
  * While the pane is resizing, the last drawn canvas is CSS-scaled to the live width instead of being
  * redrawn every frame. When a new width settles, the new canvas draws hidden on top of the old one
  * (same grid cell) and replaces it only once it has finished, so the page never flashes blank.
+ * `fixedFit` pins fit-width at 100% (mobile).
  */
-export const PageCanvas = () => {
+export const PageCanvas = ({ fixedFit = false }: { fixedFit?: boolean }) => {
   const { canvasRef, pageRef, pageCanvasRef, pdf, pageNumber, fitMode, zoomScale, panes } = useReadingRoom();
   const { displayWidth, renderWidth, aspect } = usePageFit({
     paneRef: canvasRef,
     pdf,
     pageNumber,
-    fitMode,
-    zoomScale,
+    // The mobile room always fits the width at 100%; the saved desktop fit/zoom don't apply
+    fitMode: fixedFit ? "width" : fitMode,
+    zoomScale: fixedFit ? 100 : zoomScale,
     dividerDragging: panes.dividerDragging,
   });
   const [drawn, setDrawn] = useState<DrawnLayer | null>(null);

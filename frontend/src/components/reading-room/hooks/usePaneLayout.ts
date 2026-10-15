@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
+import { useUI } from "@/contexts/UIContext";
 
 export type RailTab = "pages" | "outline" | "notes";
 export type AITab = "chat" | "notes" | "explain";
@@ -20,7 +21,12 @@ const togglePanel = (panel: ImperativePanelHandle | null) => {
   else panel.collapse();
 };
 
+export type MobileSheet = "rail" | "ai" | null;
+
 export const usePaneLayout = () => {
+  const { isMobile } = useUI();
+  // Under 768px the rail and assistant are bottom sheets instead of panels
+  const [mobileSheet, setMobileSheet] = useState<MobileSheet>(null);
   const railRef = useRef<ImperativePanelHandle>(null);
   const aiRef = useRef<ImperativePanelHandle>(null);
   // Driven by the panels' onCollapse/onExpand callbacks, which the library fires from the same
@@ -36,15 +42,23 @@ export const usePaneLayout = () => {
   const toggleRail = useCallback(() => togglePanel(railRef.current), []);
   const toggleAI = useCallback(() => togglePanel(aiRef.current), []);
 
-  const openRailTab = useCallback((tab: RailTab) => {
-    setRailTab(tab);
-    railRef.current?.expand();
-  }, []);
+  const openRailTab = useCallback(
+    (tab: RailTab) => {
+      setRailTab(tab);
+      if (isMobile) setMobileSheet("rail");
+      else railRef.current?.expand();
+    },
+    [isMobile]
+  );
 
-  const openAITab = useCallback((tab: AITab) => {
-    setAITab(tab);
-    aiRef.current?.expand();
-  }, []);
+  const openAITab = useCallback(
+    (tab: AITab) => {
+      setAITab(tab);
+      if (isMobile) setMobileSheet("ai");
+      else aiRef.current?.expand();
+    },
+    [isMobile]
+  );
 
   const onRailCollapse = useCallback(() => setRailCollapsed(true), []);
   const onRailExpand = useCallback(() => setRailCollapsed(false), []);
@@ -71,8 +85,11 @@ export const usePaneLayout = () => {
       onAIExpand,
       dividerDragging,
       onDividerDragging,
+      mobileSheet,
+      setMobileSheet,
     }),
     [
+      mobileSheet,
       dividerDragging,
       onDividerDragging,
       railCollapsed,

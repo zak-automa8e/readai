@@ -1,3 +1,4 @@
+import { useUI } from "@/contexts/UIContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resizable";
 import { useReadingRoom } from "./ReadingRoomContext";
 import { RoomHeader } from "./RoomHeader";
@@ -8,6 +9,7 @@ import { PageCanvas } from "./PageCanvas";
 import { AIPane } from "./AIPane";
 import { AIStrip } from "./AIStrip";
 import { NowPlayingBar } from "./NowPlayingBar";
+import { MobileReadingRoom } from "./MobileReadingRoom";
 import { PANE_SIZES, paneLayoutSaveId } from "./hooks/usePaneLayout";
 
 /**
@@ -16,6 +18,10 @@ import { PANE_SIZES, paneLayoutSaveId } from "./hooks/usePaneLayout";
  */
 export const ReadingRoom = () => {
   const { book, panes, roomRef } = useReadingRoom();
+  const { isMobile } = useUI();
+
+  // A separate tree: panels are never mounted conditionally inside the group
+  if (isMobile) return <MobileReadingRoom />;
 
   return (
     <div ref={roomRef} className="grid h-full w-full grid-rows-[44px_minmax(0,1fr)_auto] bg-background text-foreground">

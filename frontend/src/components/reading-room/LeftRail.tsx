@@ -1,4 +1,4 @@
-import { LayoutGrid, ListTree, PanelLeftClose, StickyNote } from "lucide-react";
+import { LayoutGrid, ListTree, PanelLeftClose, StickyNote, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { useReadingRoom } from "./ReadingRoomContext";
@@ -8,8 +8,10 @@ import { RailNotes } from "./RailNotes";
 import type { RailTab } from "./hooks/usePaneLayout";
 
 /** Left pane: page thumbnails, document outline, and notes by page. */
-export const LeftRail = () => {
+export const LeftRail = ({ onClose }: { onClose?: () => void }) => {
   const { panes } = useReadingRoom();
+  const CollapseIcon = onClose ? X : PanelLeftClose;
+  const collapseLabel = onClose ? "Close" : "Collapse rail";
 
   return (
     <Tabs
@@ -33,11 +35,11 @@ export const LeftRail = () => {
           variant="ghost"
           size="icon"
           className="h-8 w-8 shrink-0 text-muted-foreground"
-          onClick={panes.toggleRail}
-          aria-label="Collapse rail"
-          title="Collapse rail"
+          onClick={onClose ?? panes.toggleRail}
+          aria-label={collapseLabel}
+          title={collapseLabel}
         >
-          <PanelLeftClose className="h-4 w-4 rtl:rotate-180" />
+          <CollapseIcon className={onClose ? "h-4 w-4" : "h-4 w-4 rtl:rotate-180"} />
         </Button>
       </div>
       <TabsContent value="pages" className="mt-0 min-h-0 flex-1 overflow-hidden">

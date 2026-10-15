@@ -107,9 +107,10 @@ const PageJump = ({
 
 /**
  * Full-width bar under all three panes. Listening is the primary mode, so playback stays here at a
- * fixed height regardless of pane sizes or collapse state.
+ * fixed height regardless of pane sizes or collapse state. `compact` (mobile) wraps onto rows, puts
+ * the seek bar first and drops the view controls (the page is fixed to fit-width there).
  */
-export const NowPlayingBar = () => {
+export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
   const { pageNumber, numPages, goToPage, fitMode, setFitMode, zoomScale, setZoomScale, roomRef } = useReadingRoom();
   const {
     isPlaying,
@@ -139,7 +140,11 @@ export const NowPlayingBar = () => {
 
   return (
     <footer
-      className="flex h-14 min-w-0 items-center gap-3 overflow-hidden border-t border-border bg-card px-4"
+      className={
+        compact
+          ? "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 overflow-hidden border-t border-border bg-card px-3 py-2"
+          : "flex h-14 min-w-0 items-center gap-3 overflow-hidden border-t border-border bg-card px-4"
+      }
       aria-label="Now playing"
     >
       {/* Page navigation */}
@@ -176,7 +181,7 @@ export const NowPlayingBar = () => {
         </Button>
       </div>
 
-      <Divider />
+      {!compact && <Divider />}
 
       {/* Playback */}
       <div className="flex shrink-0 items-center gap-1">
@@ -222,10 +227,10 @@ export const NowPlayingBar = () => {
         </div>
       </div>
 
-      <Divider />
+      {!compact && <Divider />}
 
       {/* Seek */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className={compact ? "order-first flex w-full min-w-0 items-center gap-3" : "flex min-w-0 flex-1 items-center gap-3"}>
         <Slider
           value={[audioDuration > 0 ? (audioCurrentTime / audioDuration) * 100 : 0]}
           max={100}
@@ -240,10 +245,10 @@ export const NowPlayingBar = () => {
         </span>
       </div>
 
-      <Divider />
+      {!compact && <Divider />}
 
       {/* View */}
-      <div className="flex shrink-0 items-center gap-2">
+      <div className={compact ? "hidden" : "flex shrink-0 items-center gap-2"}>
         <Button
           variant="ghost"
           size="icon"

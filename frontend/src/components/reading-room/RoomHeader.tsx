@@ -1,10 +1,12 @@
+import type { ReactNode } from "react";
 import { ArrowLeft, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { Button } from "../ui/button";
 import { useReadingRoom } from "./ReadingRoomContext";
 
-export const RoomHeader = () => {
+/** `children` render just before the theme toggle (the mobile room puts its sheet buttons there). */
+export const RoomHeader = ({ children }: { children?: ReactNode }) => {
   const navigate = useNavigate();
   const { book } = useReadingRoom();
   const { resolvedTheme, setTheme } = useTheme();
@@ -26,6 +28,7 @@ export const RoomHeader = () => {
         <h1 className="truncate font-serif text-base font-medium leading-none">{book.title}</h1>
         {book.author && <span className="truncate text-sm text-muted-foreground">{book.author}</span>}
       </div>
+      {children}
       <Button
         variant="ghost"
         size="icon"
