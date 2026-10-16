@@ -159,6 +159,22 @@ describe('runChunk (realtime)', () => {
     expect(db.state.extractions.get(extraction.id)).toMatchObject({ finalized_through_page: 2, pages_done: 2, status: 'complete' });
   });
 
+  it('does not settle the extraction or drop the PDF while its last chunk still has pages to do', async () => {
+    const extraction = await setupExtraction(4);
+    const job = chunkJob(extraction, [1, 2, 3, 4]);
+    db.state.jobs.push({ ...job, status: 'running' });
+    pageRenderer.renderPage.mockImplementation(async (path, page) => {
+      if (page === 4) throw new Error('render failed');
+      return { png: Buffer.from(`png-${page}`), sha256: `img-${page}` };
+    });
+
+    await expect(service.runChunk(job, ctx)).rejects.toThrow();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(db.state.extractions.get(extraction.id).status).toBe('running');
+    expect(pdfSource.forgetPdf).not.toHaveBeenCalled();
+  });
+
   it('skips pages this extraction already saved, without rendering them (job replay after a crash)', async () => {
     const extraction = await setupExtraction(3);
     await service.runChunk(chunkJob(extraction, [1, 2]), ctx);

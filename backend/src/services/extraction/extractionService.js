@@ -423,8 +423,10 @@ async function extractRealtime(job, context, pages) {
         if (typeof outcome.validation.spokenChars === 'number') lengthSample.push(outcome.validation.spokenChars);
         await savePage({ extraction, pageId, pageNumber: page, imageSha256, outcome, startedAt, mode: 'realtime' });
       }
-      // Not awaited: passes queue per extraction; the caller awaits a last pass after the chunk
-      finalizePrefix(extraction.id, { excludeJobId: job.id }).catch((error) => {
+      // Not awaited: passes queue per extraction; the caller awaits a last pass after the chunk.
+      // This job is still running, so it counts as outstanding: the extraction must not settle
+      // (and drop the cached PDF) while the chunk's other pages are rendering.
+      finalizePrefix(extraction.id).catch((error) => {
         logger.error('Finalize after page failed', { extractionId: extraction.id, page, error: error.message });
       });
     } catch (error) {
