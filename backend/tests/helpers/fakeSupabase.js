@@ -23,6 +23,16 @@ function createFakeSupabase() {
         costs: [],
         files: new Map(),
         failNextExtractionUpdate: false,
+        segmentAudio: [],
+        skipOverrides: [],
+        plans: new Map([
+          ['free', { id: 'free', name: 'Free', daily_page_limit: 2 }],
+          ['basic', { id: 'basic', name: 'Basic', daily_page_limit: 10 }],
+          ['pro', { id: 'pro', name: 'Pro', daily_page_limit: 50 }],
+        ]),
+        subscriptions: new Map(),
+        dailyUsage: [],
+        today: new Date().toISOString().slice(0, 10), // record_page_listen's UTC day
       });
     },
 
@@ -182,6 +192,88 @@ function createFakeSupabase() {
     }),
     createSignedUrl: jest.fn(async (bucket, path) => `https://signed.test/${path}`),
     removeFiles: jest.fn(async (bucket, paths) => paths.forEach((p) => state.files.delete(p))),
+    getFileUrl: jest.fn((bucket, path) => `https://public.test/${bucket}/${path}`),
+
+    // ---- segment audio, listening window, plans (story 5)
+    // Mirrors: segment_audio UNIQUE (text_sha256, voice_snapshot_sha256); record_page_listen's rules
+    addSegment(row) {
+      const segment = { id: nextId('seg'), status: 'final', footnote_markers: [], sentence_offsets: [], ...row };
+      state.segments.push(segment);
+      return segment;
+    },
+    audioRow(textSha256, voiceHash) {
+      return state.segmentAudio.find((r) => r.text_sha256 === textSha256 && r.voice_snapshot_sha256 === voiceHash) || null;
+    },
+    subscribe(userId, planId, extra = {}) {
+      state.subscriptions.set(userId, { user_id: userId, plan_id: planId, status: 'active', ends_at: null, ...extra });
+    },
+
+    getSegmentById: jest.fn(async (id) => {
+      const row = state.segments.find((s) => s.id === id);
+      return row ? { ...row } : null;
+    }),
+    getSegmentsFromSeq: jest.fn(async (extractionId, fromSeq, limit = 100) => fake.segmentsOf(extractionId)
+      .filter((s) => s.seq >= fromSeq)
+      .slice(0, limit)
+      .map((s) => ({ ...s }))),
+    getPageTypes: jest.fn(async (extractionId) => new Map([...state.pageTexts.values()]
+      .filter((t) => t.extraction_id === extractionId)
+      .map((t) => [fake.pageNumberOf(t.page_id), t.page_type || null]))),
+    getPageSkipOverrides: jest.fn(async (userId, bookId) => new Map(state.skipOverrides
+      .filter((o) => o.user_id === userId && o.book_id === bookId)
+      .map((o) => [o.page_number, o.skip]))),
+    findAccessibleBookByContent: jest.fn(async (userId, sha) => {
+      const books = [...state.books.values()].filter((b) => b.content_sha256 === sha);
+      const own = books.find((b) => b.user_id === userId);
+      if (own) return { ...own };
+      const ref = books.find((b) => state.userBooks.some((u) => u.user_id === userId && u.book_id === b.id));
+      return ref ? { ...ref } : null;
+    }),
+
+    getSegmentAudioRows: jest.fn(async (voiceHash, textHashes) => state.segmentAudio
+      .filter((r) => r.voice_snapshot_sha256 === voiceHash && textHashes.includes(r.text_sha256))
+      .map((r) => ({ ...r }))),
+    getSegmentAudio: jest.fn(async (textHash, voiceHash) => {
+      const row = fake.audioRow(textHash, voiceHash);
+      return row ? { ...row } : null;
+    }),
+    insertSegmentAudioPending: jest.fn(async (rows) => {
+      for (const row of rows) {
+        if (fake.audioRow(row.text_sha256, row.voice_snapshot_sha256)) continue;
+        state.segmentAudio.push({ id: nextId('sa'), error: null, audio_url: null, duration_seconds: null, ...row, status: 'pending' });
+      }
+    }),
+    updateSegmentAudio: jest.fn(async (textHash, voiceHash, updates, { onlyStatus, unlessStatus } = {}) => {
+      const row = fake.audioRow(textHash, voiceHash);
+      if (!row) return null;
+      if (onlyStatus && row.status !== onlyStatus) return null;
+      if (unlessStatus && row.status === unlessStatus) return null;
+      Object.assign(row, updates);
+      return { ...row };
+    }),
+    getJobsByKeys: jest.fn(async (keys) => state.jobs.filter((j) => keys.includes(j.idempotency_key)).map((j) => ({ ...j }))),
+    getJobsByKeyPrefix: jest.fn(async (prefix) => state.jobs.filter((j) => j.idempotency_key.startsWith(prefix)).map((j) => ({ ...j }))),
+
+    getSubscription: jest.fn(async (userId) => {
+      const sub = state.subscriptions.get(userId);
+      return sub ? { ...sub, plans: { ...state.plans.get(sub.plan_id) } } : null;
+    }),
+    getPlan: jest.fn(async (id) => (state.plans.has(id) ? { ...state.plans.get(id) } : null)),
+    getDailyPageUsage: jest.fn(async (userId, date) => state.dailyUsage
+      .filter((u) => u.user_id === userId && u.usage_date === date)
+      .map((u) => ({ book_id: u.book_id, page_number: u.page_number }))),
+    recordPageListen: jest.fn(async (userId, bookId, page) => {
+      const sub = state.subscriptions.get(userId);
+      const active = sub && sub.status === 'active' && (!sub.ends_at || Date.parse(sub.ends_at) > Date.now());
+      const plan = state.plans.get(active ? sub.plan_id : 'free');
+      const today = state.dailyUsage.filter((u) => u.user_id === userId && u.usage_date === state.today);
+      const used = today.length;
+      const out = (allowed, counted, n) => ({ allowed, counted, used: n, limit: plan.daily_page_limit, plan: plan.id });
+      if (today.some((u) => u.book_id === bookId && u.page_number === page)) return out(true, false, used);
+      if (used >= plan.daily_page_limit) return out(false, false, used);
+      state.dailyUsage.push({ user_id: userId, usage_date: state.today, book_id: bookId, page_number: page });
+      return out(true, true, used + 1);
+    }),
   };
 
   fake.reset();
