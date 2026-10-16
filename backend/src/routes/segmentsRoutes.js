@@ -6,5 +6,6 @@ const segmentsController = require('../controllers/segmentsController');
 const router = express.Router();
 
 router.get('/:bookId/segments', authenticateUser, segmentsController.getSegments);
+router.post('/:bookId/listen', authenticateUser, segmentsController.listen);
 
 module.exports = router;
