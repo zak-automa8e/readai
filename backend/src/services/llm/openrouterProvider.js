@@ -88,13 +88,10 @@ async function chat(body, timeoutMs, model) {
   return { json, message, usage: chatUsage(json, model, startedAt) };
 }
 
-/**
- * Split one page image into labelled text blocks.
- * @param {{pngBase64: string, mimeType?: string, reasoning?: 'minimal'|'low'|'medium'}} args
- */
-async function extractBlocks({ pngBase64, mimeType = 'image/png', reasoning = 'minimal' }) {
-  const { json, message, usage } = await chat({
-    temperature: 0,
+// The extraction request without model and transport fields; `imageUrl` is a data URL (realtime)
+// or a public / signed http(s) URL (batch, which rejects data URLs)
+function extractionBody(imageUrl, reasoning) {
+  return {
     reasoning: { effort: reasoning },
     response_format: { type: 'json_schema', json_schema: PAGE_BLOCKS_SCHEMA },
     messages: [
@@ -102,16 +99,92 @@ async function extractBlocks({ pngBase64, mimeType = 'image/png', reasoning = 'm
       {
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${pngBase64}` } },
+          { type: 'image_url', image_url: { url: imageUrl } },
           { type: 'text', text: EXTRACTION_USER_TEXT },
         ],
       },
     ],
+  };
+}
+
+/**
+ * Split one page image into labelled text blocks.
+ * @param {{pngBase64: string, mimeType?: string, reasoning?: 'minimal'|'low'|'medium'}} args
+ */
+async function extractBlocks({ pngBase64, mimeType = 'image/png', reasoning = 'minimal' }) {
+  const { json, message, usage } = await chat({
+    temperature: 0,
+    ...extractionBody(`data:${mimeType};base64,${pngBase64}`, reasoning),
   }, settings().timeouts.extractMs, settings().models.extract);
 
   const raw = message?.content;
   if (!raw) throw new Error(`OpenRouter extraction returned no content (finish ${json.choices?.[0]?.finish_reason})`);
   return { raw, usage };
+}
+
+async function getJson(path, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${settings().baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${settings().apiKey}` },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw buildError(path, response, (await response.text()).slice(0, 500));
+    return response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Submit page extractions to the asynchronous batch API (spike P2): half price, finished within
+ * 24 h, image URLs must be public or signed http(s) URLs. One batch holds one configuration only.
+ * The batch takes no `temperature`.
+ * @param {{customId: string, imageUrl: string}[]} pages
+ * @param {{reasoning?: 'minimal'|'low'|'medium'}} [options]
+ * @returns {Promise<{batchId: string, status: string, model: string}>}
+ */
+async function submitExtractionBatch(pages, { reasoning = 'minimal' } = {}) {
+  const model = settings().models.extract;
+  const response = await post('/batches', {
+    endpoint: '/v1/chat/completions',
+    model,
+    requests: pages.map(({ customId, imageUrl }) => ({
+      custom_id: customId,
+      body: { model, ...extractionBody(imageUrl, reasoning) },
+    })),
+  }, settings().timeouts.extractMs);
+  const json = await response.json();
+  if (!json.id) throw new Error(`OpenRouter batch submit returned no id (status ${json.status})`);
+  return { batchId: json.id, status: json.status, model };
+}
+
+/**
+ * Poll a batch. Results arrive inline once the status is terminal.
+ * @param {string} batchId
+ * @returns {Promise<{status: string, done: boolean, results: {customId: string, raw: string|null, usage: Object|null, error: string|null}[]}>}
+ */
+async function getExtractionBatch(batchId) {
+  const model = settings().models.extract;
+  const json = await getJson(`/batches/${encodeURIComponent(batchId)}`, settings().timeouts.extractMs);
+  const done = ['completed', 'failed', 'expired', 'cancelled'].includes(json.status);
+  const results = (json.results || []).map((result) => {
+    const body = result.response?.body;
+    const statusCode = result.response?.status_code;
+    const raw = body?.choices?.[0]?.message?.content || null;
+    let error = null;
+    if (result.error) error = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
+    else if (statusCode && statusCode >= 400) error = `status ${statusCode}`;
+    else if (!raw) error = 'no content';
+    return {
+      customId: result.custom_id,
+      raw,
+      usage: body ? { ...chatUsage(body, model, Date.now()), latencyMs: null, batch: true } : null,
+      error,
+    };
+  });
+  return { status: json.status, done, error: json.error || null, results };
 }
 
 /**
@@ -183,4 +256,12 @@ async function chatWithDocument({ pdfUrl, filename = 'document.pdf', history = [
   return { text: reply.content, annotations: reply.annotations || null, usage };
 }
 
-module.exports = { isConfigured, extractBlocks, synthesize, chatWithDocument, toJsonSchema };
+module.exports = {
+  isConfigured,
+  extractBlocks,
+  submitExtractionBatch,
+  getExtractionBatch,
+  synthesize,
+  chatWithDocument,
+  toJsonSchema,
+};

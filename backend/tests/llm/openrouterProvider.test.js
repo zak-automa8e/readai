@@ -140,6 +140,56 @@ describe('openrouterProvider', () => {
     });
   });
 
+  describe('extraction batch', () => {
+    it('submits one /batches job with URL images, the model in every body and no temperature', async () => {
+      global.fetch.mockResolvedValue(jsonResponse({ id: 'batch-1', status: 'validating' }, { status: 202 }));
+
+      const result = await provider.submitExtractionBatch([
+        { customId: 'p11', imageUrl: 'https://storage/p11.png' },
+        { customId: 'p12', imageUrl: 'https://storage/p12.png' },
+      ]);
+
+      const { url, body } = sentRequest();
+      expect(url).toBe(`${openrouter.baseUrl}/batches`);
+      expect(body.endpoint).toBe('/v1/chat/completions');
+      expect(body.model).toBe(openrouter.models.extract);
+      expect(body.requests.map((r) => r.custom_id)).toEqual(['p11', 'p12']);
+      const first = body.requests[0].body;
+      expect(first.model).toBe(openrouter.models.extract);
+      expect(first).not.toHaveProperty('temperature');
+      expect(first.messages[1].content[0]).toEqual({ type: 'image_url', image_url: { url: 'https://storage/p11.png' } });
+      expect(first.response_format.json_schema.schema.properties.page_type.enum).toContain('toc');
+      expect(result).toEqual({ batchId: 'batch-1', status: 'validating', model: openrouter.models.extract });
+    });
+
+    it('reads inline results with per-request usage once the batch is terminal', async () => {
+      global.fetch.mockResolvedValue(jsonResponse({
+        id: 'batch-1',
+        status: 'completed',
+        results: [
+          { custom_id: 'p11', response: { status_code: 200, body: { model: 'm-dated', choices: [{ message: { content: '{"blocks":[]}' } }], usage: { prompt_tokens: 2329, completion_tokens: 700, cost: 0.0023 } } } },
+          { custom_id: 'p12', response: { status_code: 500, body: {} } },
+        ],
+      }));
+
+      const batch = await provider.getExtractionBatch('batch-1');
+
+      expect(global.fetch.mock.calls[0][0]).toBe(`${openrouter.baseUrl}/batches/batch-1`);
+      expect(batch.done).toBe(true);
+      expect(batch.results[0]).toMatchObject({ customId: 'p11', raw: '{"blocks":[]}', error: null });
+      expect(batch.results[0].usage).toMatchObject({ promptTokens: 2329, costUsd: 0.0023, batch: true });
+      expect(batch.results[1].error).toBe('status 500');
+    });
+
+    it('reports a running batch as not done', async () => {
+      global.fetch.mockResolvedValue(jsonResponse({ id: 'batch-1', status: 'in_progress' }));
+
+      const batch = await provider.getExtractionBatch('batch-1');
+
+      expect(batch).toMatchObject({ status: 'in_progress', done: false, results: [] });
+    });
+  });
+
   describe('synthesize', () => {
     it('posts to /audio/speech with pcm output and the voice as given', async () => {
       global.fetch.mockResolvedValue(audioResponse(Buffer.alloc(48000)));

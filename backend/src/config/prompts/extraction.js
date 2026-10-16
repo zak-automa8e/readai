@@ -2,9 +2,16 @@
 const { Type } = require('@google/genai');
 
 // Bump when the prompt or schema changes so stored extractions can be told apart
-const PROMPT_VERSION = 1;
+// 2: every page is also classified with a page_type (owner decision O8)
+const PROMPT_VERSION = 2;
 
 const ROLES = ['body', 'heading', 'running_header', 'footer', 'page_number', 'footnote', 'caption', 'other'];
+
+// Same 13 values as the page_text.page_type CHECK constraint
+const PAGE_TYPES = [
+  'cover', 'title', 'copyright', 'dedication', 'author_note', 'toc', 'blank',
+  'preface', 'introduction', 'body', 'index', 'bibliography', 'back_cover',
+];
 
 const EXTRACTION_PROMPT = `You transcribe ONE scanned book page for a text-to-speech reading app. The app will read aloud only the body and heading blocks, so your job is to (1) copy the page text exactly and (2) label every piece of text with its role, so that running headers, page numbers, footnotes and footnote markers are never read aloud.
 
@@ -36,11 +43,29 @@ SENTENCE CONTINUITY FLAGS (body blocks only; always false for every other role)
 - starts_mid_sentence: true only when the block begins in the middle of a sentence that began on the previous page. Signs: it is the first body block on the page, there is no heading above it, its first line is not indented, and its first words read as the continuation of a clause (for example the second half of a construct phrase, the object of a verb, a word right after a preposition, or a clause that cannot stand alone). A paragraph that begins a fresh sentence is false, even if it starts with و or ف.
 - ends_mid_sentence: true only when the block stops before its sentence is finished: the last words are grammatically incomplete and there is no final punctuation (. ؟ ! : …). Typically only the last body block on the page, when the sentence continues on the next page.
 
+PAGE TYPE
+Classify the whole page with exactly one page_type:
+- cover: the front cover of the book.
+- title: a title page (book title, author, publisher), including a half-title page.
+- copyright: the copyright or imprint page (edition, rights, ISBN, printing details, catalogue data).
+- dedication: a dedication («إهداء») or an epigraph page.
+- author_note: a short note from the author, publisher or editor that is not the preface («كلمة», «تنبيه», «شكر وتقدير»).
+- toc: a table of contents («الفهرس», «فهرس الموضوعات», «المحتويات»).
+- blank: no text at all, or only a page number, a running header or a decoration.
+- preface: a preface or foreword («مقدمة», «تقديم», «توطئة») before the main text.
+- introduction: an introduction or prologue that opens the main text («تمهيد», «مدخل»).
+- body: the main text of the book (chapters and their sections). Use body when unsure.
+- index: an alphabetical index of names, places or terms at the end of the book.
+- bibliography: a list of sources and references («المصادر والمراجع»).
+- back_cover: the back cover.
+A page that continues one of these sections keeps that section's type.
+
 Return only JSON that matches the schema.`;
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
+    page_type: { type: Type.STRING, enum: PAGE_TYPES },
     blocks: {
       type: Type.ARRAY,
       items: {
@@ -57,7 +82,8 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ['blocks'],
+  required: ['page_type', 'blocks'],
+  propertyOrdering: ['page_type', 'blocks'],
 };
 
-module.exports = { PROMPT_VERSION, ROLES, EXTRACTION_PROMPT, RESPONSE_SCHEMA };
+module.exports = { PROMPT_VERSION, ROLES, PAGE_TYPES, EXTRACTION_PROMPT, RESPONSE_SCHEMA };

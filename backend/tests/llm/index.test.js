@@ -66,9 +66,26 @@ describe('llm index', () => {
       expect(result.usage).toBe(usage);
     });
 
-    it('throws a stub error for batch mode without calling a provider', async () => {
-      await expect(llm.extractBlocks({ pngBase64: 'AAAA', mode: 'batch' })).rejects.toThrow('not implemented — story 4');
+    it('refuses batch mode, which goes through submitExtractionBatch', async () => {
+      await expect(llm.extractBlocks({ pngBase64: 'AAAA', mode: 'batch' })).rejects.toThrow('use submitExtractionBatch');
       expect(openrouter.extractBlocks).not.toHaveBeenCalled();
+    });
+
+    it('returns the page type when the reply has a known one', async () => {
+      openrouter.extractBlocks.mockResolvedValue({ raw: '{"page_type":"toc","blocks":[]}', usage });
+
+      const result = await llm.extractBlocks({ pngBase64: 'AAAA' });
+
+      expect(result.pageType).toBe('toc');
+    });
+
+    it('returns a null page type for an unknown or missing one', async () => {
+      openrouter.extractBlocks
+        .mockResolvedValueOnce({ raw: '{"page_type":"chapter","blocks":[]}', usage })
+        .mockResolvedValueOnce(goodExtraction);
+
+      expect((await llm.extractBlocks({ pngBase64: 'AAAA' })).pageType).toBeNull();
+      expect((await llm.extractBlocks({ pngBase64: 'AAAA' })).pageType).toBeNull();
     });
 
     it('retries a reply that is not valid JSON', async () => {
@@ -108,6 +125,55 @@ describe('llm index', () => {
 
       await expect(llm.extractBlocks({ pngBase64: 'AAAA' })).rejects.toThrow('boom');
       expect(google.extractBlocks).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('extraction batch', () => {
+    beforeEach(() => {
+      openrouter.submitExtractionBatch = jest.fn();
+      openrouter.getExtractionBatch = jest.fn();
+    });
+
+    it('submits through OpenRouter', async () => {
+      openrouter.submitExtractionBatch.mockResolvedValue({ batchId: 'batch-1', status: 'validating', model: 'm' });
+      const pages = [{ customId: 'p1', imageUrl: 'https://x/1.png' }];
+
+      const result = await llm.submitExtractionBatch(pages);
+
+      expect(result.batchId).toBe('batch-1');
+      expect(openrouter.submitExtractionBatch).toHaveBeenCalledWith(pages, {});
+    });
+
+    it('refuses batch on the Google adapter', async () => {
+      config.llm.provider = 'google';
+
+      await expect(llm.submitExtractionBatch([{ customId: 'p1', imageUrl: 'u' }])).rejects.toThrow('OpenRouter');
+    });
+
+    it('parses finished results and keeps per-result errors', async () => {
+      openrouter.getExtractionBatch.mockResolvedValue({
+        status: 'completed',
+        done: true,
+        results: [
+          { customId: 'p1', raw: '{"page_type":"body","blocks":[{"role":"body","text":"x"}]}', usage, error: null },
+          { customId: 'p2', raw: 'not json', usage, error: null },
+          { customId: 'p3', raw: null, usage: null, error: 'status 500' },
+        ],
+      });
+
+      const batch = await llm.getExtractionBatch('batch-1');
+
+      expect(batch.results[0]).toMatchObject({ customId: 'p1', pageType: 'body', blocks: [{ role: 'body', text: 'x' }], error: null });
+      expect(batch.results[1].error).toMatch('Failed to parse');
+      expect(batch.results[2].error).toBe('status 500');
+    });
+  });
+
+  describe('extractionModel', () => {
+    it('names the configured extraction model of the active adapter', () => {
+      expect(llm.extractionModel()).toBe(config.llm.openrouter.models.extract);
+      config.llm.provider = 'google';
+      expect(llm.extractionModel()).toBe(config.geminiModels.imageToText);
     });
   });
 

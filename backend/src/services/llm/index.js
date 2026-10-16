@@ -2,6 +2,7 @@ const config = require('../../config');
 const logger = require('../../utils/logger');
 const openrouterProvider = require('./openrouterProvider');
 const googleProvider = require('./googleProvider');
+const { PAGE_TYPES } = require('../../config/prompts/extraction');
 
 /**
  * llmProvider: the one entry point for model calls. Picks the adapter from config.llm.provider,
@@ -89,7 +90,13 @@ function logUsage(method, usage) {
   logger.info(`llm ${method}`, usage);
 }
 
-function parseBlocks(raw) {
+/**
+ * Parse an extraction reply into blocks and the page type (null when missing or unknown, e.g.
+ * replies to the version-1 prompt).
+ * @param {string} raw
+ * @returns {{blocks: Object[], pageType: string|null}}
+ */
+function parseExtraction(raw) {
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -103,24 +110,26 @@ function parseBlocks(raw) {
     failure.retriable = true;
     throw failure;
   }
-  return parsed.blocks;
+  const pageType = PAGE_TYPES.includes(parsed.page_type) ? parsed.page_type : null;
+  return { blocks: parsed.blocks, pageType };
 }
 
 async function extractFrom(adapter, args) {
   return withRetry(async () => {
     const { raw, usage } = await adapter.extractBlocks(args);
-    return { blocks: parseBlocks(raw), raw, usage };
+    return { ...parseExtraction(raw), raw, usage };
   }, { label: 'extractBlocks' });
 }
 
 /**
  * Split one page image into labelled blocks.
  * Falls back to Google direct when OpenRouter keeps failing and a Gemini key is set.
- * @param {{pngBase64: string, mimeType?: string, mode?: 'realtime'|'batch', reasoning?: 'minimal'|'low'|'medium'}} args
- * @returns {Promise<{blocks: Object[], raw: string, usage: Object}>}
+ * Batch extraction is asynchronous and goes through submitExtractionBatch / getExtractionBatch.
+ * @param {{pngBase64: string, mimeType?: string, mode?: 'realtime', reasoning?: 'minimal'|'low'|'medium'}} args
+ * @returns {Promise<{blocks: Object[], pageType: string|null, raw: string, usage: Object}>}
  */
 async function extractBlocks({ mode = 'realtime', ...args } = {}) {
-  if (mode === 'batch') throw new Error('extractBlocks batch mode is not implemented — story 4');
+  if (mode === 'batch') throw new Error('extractBlocks is realtime only; use submitExtractionBatch for batch mode');
   if (!args.pngBase64) throw new Error('pngBase64 is required');
 
   const { name, adapter } = activeProvider();
@@ -164,4 +173,61 @@ async function chatWithDocument(args) {
   return result;
 }
 
-module.exports = { extractBlocks, synthesize, chatWithDocument, withRetry };
+/**
+ * The model id an extraction recipe is keyed by (book_extractions.model, page_text.model):
+ * the configured extraction model of the active adapter, not the dated id a response reports.
+ * @returns {string}
+ */
+function extractionModel() {
+  const { name } = activeProvider();
+  return name === 'openrouter' ? config.llm.openrouter.models.extract : config.geminiModels.imageToText;
+}
+
+/** Whether the asynchronous batch API is available (OpenRouter only). */
+function supportsExtractionBatch() {
+  return activeProvider().name === 'openrouter';
+}
+
+/**
+ * Submit pages to the asynchronous extraction batch (half price, done within 24 h).
+ * @param {{customId: string, imageUrl: string}[]} pages
+ * @param {{reasoning?: 'minimal'|'low'|'medium'}} [options]
+ * @returns {Promise<{batchId: string, status: string, model: string}>}
+ */
+async function submitExtractionBatch(pages, options = {}) {
+  if (!supportsExtractionBatch()) throw new Error('Batch extraction needs the OpenRouter provider');
+  if (!pages?.length) throw new Error('pages are required');
+  const result = await withRetry(() => openrouterProvider.submitExtractionBatch(pages, options), { label: 'submitExtractionBatch' });
+  logger.info('llm submitExtractionBatch', { batchId: result.batchId, pages: pages.length });
+  return result;
+}
+
+/**
+ * Poll an extraction batch; finished results come back parsed (or with `error`).
+ * @param {string} batchId
+ * @returns {Promise<{status: string, done: boolean, results: {customId: string, blocks?: Object[], pageType?: string|null, raw: string|null, usage: Object|null, error: string|null}[]}>}
+ */
+async function getExtractionBatch(batchId) {
+  const batch = await withRetry(() => openrouterProvider.getExtractionBatch(batchId), { label: 'getExtractionBatch' });
+  const results = batch.results.map((result) => {
+    if (result.error) return result;
+    try {
+      return { ...result, ...parseExtraction(result.raw) };
+    } catch (error) {
+      return { ...result, error: error.message };
+    }
+  });
+  return { ...batch, results };
+}
+
+module.exports = {
+  extractBlocks,
+  parseExtraction,
+  extractionModel,
+  supportsExtractionBatch,
+  submitExtractionBatch,
+  getExtractionBatch,
+  synthesize,
+  chatWithDocument,
+  withRetry,
+};
