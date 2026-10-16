@@ -7,6 +7,8 @@ const booksRoutes = require('./booksRoutes');
 const authRoutes = require('./authRoutes');
 const pageRoutes = require('./pageRoutes');
 const chatRoutes = require('./chatRoutes');
+const processingRoutes = require('./processingRoutes');
+const segmentsRoutes = require('./segmentsRoutes');
 
 const voicePersonaRoutes = require('./voicePersonaRoutes');
 
@@ -30,6 +32,8 @@ router.use('/auth', authRoutes);
 router.use('/', pdfRoutes);
 router.use('/', imageRoutes);
 router.use('/', audioRoutes);
+router.use('/books', processingRoutes);
+router.use('/books', segmentsRoutes);
 router.use('/books', booksRoutes);
 router.use('/pages', pageRoutes);
 router.use('/chat', chatRoutes);
