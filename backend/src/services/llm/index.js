@@ -183,6 +183,16 @@ function extractionModel() {
   return name === 'openrouter' ? config.llm.openrouter.models.extract : config.geminiModels.imageToText;
 }
 
+/**
+ * The model synthesize() calls on the active adapter. Part of a clip's voice snapshot, so a model
+ * change is a new generation.
+ * @returns {string}
+ */
+function ttsModel() {
+  const { name } = activeProvider();
+  return name === 'openrouter' ? config.llm.openrouter.models.tts : config.geminiModels.textToAudio;
+}
+
 /** Whether the asynchronous batch API is available (OpenRouter only). */
 function supportsExtractionBatch() {
   return activeProvider().name === 'openrouter';
@@ -224,6 +234,7 @@ module.exports = {
   extractBlocks,
   parseExtraction,
   extractionModel,
+  ttsModel,
   supportsExtractionBatch,
   submitExtractionBatch,
   getExtractionBatch,

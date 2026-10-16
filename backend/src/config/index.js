@@ -101,6 +101,8 @@ const config = {
     stopTimeoutMs: 8000,          // SIGTERM waits this long for running jobs, then hands them back
     concurrency: {
       extract_pages: parseInt(process.env.JOBS_EXTRACT_CONCURRENCY, 10) || 1,
+      // Two parallel TTS calls showed no provider pressure (OpenRouter spike P6)
+      tts_segment: parseInt(process.env.JOBS_TTS_CONCURRENCY, 10) || 2,
     },
   },
 
@@ -116,6 +118,20 @@ const config = {
     batchMaxAgeMs: 26 * 60 * 60 * 1000,   // the batch window is 24 h; after that the chunk runs realtime
     storageBucket: 'readai-media',
     batchImageUrlSeconds: 48 * 60 * 60,   // signed URLs must outlive the 24 h batch window
+  },
+
+  // Segment audio, listening window and daily limit (spec §5.3, O12)
+  audio: {
+    // Stored format: 'wav' (default) or 'opus' (Ogg Opus; needs ffmpeg on the host, falls back to wav without it)
+    format: process.env.AUDIO_FORMAT === 'opus' ? 'opus' : 'wav',
+    opusBitrateKbps: 32,
+    storageBucket: 'readai-media',
+    storagePrefix: 'segment-audio',
+    windowSeconds: 600,
+    minWindowSeconds: 60,
+    maxWindowSeconds: 1800,
+    // Seconds of audio per spoken character (bake-off F4: 99.9 s per 1 000 chars)
+    secondsPerChar: 0.0999,
   },
 
   geminiChat: {
