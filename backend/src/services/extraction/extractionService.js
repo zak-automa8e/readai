@@ -444,7 +444,10 @@ function batchStoragePath(extractionId, page, imageSha256) {
 async function submitBatch(job, context, pages, ctx) {
   const { extraction } = context;
   const todo = await pendingPages(extraction, pages);
-  if (!todo.length) return null;
+  if (!todo.length) {
+    await finalizePrefix(extraction.id, { excludeJobId: job.id });
+    return null;
+  }
 
   const { storageBucket, batchImageUrlSeconds, batchPollMs } = config.extraction;
   const pdfPath = await pdfPathFor(context);
