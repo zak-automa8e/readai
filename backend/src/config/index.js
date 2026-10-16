@@ -91,6 +91,33 @@ const config = {
     },
   },
 
+  // Job queue (book_processing_jobs). inline = HTTP + job loop in one process (default),
+  // worker = job loop only (no HTTP), off = HTTP only. Run ONE process with the loop.
+  jobs: {
+    mode: ['inline', 'worker', 'off'].includes(process.env.JOBS_MODE) ? process.env.JOBS_MODE : 'inline',
+    pollMs: parseInt(process.env.JOBS_POLL_MS, 10) || 2000,
+    leaseRenewMs: 60000,          // claim_jobs treats a lease older than 5 minutes as abandoned
+    retryBaseMs: 15000,           // run_after = now + 15 s × 2^attempts
+    stopTimeoutMs: 8000,          // SIGTERM waits this long for running jobs, then hands them back
+    concurrency: {
+      extract_pages: parseInt(process.env.JOBS_EXTRACT_CONCURRENCY, 10) || 1,
+    },
+  },
+
+  // Extraction pipeline (spec §5.2)
+  extraction: {
+    dpi: 200,
+    pageConcurrency: parseInt(process.env.EXTRACTION_PAGE_CONCURRENCY, 10) || 4,
+    realtimeChunkPages: 10,
+    batchChunkPages: 50,
+    // OpenRouter /batches for the tail (half price, async). Off until verified live; the tail then runs realtime.
+    batchEnabled: process.env.EXTRACTION_BATCH_ENABLED === 'true',
+    batchPollMs: 5 * 60 * 1000,
+    batchMaxAgeMs: 26 * 60 * 60 * 1000,   // the batch window is 24 h; after that the chunk runs realtime
+    storageBucket: 'readai-media',
+    batchImageUrlSeconds: 48 * 60 * 60,   // signed URLs must outlive the 24 h batch window
+  },
+
   geminiChat: {
     defaultCacheTtl: process.env.GEMINI_CACHE_TTL || '3600s',
     maxConversationHistory: parseInt(process.env.MAX_CONVERSATION_HISTORY, 10) || 10,
