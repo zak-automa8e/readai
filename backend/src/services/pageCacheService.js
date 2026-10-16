@@ -3,7 +3,7 @@ const llm = require('./llm');
 const { pcmToWav, durationSeconds } = require('./llm/audio');
 const voicePersonaService = require('./voicePersonaService');
 const { truncateForLegacyAudio } = require('../utils/audioUtils');
-const { blocksToLegacyText } = require('../utils/legacyPageText');
+const { blocksToLegacyText, parseLegacyReply } = require('../utils/legacyPageText');
 const logger = require('../utils/logger');
 
 const DEFAULT_BASE_VOICE = 'Sadaltager';
@@ -114,6 +114,14 @@ class PageCacheService {
         logger.warn('Failed to parse cached extracted_text JSON, returning fallback', { message: parseError.message });
         return { header: '', body: rawText, footer: '' };
       }
+    }
+
+    // Some legacy rows hold the model's whole JSON reply inside `body`; unwrap it once.
+    const nested = typeof parsed.body === 'string' && parsed.body.trimStart().startsWith('{')
+      ? parseLegacyReply(parsed.body)
+      : null;
+    if (nested && typeof nested.body === 'string') {
+      parsed = nested;
     }
 
     const safeHeader = typeof parsed.header === 'string' ? parsed.header : '';
