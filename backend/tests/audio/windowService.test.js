@@ -47,20 +47,43 @@ describe('isPageSkipped (O8)', () => {
 });
 
 describe('planWindow', () => {
-  it('fills about windowSeconds of estimated audio (char_count × 0.0999 s) and stops', () => {
-    // 1 000 chars ≈ 99.9 s each: six segments reach 600 s
-    const segments = Array.from({ length: 10 }, (_, i) => seg(i + 1, [i + 1], 1000));
-    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 50, windowSeconds: 600 });
+  it('prepares the rest of the current page and the next page; a paragraph cut by the next break is taken whole', () => {
+    // p4: 1, 2, 3 (cut into p5) · p5: 4, 5 (cut into p6) · p6: 6 · p7: 7
+    const segments = [seg(1, [4], 1000), seg(2, [4]), seg(3, [4, 5]), seg(4, [5]), seg(5, [5, 6]), seg(6, [6]), seg(7, [7])];
+    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 50, pagesAhead: 1 });
 
-    expect(plan.items.map((i) => i.segment.seq)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(plan.items.map((i) => i.segment.seq)).toEqual([1, 2, 3, 4, 5]);
+    expect(plan.newPages).toEqual([4, 5, 6]);
     expect(plan.stopReason).toBe('window');
     expect(plan.items[1].offsetSeconds).toBeCloseTo(1000 * SECONDS_PER_CHAR, 6);
-    expect(plan.estimatedSeconds).toBeGreaterThanOrEqual(600);
+  });
+
+  it('starting inside a paragraph that began on the previous page counts that page as the current one', () => {
+    const segments = [seg(3, [4, 5]), seg(4, [5]), seg(5, [5, 6]), seg(6, [6])];
+    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 50, pagesAhead: 1 });
+
+    expect(plan.items.map((i) => i.segment.seq)).toEqual([3, 4, 5]);
+    expect(plan.stopReason).toBe('window');
+  });
+
+  it('lastWindowPage counts read pages only', () => {
+    expect(window.lastWindowPage(4, 0, noSkip)).toBe(4);
+    expect(window.lastWindowPage(4, 1, noSkip)).toBe(5);
+    expect(window.lastWindowPage(4, 2, noSkip)).toBe(6);
+    expect(window.lastWindowPage(4, 1, (p) => p === 5 || p === 6)).toBe(7);
+  });
+
+  it('an open segment past the window ends it as a full window, not as processing', () => {
+    const segments = [seg(1, [1]), seg(2, [2]), seg(3, [3], 100, { status: 'open' })];
+    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 50, pagesAhead: 1 });
+
+    expect(plan.items.map((i) => i.segment.seq)).toEqual([1, 2]);
+    expect(plan.stopReason).toBe('window');
   });
 
   it('never goes past the pages left today; pages already counted today are free', () => {
     const segments = [seg(1, [3]), seg(2, [3]), seg(3, [4]), seg(4, [5]), seg(5, [6]), seg(6, [7])];
-    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set([3, 4]), remaining: 2, windowSeconds: 600 });
+    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set([3, 4]), remaining: 2, pagesAhead: 10 });
 
     expect(plan.items.map((i) => i.segment.seq)).toEqual([1, 2, 3, 4, 5]);
     expect(plan.newPages).toEqual([5, 6]);
@@ -69,14 +92,15 @@ describe('planWindow', () => {
 
   it('a segment crossing a page break needs every page it touches', () => {
     const segments = [seg(1, [1]), seg(2, [1, 2])];
-    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 1, windowSeconds: 600 });
+    const plan = window.planWindow(segments, { isSkipped: noSkip, countedPages: new Set(), remaining: 1, pagesAhead: 1 });
     expect(plan.items.map((i) => i.segment.seq)).toEqual([1]);
     expect(plan.stopReason).toBe('allowance');
   });
 
-  it('passes over segments that start on a skipped page and stops at an open segment', () => {
+  it('passes over segments that start on a skipped page and stops at an open segment inside the window', () => {
+    // p2 is skipped, so two pages ahead of p1 reaches p4
     const segments = [seg(1, [1]), seg(2, [2]), seg(3, [2, 3]), seg(4, [3]), seg(5, [4], 100, { status: 'open' }), seg(6, [5])];
-    const plan = window.planWindow(segments, { isSkipped: (p) => p === 2, countedPages: new Set(), remaining: 10, windowSeconds: 600 });
+    const plan = window.planWindow(segments, { isSkipped: (p) => p === 2, countedPages: new Set(), remaining: 10, pagesAhead: 2 });
 
     expect(plan.items.map((i) => i.segment.seq)).toEqual([1, 4]);
     expect(plan.skippedSeqs).toEqual([2, 3]);
@@ -110,11 +134,11 @@ describe('listen and deliver against the store', () => {
   const ttsJobs = () => db.state.jobs.filter((j) => j.kind === 'tts_segment');
   const makeReady = () => db.state.segmentAudio.forEach((row) => Object.assign(row, { status: 'ready', audio_url: `https://cdn.test/${row.text_sha256}.wav`, duration_seconds: '9.99', audio_format: 'wav' }));
 
-  it('free plan: plans two new pages (skipping the cover), returns statuses only and enqueues one job per clip', async () => {
+  it('free plan: plans the current page and the next (skipping the cover), returns statuses only and enqueues one job per clip', async () => {
     const result = await listen(1);
 
     expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ voiceKey: VOICE.hash, stopReason: 'allowance', plan: 'free', limit: 2, usedToday: 0, remainingToday: 2, skippedSeqs: [1] });
+    expect(result.body).toMatchObject({ voiceKey: VOICE.hash, stopReason: 'window', plan: 'free', limit: 2, usedToday: 0, remainingToday: 2, skippedSeqs: [1] });
     expect(result.body.items.map((i) => i.seq)).toEqual([2, 3, 4, 5]); // pages 2 and 3
     expect(result.body.items.every((i) => i.status === 'pending' && !('audioUrl' in i))).toBe(true);
     expect(ttsJobs().map((j) => j.priority)).toEqual([0, 10, 20, 30]);
@@ -188,8 +212,17 @@ describe('listen and deliver against the store', () => {
 
     const result = await listen(6);
     expect(result.status).toBe(200);
-    expect(result.body).toMatchObject({ plan: 'basic', limit: 10, usedToday: 2, remainingToday: 8, stopReason: 'end' });
-    expect(result.body.items.map((i) => i.seq)).toEqual([6, 7, 8, 9, 10, 11, 12, 13]);
+    expect(result.body).toMatchObject({ plan: 'basic', limit: 10, usedToday: 2, remainingToday: 8, stopReason: 'window' });
+    expect(result.body.items.map((i) => i.seq)).toEqual([6, 7, 8, 9]); // pages 4 and 5
+  });
+
+  it('the last page of the book ends the window; its paragraph cut into page 8 is taken whole', async () => {
+    db.subscribe(USER, 'basic');
+
+    const result = await listen(10); // page 6
+
+    expect(result.body.items.map((i) => i.seq)).toEqual([10, 11, 12, 13]); // 13 = pages 7 → 8
+    expect(result.body.stopReason).toBe('end');
   });
 
   it('a 402 lists the window clips that are already cached', async () => {
@@ -208,9 +241,12 @@ describe('listen and deliver against the store', () => {
     db.subscribe(USER, 'pro');
     db.state.skipOverrides.push({ user_id: USER, book_id: BOOK, page_number: 1, skip: false }, { user_id: USER, book_id: BOOK, page_number: 3, skip: true });
 
-    const result = await listen(1);
+    // The cover is read by override: page 1 is current, page 2 is next
+    expect((await listen(1)).body.items.map((i) => i.seq)).toEqual([1, 2, 3]);
 
-    expect(result.body.items.map((i) => i.seq)).toEqual([1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13]);
+    // Page 3 is skipped by override: the next read page after page 2 is page 4
+    const result = await listen(2);
+    expect(result.body.items.map((i) => i.seq)).toEqual([2, 3, 6, 7]);
     expect(result.body.skippedSeqs).toEqual([4, 5]);
   });
 

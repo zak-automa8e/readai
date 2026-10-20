@@ -51,7 +51,7 @@ describe('POST /api/books/:bookId/listen', () => {
     const res = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 1, voicePersonaId: PERSONA.id });
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ plan: 'free', limit: 2, usedToday: 0, remainingToday: 2, stopReason: 'allowance', skippedSeqs: [] });
+    expect(res.body).toMatchObject({ plan: 'free', limit: 2, usedToday: 0, remainingToday: 2, stopReason: 'window', skippedSeqs: [] });
     expect(res.body.items).toEqual([
       { segmentId: segId(1), seq: 1, status: 'pending' },
       { segmentId: segId(2), seq: 2, status: 'pending' },

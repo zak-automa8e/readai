@@ -361,11 +361,11 @@ Acceptance (running app, processed book from story 4, owner's persona + base voi
 - Switch voice (persona) → new snapshot hash, new generation; edit the persona (updated_at changes) → new hash again. A second test user listening to the same book and voice hits the existing clips.
 - Free plan (2 pages) → the third new page returns `402 { code:'DAILY_LIMIT_REACHED', used, limit, plan }`; cached items for counted pages still play; no job enqueued. Assign `basic` by hand in `subscriptions` → the limit becomes 10 immediately.
 
-### Story 6 — Chapter-ahead generation + progress (M) · **Sonnet**
+### Story 6 — Prepare one page ahead (S) · **Opus** · rewritten 2026-10-20 (O13)
 
-Files: `backend/src/services/audio/windowService.js` (+`planChapter`), `backend/src/services/jobs/handlers/ttsChapter.js`, `segmentsController.progress`, `supabaseService.updateBookProgress` (+`listened_seconds` on `reading_sessions` — **uses the existing empty table, no DDL**), config `audio.engagedAfterSeconds = 1200`, tests for the trigger (not engaged / engaged at the daily limit / engaged with allowance left).
+Files: `backend/src/services/audio/windowService.js` (`lastWindowPage`, page-based `planWindow`), config `audio.pagesAhead = 1` (replaces `windowSeconds`/`min`/`max`), `segmentsController.listen` (drops `windowSeconds`), tests.
 
-Acceptance: with a test override `ENGAGED_AFTER_SECONDS=30`, listening past 30 s enqueues `tts_chapter` for the next heading-to-heading span at priority 500, capped at the pages left in today's allowance; live `/listen` jobs (priority < 500) are still claimed first (observe in `book_processing_jobs`); at the daily limit nothing is enqueued.
+Acceptance: `/listen` prepares the rest of the current page plus the next read page (skipped pages passed over); a segment starting on the last window page is taken whole, so a paragraph cut by the next page break is one clip; an open segment inside the window stops it with `processing`; the allowance cap and count-on-delivery rule are unchanged; no chapter-ahead jobs. Live check 2026-10-20: `fromSeq` 66 (page 18) planned 66–69 (69 = pages 19→20) and stopped at 70 with `window`.
 
 ### Story 7 — Frontend: segment playback, text view, highlight, page flip (L) · **Opus** for `useSegmentPlayback`; **Sonnet** for `ExtractedTextView` + bar changes
 
@@ -476,6 +476,7 @@ The original defaults D1–D3 are replaced. Sections 3 (data model), 5.3 (credit
 | O10 | **Order:** finish the reading-room epic before starting story 1 of this epic. | — |
 | O11 | **Selection on scanned books waits for the extracted-text view** (2026-10-15). Most books are scanned or have an unusable PDF text layer, so the reading-room Explain / Save-as-note popover only works on text PDFs today. No "Explain this page" stopgap. | Story 7's `ExtractedTextView` must support text selection wired to the existing `AssistantContext` explain API and `SelectionPopover` (Explain / Save as note with `textSelection` + the page the selected text came from). |
 | O12 | **Subscription plans with a daily page limit** (2026-10-16), replacing O2–O6. Defaults: Free 2 pages/day, Basic $5/month 10 pages/day, Pro $15/month 50 pages/day (rows in `plans`, editable). A page counts once per day when listening first reaches it in Listen mode, cached or not; Read mode never counts. At the limit, audio stops; reading, text, chat and notes keep working. **Payment is delayed** until the functional stories are done and tested (story 12); plans are assigned by hand until then. | §3 rewritten: `plans`, `subscriptions`, `daily_page_usage`, `record_page_listen`; no credits, ledger, recordings or funders. Stories 5, 6 and 8 reworded; story 12 added. Worst-case cost of an uncached page ≈ $0.03, so $5 breaks even at ≈ 5 new pages/day with no cache hits. |
+| O13 | **Prepare one page ahead, not a chapter** (2026-10-20). The listening window is the current page plus the next read page; a paragraph cut by a page break is voiced whole with the page it starts on. Chapter-ahead (`tts_chapter`, engaged-after trigger) is dropped: harder and costlier to test. Later, a Settings choice lets the listener pick how many pages ahead (backlog). | Story 6 rewritten; `config.audio.pagesAhead` is the single value the setting will change; §5.3's 600-s window and chapter-ahead steps are superseded. |
 
 ---
 

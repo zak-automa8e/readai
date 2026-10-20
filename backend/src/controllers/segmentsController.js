@@ -61,8 +61,9 @@ const segmentsController = {
   },
 
   /**
-   * POST /api/books/:bookId/listen { fromSeq, voicePersonaId?, voicePersona?, windowSeconds? }
-   * Plans the next ~600 s from fromSeq (never past today's page allowance) and prepares its audio.
+   * POST /api/books/:bookId/listen { fromSeq, voicePersonaId?, voicePersona? }
+   * Plans the rest of the current page and the next page from fromSeq (never past today's page
+   * allowance) and prepares its audio.
    * Returns item statuses only: audio URLs come from GET /api/segments/:id/audio, which counts pages.
    */
   async listen(req, res) {
@@ -90,7 +91,6 @@ const segmentsController = {
         extraction,
         fromSeq,
         voice,
-        windowSeconds: req.body?.windowSeconds,
       });
       if (result.enqueued) jobRunner.wake();
       return res.status(result.status).json(result.body);

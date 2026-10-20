@@ -5,8 +5,8 @@ const planService = require('../plans/planService');
 const segmentAudio = require('./segmentAudioService');
 
 /**
- * The listening window (spec §5.3, O8, O12): the segments the listener reaches in the next
- * ~600 s, never past the pages left in today's allowance. Planning prepares audio (enqueues
+ * The listening window (spec §5.3, O8, O12, O13): the rest of the current page plus the next
+ * `pagesAhead` read pages, never past the pages left in today's allowance. Planning prepares audio (enqueues
  * tts_segment jobs) but never counts a page and never hands out a URL; counting happens when
  * GET /segments/:id/audio delivers a clip.
  */
@@ -18,6 +18,7 @@ const FRONT_MATTER_TYPES = new Set(['title', 'copyright', 'dedication', 'author_
 
 const SEGMENT_BATCH = 100;
 const MAX_SCAN = 2000; // segments looked at per plan (a long run of skipped pages ends here)
+const MAX_SKIPPED_RUN = 2000; // pages passed over while looking for the next read page
 
 /**
  * Whether a page is skipped for this listener: an override wins, then read_front_matter, then the
@@ -44,23 +45,45 @@ function estimateSeconds(segment) {
 }
 
 /**
+ * The last page the window reaches: `pagesAhead` read pages after `page`, passing over skipped ones.
+ * @param {number} page the current page
+ * @param {number} pagesAhead
+ * @param {(page: number) => boolean} isSkipped
+ */
+function lastWindowPage(page, pagesAhead, isSkipped) {
+  let last = page;
+  for (let i = 0; i < pagesAhead; i++) {
+    last += 1;
+    for (let passed = 0; isSkipped(last) && passed < MAX_SKIPPED_RUN; passed++) last += 1;
+  }
+  return last;
+}
+
+/**
  * Walk segments in seq order and pick the window. Pure: the caller supplies the segments.
+ *   - the current page is the start page of the first segment that is read;
+ *   - a segment that starts after the last window page ends the walk; one that starts on it is
+ *     taken whole, so a paragraph cut by the next page break is voiced in one clip;
  *   - an 'open' segment ends the walk (its text can still change; never synthesised);
  *   - a segment whose start page is skipped is passed over (listed in skippedSeqs);
- *   - a segment that needs more pages not yet counted today than the allowance has left ends the walk;
- *   - the walk ends once the window holds windowSeconds of estimated audio.
+ *   - a segment that needs more pages not yet counted today than the allowance has left ends the walk.
  * @param {Object[]} segments rows in seq order (seq, start_page, parts, char_count, status)
- * @param {{isSkipped: (page: number) => boolean, countedPages: Set<number>, remaining: number, windowSeconds: number}} options
+ * @param {{isSkipped: (page: number) => boolean, countedPages: Set<number>, remaining: number, pagesAhead: number}} options
  * @returns {{items: {segment: Object, offsetSeconds: number, estimatedSeconds: number, newPages: number[]}[], skippedSeqs: number[], estimatedSeconds: number, newPages: number[], stopReason: 'window'|'allowance'|'processing'|null}}
  *   stopReason null = the segments ran out
  */
-function planWindow(segments, { isSkipped, countedPages, remaining, windowSeconds }) {
+function planWindow(segments, { isSkipped, countedPages, remaining, pagesAhead }) {
   const items = [];
   const skippedSeqs = [];
   const planned = new Set();
   let total = 0;
+  let lastPage = null;
 
   for (const segment of segments) {
+    if (lastPage !== null && segment.start_page > lastPage) {
+      return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'window' };
+    }
+    if (lastPage === null && !isSkipped(segment.start_page)) lastPage = lastWindowPage(segment.start_page, pagesAhead, isSkipped);
     if (segment.status === 'open') return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'processing' };
     if (isSkipped(segment.start_page)) {
       skippedSeqs.push(segment.seq);
@@ -74,7 +97,6 @@ function planWindow(segments, { isSkipped, countedPages, remaining, windowSecond
     const seconds = estimateSeconds(segment);
     items.push({ segment, offsetSeconds: total, estimatedSeconds: seconds, newPages });
     total += seconds;
-    if (total >= windowSeconds) return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'window' };
   }
   return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: null };
 }
@@ -109,12 +131,6 @@ async function planFromStore(extraction, fromSeq, options) {
   return plan;
 }
 
-function clampWindow(seconds) {
-  const n = Number(seconds);
-  if (!Number.isFinite(n) || n <= 0) return config.audio.windowSeconds;
-  return Math.min(Math.max(n, config.audio.minWindowSeconds), config.audio.maxWindowSeconds);
-}
-
 function toItem(segment, row) {
   const item = { segmentId: segment.id, seq: segment.seq, status: row ? row.status : 'pending' };
   if (row?.status === 'ready') item.durationSeconds = Number(row.duration_seconds);
@@ -123,11 +139,10 @@ function toItem(segment, row) {
 
 /**
  * POST /books/:id/listen: plan the window and prepare its audio.
- * @param {{userId: string, book: Object, extraction: Object, fromSeq: number, voice: {snapshot, hash}, windowSeconds?: number}} args
+ * @param {{userId: string, book: Object, extraction: Object, fromSeq: number, voice: {snapshot, hash}}} args
  * @returns {Promise<{status: 200|402, body: Object, enqueued: boolean}>}
  */
-async function listen({ userId, book, extraction, fromSeq, voice, windowSeconds }) {
-  const seconds = clampWindow(windowSeconds);
+async function listen({ userId, book, extraction, fromSeq, voice }) {
   const [usage, rules] = await Promise.all([
     planService.getPlanUsage(userId, { bookId: book.id }),
     skipRules(userId, book.id, extraction.id),
@@ -136,7 +151,7 @@ async function listen({ userId, book, extraction, fromSeq, voice, windowSeconds 
     isSkipped: (page) => isPageSkipped(page, rules),
     countedPages: usage.countedPages,
     remaining: usage.remainingToday,
-    windowSeconds: seconds,
+    pagesAhead: config.audio.pagesAhead,
   };
   const plan = await planFromStore(extraction, fromSeq, options);
   const quota = { plan: usage.plan, limit: usage.limit, usedToday: usage.usedToday, remainingToday: usage.remainingToday };
@@ -264,8 +279,8 @@ module.exports = {
   isPageSkipped,
   pagesOf,
   estimateSeconds,
+  lastWindowPage,
   planWindow,
-  clampWindow,
   listen,
   deliver,
 };

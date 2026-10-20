@@ -127,9 +127,8 @@ const config = {
     opusBitrateKbps: 32,
     storageBucket: 'readai-media',
     storagePrefix: 'segment-audio',
-    windowSeconds: 600,
-    minWindowSeconds: 60,
-    maxWindowSeconds: 1800,
+    // Read pages prepared after the current one (O13); a later Settings choice changes this value
+    pagesAhead: 1,
     // Seconds of audio per spoken character (bake-off F4: 99.9 s per 1 000 chars)
     secondsPerChar: 0.0999,
   },

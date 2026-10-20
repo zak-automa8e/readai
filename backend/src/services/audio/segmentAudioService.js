@@ -22,7 +22,7 @@ const { pcmToOggOpus } = require('./transcode');
  */
 
 const ACTIVE_JOB = new Set(['queued', 'running']);
-const MAX_PRIORITY = 499; // chapter-ahead jobs (story 6) run at 500, behind every live window
+const MAX_PRIORITY = 499; // window jobs stay below 500, kept free for background work
 
 const sha256 = (text) => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
