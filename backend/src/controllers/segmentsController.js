@@ -37,9 +37,12 @@ function toSegment(row) {
 
 const segmentsController = {
   /**
-   * GET /api/books/:bookId/segments?fromPage=&limit=
+   * GET /api/books/:bookId/segments?fromPage=&limit=  or  ?atChar=&limit=
    * Segments in seq order that end on or after fromPage (a paragraph that starts on the previous
-   * page and continues on fromPage is included). An 'open' segment may still grow.
+   * page and continues on fromPage is included), or from the segment holding character atChar of
+   * the book (the last one when atChar is past the known text). An 'open' segment may still grow.
+   * Each segment carries charStart, its position in the whole book; `book` gives the known length
+   * and, while extraction runs, an estimate of the whole (known chars per page × pages).
    */
   async getSegments(req, res) {
     try {
@@ -49,12 +52,37 @@ const segmentsController = {
 
       const book = await supabaseService.getBookById(bookId);
       const extraction = await extractionService.findLiveExtraction(book.content_sha256);
-      if (!extraction) return res.json({ extractionId: null, segments: [] });
+      if (!extraction) return res.json({ extractionId: null, segments: [], book: null });
 
-      const fromPage = Math.max(parseInt(req.query.fromPage, 10) || 1, 1);
       const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
-      const rows = await supabaseService.getSegments(extraction.id, { fromPage, limit });
-      return res.json({ extractionId: extraction.id, segments: rows.map(toSegment) });
+      const counts = await supabaseService.getSegmentCharCounts(extraction.id);
+      const starts = new Map();
+      let knownChars = 0;
+      for (const row of counts) {
+        starts.set(row.seq, knownChars);
+        knownChars += row.char_count;
+      }
+
+      let rows;
+      const atChar = parseInt(req.query.atChar, 10);
+      if (Number.isInteger(atChar) && atChar >= 0) {
+        const hit = counts.find((row) => starts.get(row.seq) + row.char_count > atChar) || counts[counts.length - 1];
+        rows = hit ? await supabaseService.getSegmentsFromSeq(extraction.id, hit.seq, limit) : [];
+      } else {
+        const fromPage = Math.max(parseInt(req.query.fromPage, 10) || 1, 1);
+        rows = await supabaseService.getSegments(extraction.id, { fromPage, limit });
+      }
+
+      const complete = extraction.status === 'complete';
+      const lastPage = counts.length ? counts[counts.length - 1].end_page : 0;
+      const estimate = !complete && lastPage > 0 && extraction.pages_total
+        ? Math.round((knownChars / lastPage) * extraction.pages_total)
+        : knownChars;
+      return res.json({
+        extractionId: extraction.id,
+        segments: rows.map((row) => ({ ...toSegment(row), charStart: starts.get(row.seq) ?? 0 })),
+        book: { knownChars, totalChars: Math.max(knownChars, estimate), complete },
+      });
     } catch (error) {
       logger.error('Error in getSegments:', error);
       return res.status(500).json({ error: 'SEGMENTS_FAILED', message: 'Failed to read the segments.' });

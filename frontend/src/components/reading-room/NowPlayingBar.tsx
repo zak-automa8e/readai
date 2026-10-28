@@ -21,15 +21,9 @@ import { Slider } from "../ui/slider";
 import { VoiceSelect } from "./VoiceSelect";
 import { usePlayback, useReadingRoom } from "./ReadingRoomContext";
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "./hooks/usePageFit";
+import { BookProgressBar, formatTime } from "./BookProgressBar";
+import { VolumeControl } from "./VolumeControl";
 
-// Helper function to format time in HH:MM:SS
-const formatTime = (seconds: number): string => {
-  if (!isFinite(seconds) || seconds < 0) return "00:00:00";
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-};
 
 const Divider = () => <div className="h-6 w-px shrink-0 bg-border" aria-hidden="true" />;
 
@@ -272,18 +266,25 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
 
       {/* Seek */}
       <div className={compact ? "order-first flex w-full min-w-0 items-center gap-3" : "flex min-w-0 flex-1 items-center gap-3"}>
-        <Slider
-          value={[audioDuration > 0 ? (audioCurrentTime / audioDuration) * 100 : 0]}
-          max={100}
-          step={0.1}
-          onValueChange={(value) => handleSeek(value[0])}
-          className="min-w-16 flex-1"
-          disabled={!audioRef.current || audioDuration === 0}
-          aria-label="Seek"
-        />
-        <span dir="ltr" className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
-        </span>
+        {segmentPlayer?.bookProgress ? (
+          <BookProgressBar progress={segmentPlayer.bookProgress} onSeek={(fraction) => void segmentPlayer.seekBook(fraction)} />
+        ) : (
+          <>
+            <Slider
+              value={[audioDuration > 0 ? (audioCurrentTime / audioDuration) * 100 : 0]}
+              max={100}
+              step={0.1}
+              onValueChange={(value) => handleSeek(value[0])}
+              className="min-w-16 flex-1"
+              disabled={!audioRef.current || audioDuration === 0}
+              aria-label="Seek"
+            />
+            <span dir="ltr" className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
+              {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
+            </span>
+          </>
+        )}
+        <VolumeControl compact={compact} />
       </div>
 
       {!compact && <Divider />}

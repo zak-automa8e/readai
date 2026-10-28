@@ -145,11 +145,33 @@ describe('GET /api/books/:bookId/segments', () => {
     expect(res.body.segments.map((s) => s.seq)).toEqual([2, 3]);
     expect(res.body.segments[0]).toMatchObject({ role: 'body', startPage: 1, endPage: 2, charCount: 7, sentenceOffsets: [0], status: 'final' });
     expect(res.body.segments[1].status).toBe('open');
+    // Position in the whole book, for the book-wide progress bar
+    expect(res.body.segments.map((s) => s.charStart)).toEqual([5, 12]);
+    expect(res.body.book).toMatchObject({ knownChars: 16, complete: false });
+  });
+
+  it('atChar starts at the segment holding that character; the total is estimated while extraction runs', async () => {
+    db.addBook({ id: BOOK, content_sha256: 'sha-1' });
+    const ext = await db.createExtraction({ content_sha256: 'sha-1', source_book_id: BOOK, model: 'test/model', prompt_version: 2 });
+    await db.updateExtraction(ext.id, { status: 'running', pages_total: 10 });
+    await db.upsertSegments([1, 2, 3, 4].map((seq) => ({
+      extraction_id: ext.id, seq, role: 'body', start_page: seq, end_page: seq, parts: [{ page: seq, chars: 100 }],
+      text: 'x'.repeat(100), char_count: 100, sentence_offsets: [0], footnote_markers: [], status: 'final',
+    })));
+
+    const at = await request(app).get(`/api/books/${BOOK}/segments?atChar=250`);
+    expect(at.body.segments.map((s) => s.seq)).toEqual([3, 4]);
+    expect(at.body.segments[0].charStart).toBe(200);
+    // 400 chars over 4 pages, 10 pages in the book
+    expect(at.body.book).toEqual({ knownChars: 400, totalChars: 1000, complete: false });
+
+    const past = await request(app).get(`/api/books/${BOOK}/segments?atChar=5000`);
+    expect(past.body.segments.map((s) => s.seq)).toEqual([4]);
   });
 
   it('returns an empty list for a book that has not been processed', async () => {
     db.addBook({ id: BOOK, content_sha256: null });
     const res = await request(app).get(`/api/books/${BOOK}/segments`);
-    expect(res.body).toEqual({ extractionId: null, segments: [] });
+    expect(res.body).toEqual({ extractionId: null, segments: [], book: null });
   });
 });

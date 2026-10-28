@@ -1,4 +1,4 @@
-import type { Clip, ClipWait, DailyLimitReached, ListenWindow, ProcessingStatus, Segment } from "@/types/segments";
+import type { Clip, ClipWait, DailyLimitReached, ListenWindow, ProcessingStatus, SegmentsPage } from "@/types/segments";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -62,7 +62,11 @@ export const listeningService = {
     }),
 
   getSegments: (bookId: string, fromPage: number, limit = 200) =>
-    request<{ extractionId: string | null; segments: Segment[] }>(`/books/${bookId}/segments?fromPage=${fromPage}&limit=${limit}`),
+    request<SegmentsPage>(`/books/${bookId}/segments?fromPage=${fromPage}&limit=${limit}`),
+
+  /** Segments from the one holding character `atChar` of the book (a click on the book-wide bar). */
+  getSegmentsAtChar: (bookId: string, atChar: number, limit = 200) =>
+    request<SegmentsPage>(`/books/${bookId}/segments?atChar=${Math.max(Math.floor(atChar), 0)}&limit=${limit}`),
 
   /** Plan from fromSeq (the rest of that page and the next) and queue its audio. */
   listen: (bookId: string, fromSeq: number, voicePersonaId: string | null) =>

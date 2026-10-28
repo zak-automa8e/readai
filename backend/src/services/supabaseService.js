@@ -1014,6 +1014,15 @@ class SupabaseService {
     return data;
   }
 
+  // Every segment's length in seq order: where each sits in the whole book (the player's book-wide bar)
+  async getSegmentCharCounts(extractionId) {
+    return this.selectAll(() => this.adminClient
+      .from('segments')
+      .select('seq, char_count, end_page')
+      .eq('extraction_id', extractionId)
+      .order('seq', { ascending: true }));
+  }
+
   // Insert jobs; a row whose idempotency_key exists already is skipped. Returns the inserted rows.
   async enqueueJobs(rows) {
     if (!rows.length) return [];

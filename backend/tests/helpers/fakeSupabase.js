@@ -169,6 +169,8 @@ function createFakeSupabase() {
     getSegments: jest.fn(async (extractionId, { fromPage = 1, limit = 200 } = {}) => fake.segmentsOf(extractionId)
       .filter((s) => s.end_page >= fromPage)
       .slice(0, limit)),
+    getSegmentCharCounts: jest.fn(async (extractionId) => fake.segmentsOf(extractionId)
+      .map((s) => ({ seq: s.seq, char_count: s.char_count, end_page: s.end_page }))),
 
     enqueueJobs: jest.fn(async (rows) => {
       const inserted = [];

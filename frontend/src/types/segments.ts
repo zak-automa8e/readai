@@ -14,6 +14,22 @@ export interface Segment {
   footnoteMarkers: string[] | null;
   /** 'open' while its last sentence may still continue on a page not extracted yet. */
   status: "open" | "final";
+  /** Position of its first character in the whole book. */
+  charStart: number;
+}
+
+/** The book's length in characters: the unit of the book-wide progress bar. */
+export interface BookLength {
+  knownChars: number;
+  /** Estimated from known chars per page while extraction runs; equals knownChars once complete. */
+  totalChars: number;
+  complete: boolean;
+}
+
+export interface SegmentsPage {
+  extractionId: string | null;
+  segments: Segment[];
+  book: BookLength | null;
 }
 
 export type ExtractionStatus = "none" | "queued" | "running" | "partial" | "complete" | "failed";

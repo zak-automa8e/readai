@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import type { Book } from "@/contexts/BooksContext";
 import { listeningService } from "@/services/listeningService";
-import type { DailyLimitReached, ListenItem, ListenWindow, ProcessingStatus, Segment } from "@/types/segments";
+import type { BookLength, DailyLimitReached, ListenItem, ListenWindow, ProcessingStatus, Segment, SegmentsPage } from "@/types/segments";
 
 /**
  * Segment player (audio pipeline story 7.2). Plays a Listen-mode book paragraph by paragraph:
@@ -27,6 +27,8 @@ interface Params {
   numPages: number | null;
   activePersonaId: string | null;
   processing: ProcessingStatus | null;
+  /** The paragraph the listener stopped at last time: play resumes there when it is on this page. */
+  resumeSeq: number | null;
 }
 
 const SEGMENT_PAGE_SIZE = 200;
@@ -34,7 +36,6 @@ const SEGMENT_PAGE_SIZE = 200;
 const PRELOAD_TEXT_MARGIN = 20;
 const MAX_REPLANS = 3;
 const TEXT_WAIT_MS = 20000;
-const SAVE_POSITION_MS = 5000;
 const LIMIT_TOAST = {
   title: "Today's listening limit is reached",
   description: "Reading, the text view and chat still work.",
@@ -66,7 +67,16 @@ const sleep = (ms: number, signal: AbortSignal) =>
     });
   });
 
-export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, numPages, activePersonaId, processing }: Params) => {
+export const useSegmentPlayback = ({
+  enabled,
+  book,
+  pageNumber,
+  setPageNumber,
+  numPages,
+  activePersonaId,
+  processing,
+  resumeSeq,
+}: Params) => {
   const bookId = enabled ? book?.id ?? null : null;
 
   const [status, setStatusState] = useState<SegmentPlayerStatus>("idle");
@@ -82,6 +92,9 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
   const [limit, setLimit] = useState<DailyLimitReached | null>(null);
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [bookLength, setBookLength] = useState<BookLength | null>(null);
+  /** Bumped when the planned window's clip statuses change (the bar's "ready ahead" part). */
+  const [windowVersion, setWindowVersion] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prefetchPageRef = useRef<HTMLDivElement>(null);
@@ -101,6 +114,8 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
   const pageRef = useRef(pageNumber);
   pageRef.current = pageNumber;
   const lastAutoPageRef = useRef<number | null>(null);
+  const resumeSeqRef = useRef(resumeSeq);
+  resumeSeqRef.current = resumeSeq;
   const textWaitersRef = useRef<(() => void)[]>([]);
   const runFromRef = useRef<(seq: number, offsetChars?: number) => Promise<void>>(async () => {});
 
@@ -110,17 +125,25 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
 
   // ---------------------------------------------------------------- segments (text) around the reader
 
+  const applyPage = useCallback((page: SegmentsPage, replace: boolean) => {
+    if (page.book) setBookLength(page.book);
+    let next = page.segments;
+    if (!replace) {
+      const merged = new Map(segmentsRef.current.map((s) => [s.seq, s]));
+      page.segments.forEach((s) => merged.set(s.seq, s));
+      next = [...merged.values()].sort((a, b) => a.seq - b.seq);
+    }
+    // The refs move at once: a clip started right after this load needs its paragraph
+    segmentsRef.current = next;
+    segmentBySeqRef.current = new Map(next.map((s) => [s.seq, s]));
+    setSegments(next);
+    return page.segments;
+  }, []);
+
   const loadSegments = useCallback(async (fromPage: number, replace: boolean) => {
     if (!bookId) return [];
-    const { segments: rows } = await listeningService.getSegments(bookId, Math.max(fromPage, 1), SEGMENT_PAGE_SIZE);
-    setSegments((current) => {
-      if (replace) return rows;
-      const merged = new Map(current.map((s) => [s.seq, s]));
-      rows.forEach((s) => merged.set(s.seq, s));
-      return [...merged.values()].sort((a, b) => a.seq - b.seq);
-    });
-    return rows;
-  }, [bookId]);
+    return applyPage(await listeningService.getSegments(bookId, Math.max(fromPage, 1), SEGMENT_PAGE_SIZE), replace);
+  }, [applyPage, bookId]);
 
   const covers = (rows: Segment[], page: number) =>
     rows.length > 0 && rows[0].startPage <= page && rows[rows.length - 1].endPage >= page;
@@ -201,6 +224,7 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
       const answer = await listeningService.waitForClips(bookId!, ids.slice(0, 50), plan.voiceKey, signal);
       const bySeq = new Map(answer.items.map((i) => [i.seq, i]));
       plan.items = plan.items.map((i) => bySeq.get(i.seq) ?? i);
+      if (plan === windowRef.current) setWindowVersion((v) => v + 1);
       item = bySeq.get(item.seq) ?? item;
     }
     return item;
@@ -279,6 +303,7 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
         if (!live()) return;
         if (!result.ok) return; // the next fetchClip reports the limit when it is reached
         windowRef.current = result.data;
+        setWindowVersion((v) => v + 1);
         void preloadAfter(seq, result.data, session, signal);
       }).catch((error) => console.warn("Listen failed", error));
       return;
@@ -294,6 +319,7 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
         if (result.ok === false) return reachLimit(result.limit);
         const plan = result.data;
         windowRef.current = plan;
+        setWindowVersion((v) => v + 1);
 
         if (!plan.items.length) {
           if (plan.stopReason === "processing") {
@@ -420,15 +446,6 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
     else setStatus("idle");
   }, [activePersonaId, setStatus, stopAudio]);
 
-  // Remember where the listener is (debounced; the reading position the library resumes from)
-  useEffect(() => {
-    if (!bookId || status !== "playing") return;
-    const timer = window.setTimeout(() => {
-      listeningService.saveReadingPosition(bookId, pageNumber).catch(() => {});
-    }, SAVE_POSITION_MS);
-    return () => window.clearTimeout(timer);
-  }, [bookId, pageNumber, status]);
-
   // ---------------------------------------------------------------- controls (same shape as the page player)
 
   const handleReadPage = useCallback((_autoPlay?: boolean) => {
@@ -443,8 +460,8 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
       return;
     }
     if (statusRef.current === "preparing" || statusRef.current === "waiting-text") return;
-    const seq = currentSeqRef.current;
-    // Resume where the listener stopped if that paragraph is on this page, else start the page
+    // Resume where the listener stopped (this visit, else the last one) if that paragraph is on this page
+    const seq = currentSeqRef.current ?? resumeSeqRef.current;
     const segment = seq !== null ? segmentBySeqRef.current.get(seq) : undefined;
     if (segment && segment.startPage <= pageRef.current && segment.endPage >= pageRef.current && statusRef.current !== "ended") {
       void runFromRef.current(segment.seq);
@@ -501,6 +518,51 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
     audio.currentTime = (percent / 100) * audioDurationRef.current;
   }, []);
 
+  // ---------------------------------------------------------------- the whole book as one timeline
+
+  const bookLengthRef = useRef(bookLength);
+  bookLengthRef.current = bookLength;
+
+  /**
+   * Position in the whole book, in characters (most of its audio does not exist yet): played =
+   * where the reading is, ready = the end of the clips ready right after it (the bar's lighter part).
+   */
+  const bookProgress = useMemo(() => {
+    if (!bookLength || bookLength.totalChars <= 0) return null;
+    void windowVersion; // window statuses live in a ref; this re-reads them when they change
+    const anchorSeq = currentSeq ?? resumeSeq;
+    const current = anchorSeq !== null ? segmentBySeq.get(anchorSeq) : undefined;
+    const fraction = current && currentSeq !== null && audioDuration > 0 ? Math.min(audioCurrentTime / audioDuration, 1) : 0;
+    const playedChars = current ? current.charStart + fraction * current.charCount : 0;
+    let readyChars = playedChars;
+    const plan = windowRef.current;
+    if (plan && current && currentSeq !== null) {
+      for (const item of plan.items) {
+        if (item.seq < current.seq) continue;
+        const segment = segmentBySeq.get(item.seq);
+        if (!segment || (item.status !== "ready" && !clipsRef.current.has(item.seq))) break;
+        readyChars = Math.max(readyChars, segment.charStart + segment.charCount);
+      }
+    }
+    return { playedChars, readyChars, ...bookLength };
+  }, [bookLength, currentSeq, resumeSeq, segmentBySeq, audioCurrentTime, audioDuration, windowVersion]);
+
+  /** Jump to a point of the book (0..1 of its length) and play from the paragraph there. */
+  const seekBook = useCallback(async (fraction: number) => {
+    const length = bookLengthRef.current;
+    if (!bookId || !length || length.knownChars <= 0) return;
+    // Past the extracted text: the last known paragraph
+    const atChar = Math.min(Math.max(fraction, 0), 1) * length.totalChars;
+    const target = Math.min(atChar, length.knownChars - 1);
+    const holding = (rows: Segment[]) => rows.find((s) => s.charStart <= target && target < s.charStart + s.charCount);
+    let segment = holding(segmentsRef.current);
+    if (!segment) {
+      const rows = applyPage(await listeningService.getSegmentsAtChar(bookId, target, SEGMENT_PAGE_SIZE), true);
+      segment = holding(rows) ?? rows[0];
+    }
+    if (segment) playFrom(segment.seq, Math.max(Math.round(target - segment.charStart), 0));
+  }, [applyPage, bookId, playFrom]);
+
   // Turning the player off (book switched to the page player) stops everything
   useEffect(() => {
     if (!enabled) stopAudio();
@@ -532,5 +594,7 @@ export const useSegmentPlayback = ({ enabled, book, pageNumber, setPageNumber, n
     currentSeq,
     playFrom,
     skipParagraph,
+    bookProgress,
+    seekBook,
   };
 };
