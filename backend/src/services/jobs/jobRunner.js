@@ -198,6 +198,7 @@ function getRunner() {
     runner = new JobRunner();
     runner.register('extract_pages', require('./handlers/extractPages'), config.jobs.concurrency.extract_pages);
     runner.register('tts_segment', require('./handlers/ttsSegment'), config.jobs.concurrency.tts_segment);
+    runner.register('listen_followup', require('./handlers/listenFollowup'), config.jobs.concurrency.listen_followup);
   }
   return runner;
 }

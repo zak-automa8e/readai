@@ -9,6 +9,7 @@ const pdfSource = require('./pdfSource');
 const pageRenderer = require('./pageRenderer');
 const { validatePage } = require('./validate');
 const { buildSegments, carryFromSegment } = require('./segmentBuilder');
+const jobRunner = require('../jobs/jobRunner');
 
 /**
  * Extraction pipeline (spec §5.2): one extraction per PDF content × recipe (prompt version, model),
@@ -652,11 +653,22 @@ async function finalizeOnce(extractionId, { excludeJobId = null } = {}) {
         logger.info('Extraction settled', { extractionId, status, pagesDone, pagesFailed: failedPages.length, finalized });
         pdfSource.forgetPdf(extraction.content_sha256).catch(() => {});
       }
+      if (end > built || status !== 'running') await wakeFollowups(extractionId);
       return updated;
     }
     logger.warn('finalized_through_page moved under us; another finaliser is running (run ONE job process)', { extractionId });
   }
   throw new Error(`Could not finalize extraction ${extractionId}: concurrent updates`);
+}
+
+// Listening windows waiting on this extraction (listen_followup) re-check now: segments closed or it settled
+async function wakeFollowups(extractionId) {
+  try {
+    if (await supabaseService.wakeQueuedJobs(extractionId, 'listen_followup')) jobRunner.wake();
+  } catch (error) {
+    // The follow-up still checks back on its own poll interval
+    logger.warn('Could not wake listening follow-ups', { extractionId, error: error.message });
+  }
 }
 
 // Passes for one extraction run one after another in this process (pages finish in parallel)

@@ -1192,13 +1192,26 @@ class SupabaseService {
     return rows;
   }
 
-  // Jobs whose idempotency key starts with `prefix` (hex, ':' and letters only: no LIKE wildcards)
+  // Jobs whose idempotency key starts with `prefix` (hex, '-', ':' and letters only: no LIKE wildcards)
   async getJobsByKeyPrefix(prefix) {
     return this.selectAll(() => this.adminClient
       .from('book_processing_jobs')
       .select('id, idempotency_key, status')
       .like('idempotency_key', `${prefix}%`)
       .order('created_at', { ascending: true }));
+  }
+
+  // Make the queued jobs of one kind for an extraction claimable now; returns how many
+  async wakeQueuedJobs(extractionId, kind) {
+    const { data, error } = await this.adminClient
+      .from('book_processing_jobs')
+      .update({ run_after: new Date().toISOString() })
+      .eq('extraction_id', extractionId)
+      .eq('kind', kind)
+      .eq('status', 'queued')
+      .select('id');
+    if (error) throw error;
+    return data.length;
   }
 
   // The user's subscription row with its plan, or null

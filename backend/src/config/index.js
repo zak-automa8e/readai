@@ -103,6 +103,7 @@ const config = {
       extract_pages: parseInt(process.env.JOBS_EXTRACT_CONCURRENCY, 10) || 1,
       // Two parallel TTS calls showed no provider pressure (OpenRouter spike P6)
       tts_segment: parseInt(process.env.JOBS_TTS_CONCURRENCY, 10) || 2,
+      listen_followup: 1,
     },
   },
 
@@ -129,6 +130,10 @@ const config = {
     storagePrefix: 'segment-audio',
     // Read pages prepared after the current one (O13); a later Settings choice changes this value
     pagesAhead: 1,
+    // A window that stopped at a paragraph still being extracted is finished by a listen_followup job:
+    // woken when extraction closes paragraphs, re-checked on this interval, given up after the max wait
+    followupPollMs: 30000,
+    followupMaxWaitMs: 10 * 60 * 1000,
     // Seconds of audio per spoken character (bake-off F4: 99.9 s per 1 000 chars)
     secondsPerChar: 0.0999,
   },

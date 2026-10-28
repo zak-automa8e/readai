@@ -253,6 +253,11 @@ function createFakeSupabase() {
     }),
     getJobsByKeys: jest.fn(async (keys) => state.jobs.filter((j) => keys.includes(j.idempotency_key)).map((j) => ({ ...j }))),
     getJobsByKeyPrefix: jest.fn(async (prefix) => state.jobs.filter((j) => j.idempotency_key.startsWith(prefix)).map((j) => ({ ...j }))),
+    wakeQueuedJobs: jest.fn(async (extractionId, kind) => {
+      const woken = state.jobs.filter((j) => j.extraction_id === extractionId && j.kind === kind && j.status === 'queued');
+      woken.forEach((j) => { j.run_after = new Date().toISOString(); });
+      return woken.length;
+    }),
 
     getSubscription: jest.fn(async (userId) => {
       const sub = state.subscriptions.get(userId);

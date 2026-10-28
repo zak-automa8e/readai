@@ -67,6 +67,23 @@ describe('finalizePrefix', () => {
     afterOne.slice(0, -1).forEach((s) => expect(db.segmentsOf(extraction.id).find((r) => r.seq === s.seq)).toEqual(s));
   });
 
+  it('wakes the listening follow-ups of the extraction when a pass closes segments, not on a no-op pass', async () => {
+    const extraction = await setup();
+    land(extraction, 1);
+    await finalizePrefix(extraction.id);
+    const later = new Date(Date.now() + 60000).toISOString();
+    await db.enqueueJobs([{ kind: 'listen_followup', extraction_id: extraction.id, idempotency_key: 'followup:k', run_after: later }]);
+    db.wakeQueuedJobs.mockClear();
+
+    await finalizePrefix(extraction.id); // nothing new landed
+    expect(db.wakeQueuedJobs).not.toHaveBeenCalled();
+
+    land(extraction, 2);
+    await finalizePrefix(extraction.id);
+    expect(db.wakeQueuedJobs).toHaveBeenCalledWith(extraction.id, 'listen_followup');
+    expect(Date.parse(db.state.jobs.find((j) => j.idempotency_key === 'followup:k').run_after)).toBeLessThanOrEqual(Date.now());
+  });
+
   it('waits for the gap when pages land out of order', async () => {
     const extraction = await setup();
     land(extraction, 3);

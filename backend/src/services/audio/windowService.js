@@ -69,8 +69,8 @@ function lastWindowPage(page, pagesAhead, isSkipped) {
  *   - a segment that needs more pages not yet counted today than the allowance has left ends the walk.
  * @param {Object[]} segments rows in seq order (seq, start_page, parts, char_count, status)
  * @param {{isSkipped: (page: number) => boolean, countedPages: Set<number>, remaining: number, pagesAhead: number}} options
- * @returns {{items: {segment: Object, offsetSeconds: number, estimatedSeconds: number, newPages: number[]}[], skippedSeqs: number[], estimatedSeconds: number, newPages: number[], stopReason: 'window'|'allowance'|'processing'|null}}
- *   stopReason null = the segments ran out
+ * @returns {{items: {segment: Object, offsetSeconds: number, estimatedSeconds: number, newPages: number[]}[], skippedSeqs: number[], estimatedSeconds: number, newPages: number[], stopReason: 'window'|'allowance'|'processing'|null, waitSeq?: number}}
+ *   stopReason null = the segments ran out; waitSeq = the open segment a 'processing' stop waits for
  */
 function planWindow(segments, { isSkipped, countedPages, remaining, pagesAhead }) {
   const items = [];
@@ -84,7 +84,9 @@ function planWindow(segments, { isSkipped, countedPages, remaining, pagesAhead }
       return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'window' };
     }
     if (lastPage === null && !isSkipped(segment.start_page)) lastPage = lastWindowPage(segment.start_page, pagesAhead, isSkipped);
-    if (segment.status === 'open') return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'processing' };
+    if (segment.status === 'open') {
+      return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'processing', waitSeq: segment.seq };
+    }
     if (isSkipped(segment.start_page)) {
       skippedSeqs.push(segment.seq);
       continue;
@@ -127,8 +129,87 @@ async function planFromStore(extraction, fromSeq, options) {
     // Out of segments: the end of the book, text still being extracted, or the scan cap
     if (segments.length >= MAX_SCAN) plan.stopReason = 'scan_limit';
     else plan.stopReason = extraction.status === 'complete' ? 'end' : 'processing';
+    // Still being extracted: the window waits for the next segment to be built
+    if (plan.stopReason === 'processing') plan.waitSeq = segments.length ? segments[segments.length - 1].seq + 1 : fromSeq;
   }
   return plan;
+}
+
+// ---------------------------------------------------------------- follow-up (listen_followup jobs)
+//   followup:<user>:<voice hash>:<extraction>:<waitSeq>            the first wait
+//   followup:<user>:<voice hash>:<extraction>:<waitSeq>:round<n>   round n, after the previous one gave up
+
+const ACTIVE_JOB = new Set(['queued', 'running']);
+
+function followupRound(key) {
+  const match = /:round(\d+)$/.exec(key);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Queue one listen_followup job for a window that stopped at a segment still being extracted.
+ * One active job per listener, voice and segment; a later round only after the previous gave up.
+ * @returns {Promise<boolean>} whether a job was queued
+ */
+async function queueFollowup({ userId, bookId, extraction, fromSeq, voice, waitSeq }) {
+  const base = `followup:${userId}:${voice.hash}:${extraction.id}:${waitSeq}`;
+  const jobs = [...await supabaseService.getJobsByKeys([base]), ...await supabaseService.getJobsByKeyPrefix(`${base}:round`)];
+  if (jobs.some((j) => ACTIVE_JOB.has(j.status))) return false;
+  const key = jobs.length ? `${base}:round${Math.max(0, ...jobs.map((j) => followupRound(j.idempotency_key))) + 1}` : base;
+  const now = Date.now();
+  const inserted = await supabaseService.enqueueJobs([{
+    kind: 'listen_followup',
+    book_id: bookId,
+    user_id: userId,
+    extraction_id: extraction.id,
+    payload: {
+      fromSeq,
+      waitSeq,
+      voiceHash: voice.hash,
+      voiceSnapshot: voice.snapshot,
+      waitUntil: new Date(now + config.audio.followupMaxWaitMs).toISOString(),
+    },
+    idempotency_key: key,
+    priority: 0,
+    // Extraction wakes it when it closes segments; until then it checks back on the poll interval
+    run_after: new Date(now + config.audio.followupPollMs).toISOString(),
+  }]);
+  if (inserted.length) logger.info('Listening follow-up queued', { userId, bookId, extractionId: extraction.id, fromSeq, waitSeq, key });
+  return inserted.length > 0;
+}
+
+/**
+ * listen_followup handler: once segment waitSeq is built and final, plan the window again as a
+ * listen request would (and queue its clips). Gives up when extraction stops or the wait runs out.
+ * @returns {Promise<null|{requeue: {delayMs: number}}>}
+ */
+async function runFollowup(job) {
+  const { fromSeq, waitSeq, voiceHash, voiceSnapshot, waitUntil } = job.payload || {};
+  const label = { jobId: job.id, extractionId: job.extraction_id, fromSeq, waitSeq };
+  const extraction = await supabaseService.getExtractionById(job.extraction_id);
+  if (!extraction) return null;
+
+  const [segment] = await supabaseService.getSegmentsFromSeq(extraction.id, waitSeq, 1);
+  if (segment && segment.seq === waitSeq && segment.status === 'final') {
+    const result = await listen({
+      userId: job.user_id,
+      book: { id: job.book_id },
+      extraction,
+      fromSeq,
+      voice: { snapshot: voiceSnapshot, hash: voiceHash },
+    });
+    logger.info('Listening follow-up planned', { ...label, status: result.status, enqueued: result.enqueued });
+    return null;
+  }
+  if (extraction.status !== 'running') {
+    logger.info('Listening follow-up stopped: extraction is not running', { ...label, status: extraction.status });
+    return null;
+  }
+  if (Date.now() >= Date.parse(waitUntil)) {
+    logger.warn('Listening follow-up gave up waiting', label);
+    return null;
+  }
+  return { requeue: { delayMs: config.audio.followupPollMs } };
 }
 
 function toItem(segment, row) {
@@ -188,6 +269,8 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
     return toItem(i.segment, row?.status === 'ready' ? row : null);
   });
   const enqueued = items.some((item) => item.status !== 'ready');
+  const followup = plan.stopReason === 'processing' && extraction.status === 'running'
+    && await queueFollowup({ userId, bookId: book.id, extraction, fromSeq, voice, waitSeq: plan.waitSeq });
 
   logger.info('Listening window planned', {
     userId,
@@ -198,6 +281,7 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
     ready: items.filter((item) => item.status === 'ready').length,
     newPages: plan.newPages.length,
     stopReason: plan.stopReason,
+    followup,
   });
 
   return {
@@ -281,6 +365,8 @@ module.exports = {
   estimateSeconds,
   lastWindowPage,
   planWindow,
+  queueFollowup,
+  runFollowup,
   listen,
   deliver,
 };

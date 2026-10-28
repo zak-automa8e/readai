@@ -272,6 +272,90 @@ describe('listen and deliver against the store', () => {
     expect(db.recordPageListen).not.toHaveBeenCalled();
     expect(db.state.dailyUsage).toHaveLength(1);
   });
+
+  describe('listening follow-up (story 6b)', () => {
+    // Page 8 is still being extracted: seq 13 (pages 7 → 8) is open
+    const seg13 = () => db.state.segments.find((s) => s.seq === 13);
+    const followups = () => db.state.jobs.filter((j) => j.kind === 'listen_followup');
+    const ttsSeqs = () => ttsJobs().map((j) => db.state.segments.find((s) => s.id === j.payload.segmentId).seq);
+
+    beforeEach(() => {
+      db.subscribe(USER, 'basic');
+      Object.assign(extraction, { status: 'running', finalized_through_page: 6 });
+      seg13().status = 'open';
+    });
+
+    it('a window stopped by an open paragraph queues one follow-up for it, delayed, and repeat requests add none', async () => {
+      const result = await listen(10); // page 6 → window pages 6 and 7
+
+      expect(result.body.stopReason).toBe('processing');
+      expect(result.body.items.map((i) => i.seq)).toEqual([10, 11, 12]);
+      expect(followups()).toHaveLength(1);
+      const job = followups()[0];
+      expect(job).toMatchObject({ idempotency_key: `followup:${USER}:${VOICE.hash}:ext-1:13`, user_id: USER, book_id: BOOK, extraction_id: 'ext-1', priority: 0 });
+      expect(job.payload).toMatchObject({ fromSeq: 10, waitSeq: 13, voiceHash: VOICE.hash, voiceSnapshot: VOICE.snapshot });
+      expect(Date.parse(job.run_after)).toBeGreaterThan(Date.now());
+
+      await listen(10);
+      expect(followups()).toHaveLength(1);
+    });
+
+    it('waits while the paragraph is open, then plans the window and queues its clip once it closes', async () => {
+      await listen(10);
+      const job = followups()[0];
+
+      expect(await window.runFollowup(job)).toEqual({ requeue: { delayMs: 30000 } });
+      expect(ttsSeqs()).toEqual([10, 11, 12]);
+
+      seg13().status = 'final';
+      expect(await window.runFollowup(job)).toBeNull();
+      expect(ttsSeqs()).toEqual([10, 11, 12, 13]);
+      expect(db.state.dailyUsage).toHaveLength(0); // never counts
+    });
+
+    it('stops when extraction is no longer running or the wait runs out, queuing nothing', async () => {
+      await listen(10);
+      const job = followups()[0];
+
+      extraction.status = 'partial';
+      expect(await window.runFollowup(job)).toBeNull();
+
+      extraction.status = 'running';
+      const expired = { ...job, payload: { ...job.payload, waitUntil: new Date(Date.now() - 1000).toISOString() } };
+      expect(await window.runFollowup(expired)).toBeNull();
+      expect(ttsSeqs()).toEqual([10, 11, 12]);
+    });
+
+    it('after a follow-up gave up, the next request queues a new round', async () => {
+      await listen(10);
+      followups()[0].status = 'done';
+
+      await listen(10);
+
+      expect(followups().map((j) => j.idempotency_key)).toEqual([
+        `followup:${USER}:${VOICE.hash}:ext-1:13`,
+        `followup:${USER}:${VOICE.hash}:ext-1:13:round1`,
+      ]);
+    });
+
+    it('waits for the next segment to be built when the stored segments run out', async () => {
+      db.state.segments.splice(db.state.segments.indexOf(seg13()), 1);
+
+      const result = await listen(10);
+
+      expect(result.body.stopReason).toBe('processing');
+      expect(followups()[0].payload.waitSeq).toBe(13);
+    });
+
+    it('a finished extraction queues no follow-up', async () => {
+      Object.assign(extraction, { status: 'complete', finalized_through_page: 8 });
+      seg13().status = 'final';
+
+      await listen(10);
+
+      expect(followups()).toHaveLength(0);
+    });
+  });
 });
 
 describe('planService', () => {
