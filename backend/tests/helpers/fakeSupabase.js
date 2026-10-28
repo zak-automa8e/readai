@@ -166,6 +166,11 @@ function createFakeSupabase() {
         else state.segments.push({ id: nextId('seg'), ...row });
       }
     }),
+    getSegmentHashes: jest.fn(async (extractionId) => fake.segmentsOf(extractionId)
+      .map((s) => ({ seq: s.seq, end_page: s.end_page, text_sha256: s.text_sha256 }))),
+    deleteSegmentsAfter: jest.fn(async (extractionId, seq) => {
+      state.segments = state.segments.filter((s) => s.extraction_id !== extractionId || s.seq <= seq);
+    }),
     getSegments: jest.fn(async (extractionId, { fromPage = 1, limit = 200 } = {}) => fake.segmentsOf(extractionId)
       .filter((s) => s.end_page >= fromPage)
       .slice(0, limit)),

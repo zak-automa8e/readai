@@ -5,6 +5,8 @@
 //  - segments longer than MAX_SEGMENT_CHARS are split at sentence ends
 //  - parts[].chars sum to the text length (the joining space belongs to the earlier page)
 //  - sentence start offsets for the highlight clock
+const { DEFAULT_SKIPPED_TYPES } = require('./pageTypes');
+
 const SPOKEN = new Set(['body', 'heading']);
 // Terminal punctuation for the "is this sentence finished" heuristic (closing quote/bracket after it allowed).
 const TERMINAL_END = /[.؟?!:…۔»”"]\s*[)\]»”"]*\s*$/u;
@@ -44,22 +46,26 @@ function spokenBlocks(page) {
   return (page.blocks || []).filter((b) => SPOKEN.has(b.role) && typeof b.text === 'string' && b.text.trim());
 }
 
-// The tail of a block may continue on the next page: model flag and punctuation heuristic agree
+// The tail of a block may continue on the next page: body text with no closing punctuation.
+// The model's flags are too noisy to gate this (live book 3aaf8d3d: 7 of 16 page breaks mislabelled).
 function tailIsOpen(block) {
-  return Boolean(block) && block.role === 'body' && Boolean(block.ends_mid_sentence) && looksOpen(block.text);
+  return Boolean(block) && block.role === 'body' && looksOpen(block.text);
 }
 
-// A sentence never runs from one kind of page into another (e.g. preface into body)
-function samePageType(a, b) {
-  return !a || !b || a === b;
+// A sentence never runs between a page the listener hears and one skipped by default (e.g. body
+// into the index). Read types (preface, introduction, body) are not told apart: the model's page
+// type flips mid-text.
+function sameSkipping(a, b) {
+  return !a || !b || DEFAULT_SKIPPED_TYPES.has(a) === DEFAULT_SKIPPED_TYPES.has(b);
 }
 
+// Open tail + body head on the next page, and the model marks either side as cut mid-sentence
 function canMerge(prev, block, page) {
   return prev.page === page.page - 1
     && tailIsOpen(prev.tailBlock)
     && block.role === 'body'
-    && Boolean(block.starts_mid_sentence)
-    && samePageType(prev.pageType, page.pageType);
+    && (Boolean(prev.tailBlock.ends_mid_sentence) || Boolean(block.starts_mid_sentence))
+    && sameSkipping(prev.pageType, page.pageType);
 }
 
 // A draft is one paragraph as page pieces; materialised into text + parts at the end

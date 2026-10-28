@@ -4,7 +4,7 @@ jest.mock('../../src/services/llm', () => ({ extractionModel: () => 'test/model'
 jest.mock('../../src/services/extraction/pdfSource', () => ({ forgetPdf: jest.fn().mockResolvedValue() }));
 
 const db = require('../../src/services/supabaseService');
-const { finalizePrefix } = require('../../src/services/extraction/extractionService');
+const { finalizePrefix, resegment } = require('../../src/services/extraction/extractionService');
 const { buildSegments } = require('../../src/services/extraction/segmentBuilder');
 const fixtures = require('../fixtures/bakeoff-pages.json');
 
@@ -209,5 +209,62 @@ describe('finalizePrefix', () => {
     for (let n = 1; n <= 4; n++) land(extraction, n);
     await Promise.all([1, 2, 3, 4].map(() => finalizePrefix(extraction.id)));
     expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
+  });
+});
+
+describe('resegment', () => {
+  async function settled() {
+    const extraction = await setup();
+    for (let n = 1; n <= 4; n++) land(extraction, n);
+    await finalizePrefix(extraction.id);
+    await db.updateExtraction(extraction.id, { status: 'complete' });
+    return extraction;
+  }
+
+  // Segments as an older merge rule stored them: one paragraph split in two, so one seq too many
+  function storeStale(extraction) {
+    const rows = db.segmentsOf(extraction.id);
+    const cross = rows.find((s) => s.start_page !== s.end_page);
+    const cut = cross.parts[0].chars;
+    db.state.segments = db.state.segments.filter((s) => s.extraction_id !== extraction.id);
+    let seq = 1;
+    for (const s of rows) {
+      if (s === cross) {
+        db.state.segments.push({ ...s, seq: seq++, text: s.text.slice(0, cut).trim(), text_sha256: 'stale-a', end_page: s.start_page });
+        db.state.segments.push({ ...s, id: `${s.id}-b`, seq: seq++, text: s.text.slice(cut), text_sha256: 'stale-b', start_page: s.end_page });
+      } else {
+        db.state.segments.push({ ...s, seq: seq++ });
+      }
+    }
+    return rows.length;
+  }
+
+  it('reports what would change without writing', async () => {
+    const extraction = await settled();
+    const count = storeStale(extraction);
+    const before = db.segmentsOf(extraction.id).map(strip);
+
+    const result = await resegment(extraction.id);
+
+    expect(result).toEqual({ before: count + 1, after: count, changed: 1, finalized: 4 });
+    expect(db.segmentsOf(extraction.id).map(strip)).toEqual(before);
+  });
+
+  it('rewrites the segments in place with seq 1..n and drops the surplus', async () => {
+    const extraction = await settled();
+    storeStale(extraction);
+
+    await resegment(extraction.id, { apply: true });
+
+    const segments = db.segmentsOf(extraction.id);
+    expect(segments.map(strip)).toEqual(expected());
+    expect(segments.map((s) => s.seq)).toEqual(segments.map((_, i) => i + 1));
+  });
+
+  it('refuses a running extraction', async () => {
+    const extraction = await setup();
+    land(extraction, 1);
+    await finalizePrefix(extraction.id);
+    await expect(resegment(extraction.id, { apply: true })).rejects.toThrow(/running/);
   });
 });

@@ -661,6 +661,40 @@ async function finalizeOnce(extractionId, { excludeJobId = null } = {}) {
   throw new Error(`Could not finalize extraction ${extractionId}: concurrent updates`);
 }
 
+/**
+ * Rebuild a settled extraction's segments from its stored page text with the current builder
+ * (after a merge-rule fix). Segment audio is keyed by text hash, so unchanged paragraphs keep their
+ * clips; only rewritten ones are voiced again. Seqs stay 1..n: rows are rewritten in place, the
+ * surplus deleted. A running extraction is refused (its finaliser owns the segments).
+ * @returns {{before: number, after: number, changed: number, finalized: number}}
+ */
+async function resegment(extractionId, { apply = false } = {}) {
+  const extraction = await supabaseService.getExtractionById(extractionId);
+  if (!extraction) throw new Error(`Extraction ${extractionId} not found`);
+  if (extraction.status === 'running') throw new Error(`Extraction ${extractionId} is running; rebuild it once it settles`);
+
+  const stored = await supabaseService.getSegmentHashes(extractionId);
+  const built = stored.reduce((max, s) => Math.max(max, s.end_page), extraction.finalized_through_page || 0);
+  if (!built) return { before: 0, after: 0, changed: 0, finalized: 0 };
+
+  const pages = await supabaseService.getPageBlocksRange(extractionId, 1, built);
+  const { segments } = buildSegments(pages, { moreToCome: built < extraction.pages_total });
+  const rows = segments.map((segment, i) => segmentRow(extractionId, i + 1, segment));
+  const storedHashes = new Set(stored.map((s) => s.text_sha256));
+  const tail = rows[rows.length - 1];
+  const finalized = tail && tail.status === 'open' ? tail.start_page - 1 : built;
+  const result = { before: stored.length, after: rows.length, changed: rows.filter((r) => !storedHashes.has(r.text_sha256)).length, finalized };
+  if (!apply) return result;
+
+  await supabaseService.upsertSegments(rows);
+  await supabaseService.deleteSegmentsAfter(extractionId, rows.length);
+  if (finalized !== extraction.finalized_through_page) {
+    await supabaseService.updateExtraction(extractionId, { finalized_through_page: finalized }, { expectFinalizedThrough: extraction.finalized_through_page });
+  }
+  logger.info('Extraction resegmented', { extractionId, ...result });
+  return result;
+}
+
 // Listening windows waiting on this extraction (listen_followup) re-check now: segments closed or it settled
 async function wakeFollowups(extractionId) {
   try {
@@ -717,5 +751,6 @@ module.exports = {
   extractPage,
   validateWithRetry,
   finalizePrefix,
+  resegment,
   getStatus,
 };

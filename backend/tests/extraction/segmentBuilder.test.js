@@ -125,18 +125,53 @@ describe('segmentBuilder', () => {
       expect(segments).toHaveLength(2);
     });
 
-    it('does not merge from one page type into another', () => {
+    // Live book 3aaf8d3d p11 -> p12: preface page into a page typed body, head not flagged
+    it('merges across read page types when only the tail is flagged', () => {
       const { segments } = buildSegments([
         { page: 1, pageType: 'preface', blocks: [tail] },
-        { page: 2, pageType: 'body', blocks: [head] },
+        { page: 2, pageType: 'body', blocks: [{ ...head, starts_mid_sentence: false }] },
+      ]);
+      expect(segments).toHaveLength(1);
+    });
+
+    // Live book 3aaf8d3d p24 -> p25: a name split across the break, tail not flagged
+    it('merges when only the head is flagged', () => {
+      const { segments } = buildSegments([
+        { page: 1, blocks: [{ ...tail, ends_mid_sentence: false }] },
+        { page: 2, blocks: [head] },
+      ]);
+      expect(segments).toHaveLength(1);
+    });
+
+    it('does not merge when neither side is flagged (front-matter names without punctuation)', () => {
+      const { segments } = buildSegments([
+        { page: 1, blocks: [{ ...tail, ends_mid_sentence: false }] },
+        { page: 2, blocks: [{ ...head, starts_mid_sentence: false }] },
       ]);
       expect(segments).toHaveLength(2);
     });
 
-    it('needs the model flags and the punctuation heuristic to agree', () => {
+    it('does not merge between a read page and one skipped by default', () => {
+      const { segments } = buildSegments([
+        { page: 1, pageType: 'body', blocks: [tail] },
+        { page: 2, pageType: 'index', blocks: [head] },
+      ]);
+      expect(segments).toHaveLength(2);
+    });
+
+    it('does not merge after closing punctuation, whatever the flags say', () => {
       const closed = { ...tail, text: 'جملة انتهت.' };
       const { segments } = buildSegments([{ page: 1, blocks: [closed] }, { page: 2, blocks: [head] }]);
       expect(segments).toHaveLength(2);
+    });
+
+    it('builds the same segments page by page when only the head is flagged', () => {
+      const pages = [
+        { page: 1, blocks: [{ ...tail, ends_mid_sentence: false }] },
+        { page: 2, blocks: [head] },
+      ];
+      const strip = ({ carried, ...rest }) => rest;
+      expect(buildIncrementally(pages, 2).map(strip)).toEqual(buildSegments(pages).segments.map(strip));
     });
 
     it('does not keep a closed sentence open', () => {

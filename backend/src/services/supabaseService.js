@@ -1002,6 +1002,21 @@ class SupabaseService {
     if (error) throw error;
   }
 
+  // Every segment's text hash in seq order (a rebuild compares against them)
+  async getSegmentHashes(extractionId) {
+    return this.selectAll(() => this.adminClient
+      .from('segments')
+      .select('seq, end_page, text_sha256')
+      .eq('extraction_id', extractionId)
+      .order('seq', { ascending: true }));
+  }
+
+  // Drop the segments past `seq` (a rebuild that produced fewer segments)
+  async deleteSegmentsAfter(extractionId, seq) {
+    const { error } = await this.adminClient.from('segments').delete().eq('extraction_id', extractionId).gt('seq', seq);
+    if (error) throw error;
+  }
+
   async getSegments(extractionId, { fromPage = 1, limit = 200 } = {}) {
     const { data, error } = await this.adminClient
       .from('segments')

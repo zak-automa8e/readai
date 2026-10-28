@@ -3,6 +3,7 @@ const logger = require('../../utils/logger');
 const supabaseService = require('../supabaseService');
 const planService = require('../plans/planService');
 const segmentAudio = require('./segmentAudioService');
+const { DEFAULT_SKIPPED_TYPES, FRONT_MATTER_TYPES } = require('../extraction/pageTypes');
 
 /**
  * The listening window (spec §5.3, O8, O12, O13): the rest of the current page plus the next
@@ -10,11 +11,6 @@ const segmentAudio = require('./segmentAudioService');
  * tts_segment jobs) but never counts a page and never hands out a URL; counting happens when
  * GET /segments/:id/audio delivers a clip.
  */
-
-// O8 defaults: never voiced unless the listener asks for them
-const DEFAULT_SKIPPED_TYPES = new Set(['cover', 'title', 'copyright', 'blank', 'toc', 'index', 'back_cover', 'dedication', 'author_note']);
-// "Read all front matter" (user_books.read_front_matter) brings these back
-const FRONT_MATTER_TYPES = new Set(['title', 'copyright', 'dedication', 'author_note', 'toc']);
 
 const SEGMENT_BATCH = 100;
 const MAX_SCAN = 2000; // segments looked at per plan (a long run of skipped pages ends here)
