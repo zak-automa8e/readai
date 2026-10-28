@@ -37,7 +37,8 @@ Import `tokens.css`; Tailwind projects add `tailwind.preset.js` as a preset. Nev
 | deco (gold) | `#B8892B` | `#D9AE4F` | ornament only — **never text, never a button** (fails contrast) |
 
 - shadcn variables in `tokens.css` are RGB channels (`--primary: 30 58 138`), read as `rgb(var(--primary) / <alpha-value>)`.
-  When applying to `frontend/`, replace the old HSL block in `src/index.css` and the colour block in `tailwind.config.ts`.
+  The app keeps a copy in `frontend/src/brand/` and `frontend/public/brand/` (its Docker build sees only `frontend/`):
+  after any change here, run `npm run brand:sync` in `frontend/`; `npm run brand:check` fails if the copy is stale.
 - `destructive` reuses red ink.
 
 ## Type

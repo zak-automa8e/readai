@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/BrandLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,9 +89,8 @@ export const Sidebar = () => {
         isCollapsed ? "justify-center px-2" : "justify-between px-4"
       )}>
         {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="font-serif text-xl font-semibold tracking-tight text-foreground">ReadAI</span>
+          <div className="flex items-center">
+            <BrandLogo className="h-7" />
           </div>
         )}
         <Button

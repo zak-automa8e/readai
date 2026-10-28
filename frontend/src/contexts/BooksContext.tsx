@@ -136,26 +136,26 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       canvas.width = 200;
       canvas.height = 300;
       
-      // Fill with a nice background
-      ctx.fillStyle = '#f3f4f6';
+      // Narwi palette (brand/tokens): paper background, hairline border
+      ctx.fillStyle = '#F7F5EF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Add border
-      ctx.strokeStyle = '#d1d5db';
+      ctx.strokeStyle = '#E2E0D8';
       ctx.lineWidth = 2;
       ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
-      
-      // Add PDF icon (simple rectangle)
-      ctx.fillStyle = '#ef4444';
+
+      // PDF label on lapis
+      ctx.fillStyle = '#1E3A8A';
       ctx.fillRect(20, 20, 160, 40);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px Arial';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '600 16px "Readex Pro", Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('PDF', 100, 45);
-      
+
       // Add book title
-      ctx.fillStyle = '#374151';
-      ctx.font = '14px Arial';
+      ctx.fillStyle = '#161A2B';
+      ctx.font = '14px "Readex Pro", Arial, sans-serif';
       ctx.textAlign = 'center';
       
       // Word wrap the title
