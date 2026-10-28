@@ -173,7 +173,7 @@ describe('finalizePrefix', () => {
 
   it('settles as partial with the failed pages listed when a chunk failed for good', async () => {
     const extraction = await setup();
-    db.state.jobs = [{ id: 'job-x', extraction_id: extraction.id, status: 'failed', idempotency_key: 'k', payload: { phase: 'realtime', pages: [3, 4] } }];
+    db.state.jobs = [{ id: 'job-x', kind: 'extract_pages', extraction_id: extraction.id, status: 'failed', idempotency_key: 'k', payload: { phase: 'realtime', pages: [3, 4] } }];
     land(extraction, 1);
     land(extraction, 2);
     const updated = await finalizePrefix(extraction.id);
@@ -187,8 +187,20 @@ describe('finalizePrefix', () => {
     const job = db.state.jobs[0];
     job.status = 'running';
     for (let n = 1; n <= 3; n++) land(extraction, n);
-    db.state.jobs.push({ id: 'job-f', extraction_id: extraction.id, status: 'failed', idempotency_key: 'k2', payload: { phase: 'realtime', pages: [4] } });
+    db.state.jobs.push({ id: 'job-f', kind: 'extract_pages', extraction_id: extraction.id, status: 'failed', idempotency_key: 'k2', payload: { phase: 'realtime', pages: [4] } });
     const updated = await finalizePrefix(extraction.id, { excludeJobId: job.id });
+    expect(updated.status).toBe('partial');
+  });
+
+  it('settles once its page jobs are done even while audio and follow-up jobs of the extraction are queued', async () => {
+    const extraction = await setup();
+    db.state.jobs[0].status = 'done';
+    db.state.jobs.push(
+      { id: 'job-t', kind: 'tts_segment', extraction_id: extraction.id, status: 'queued', idempotency_key: 'tts:k', payload: {} },
+      { id: 'job-l', kind: 'listen_followup', extraction_id: extraction.id, status: 'queued', idempotency_key: 'followup:k', payload: {} },
+    );
+    for (let n = 1; n <= 3; n++) land(extraction, n); // page 4 never extracted
+    const updated = await finalizePrefix(extraction.id);
     expect(updated.status).toBe('partial');
   });
 

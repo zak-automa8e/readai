@@ -1044,11 +1044,13 @@ class SupabaseService {
     return data.length > 0;
   }
 
+  // The extract_pages jobs of an extraction (audio and follow-up jobs carry its id too, but never gate it)
   async getExtractionJobs(extractionId) {
     return this.selectAll(() => this.adminClient
       .from('book_processing_jobs')
       .select('id, idempotency_key, status, payload, attempts, last_error')
       .eq('extraction_id', extractionId)
+      .eq('kind', 'extract_pages')
       .order('created_at', { ascending: true }));
   }
 

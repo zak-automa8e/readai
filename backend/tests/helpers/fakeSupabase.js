@@ -180,7 +180,7 @@ function createFakeSupabase() {
       }
       return inserted;
     }),
-    getExtractionJobs: jest.fn(async (extractionId) => state.jobs.filter((j) => j.extraction_id === extractionId).map((j) => ({ ...j }))),
+    getExtractionJobs: jest.fn(async (extractionId) => state.jobs.filter((j) => j.extraction_id === extractionId && j.kind === 'extract_pages').map((j) => ({ ...j }))),
 
     recordProcessingCost: jest.fn(async (userId, cost) => {
       state.costs.push({ user_id: userId, ...cost });
