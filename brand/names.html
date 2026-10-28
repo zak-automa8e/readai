@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Name Shortlist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Document styling only. The brand palette and type are chosen in story 3. */
+  :root {
+    --paper: #FCFBF8; --surface: #FFFFFF; --ink: #1B1A17; --muted: #5E5A52; --line: #E4E1DA; --rubric: #A8322A;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --arabic: "Amiri", "IBM Plex Sans Arabic", serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141311; --surface: #1C1B18; --ink: #ECE8E0; --muted: #A39E94; --line: #2E2C27; --rubric: #E0705F;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141311; --surface: #1C1B18; --ink: #ECE8E0; --muted: #A39E94; --line: #2E2C27; --rubric: #E0705F;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 var(--s5); }
+  p { margin: 0 0 var(--s4); max-width: 68ch; }
+  strong { font-weight: 600; }
+  code { font: 400 0.86em var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  [lang="ar"] { font-family: var(--arabic); line-height: 1.5; }
+
+  header { padding: var(--s8) 0 var(--s7); border-bottom: 1px solid var(--line); }
+  .eyebrow, .label { font: 500 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 var(--s3); }
+  h1 { font: 500 clamp(44px, 7vw, 68px)/1.02 var(--serif); letter-spacing: -0.015em; margin: var(--s3) 0 var(--s5); }
+  .meta { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); font: 400 14px/1.5 var(--mono); color: var(--muted); margin: 0 0 var(--s5); }
+  .lede { font: 400 20px/1.5 var(--serif); max-width: 52ch; margin: 0; }
+
+  /* Hero */
+  .hero { padding: var(--s7) 0; border-bottom: 1px solid var(--line); }
+  .specimen { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s4) var(--s6); margin: 0 0 var(--s5); }
+  .specimen .lat { font: 500 clamp(64px, 12vw, 128px)/0.95 var(--serif); letter-spacing: -0.02em; }
+  .specimen .ar { font: 700 clamp(64px, 12vw, 128px)/1 var(--arabic); }
+  .say { font: 400 15px/1.5 var(--mono); color: var(--muted); margin: 0 0 var(--s5); }
+  .hero .story { font: 400 clamp(20px, 2.6vw, 24px)/1.45 var(--serif); max-width: 46ch; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s5); margin: var(--s6) 0 0; }
+  .facts > div { border-top: 1px solid var(--ink); padding-top: var(--s3); }
+  .facts b { display: block; font: 500 18px/1.35 var(--serif); }
+  .facts span { font-size: 14px; color: var(--muted); }
+
+  .runner { display: grid; grid-template-columns: auto 1fr; gap: var(--s4) var(--s6); align-items: baseline; padding: var(--s6) 0; border-bottom: 1px solid var(--line); }
+  .runner .names { display: flex; gap: var(--s4); align-items: baseline; white-space: nowrap; }
+  .runner .lat { font: 500 44px/1 var(--serif); }
+  .runner .ar { font: 700 44px/1 var(--arabic); }
+  .runner p { margin: 0; }
+
+  .calls { margin: var(--s7) 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: var(--s5) var(--s6); }
+  .calls ol { margin: 0; padding-inline-start: var(--s5); }
+  .calls li { margin: 0 0 var(--s3); max-width: 72ch; }
+  .calls li:last-child { margin-bottom: 0; }
+
+  /* Funnel */
+  .funnel { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin: 0 0 var(--s4); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+  .funnel div { padding: var(--s4); border-inline-start: 1px solid var(--line); }
+  .funnel div:first-child { border-inline-start: 0; }
+  .funnel b { display: block; font: 500 34px/1 var(--serif); margin-bottom: var(--s2); }
+  .funnel span { font-size: 13px; color: var(--muted); line-height: 1.4; display: block; }
+  .funnel .end b { color: var(--rubric); }
+
+  section { padding: var(--s8) 0 var(--s7); border-bottom: 1px solid var(--line); }
+  .sec-head { display: flex; align-items: baseline; gap: var(--s4); margin: 0 0 var(--s6); }
+  .num { font: 500 22px/1 var(--serif); color: var(--rubric); min-width: 1.4em; }
+  h2 { font: 500 clamp(30px, 4vw, 38px)/1.1 var(--serif); letter-spacing: -0.01em; margin: 0; }
+  .note { font-size: 14px; color: var(--muted); }
+
+  /* Tables */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 var(--s4); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+  th { text-align: start; font: 500 12px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); padding: var(--s2) var(--s4) var(--s2) 0; vertical-align: bottom; white-space: nowrap; }
+  td { border-bottom: 1px solid var(--line); padding: var(--s3) var(--s4) var(--s3) 0; vertical-align: top; }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+  td:first-child [lang="ar"] { font-weight: 400; color: var(--muted); margin-inline-start: var(--s2); font-size: 1.1em; }
+  .score td:not(:first-child) { text-align: center; }
+  .score th:not(:first-child) { text-align: center; white-space: normal; min-width: 64px; }
+  .score td, .score th { padding-inline-end: var(--s3); }
+  .score td:first-child .chip { margin-inline-start: var(--s2); font-size: 11px; padding: 3px 7px; }
+  .score tr.top td { background: var(--surface); }
+  .total { font: 500 18px/1 var(--serif); }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ink); vertical-align: middle; }
+  .dot.d2 { background: var(--ink); }
+  .dot.d1 { background: linear-gradient(90deg, var(--ink) 50%, transparent 50%); }
+  .dot.d0 { border-color: var(--muted); opacity: 0.6; }
+  .legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); font-size: 13px; color: var(--muted); margin: 0 0 var(--s5); }
+  .legend span { display: inline-flex; gap: var(--s2); align-items: center; }
+  .keys { font-size: 13px; color: var(--muted); max-width: none; }
+
+  /* Candidate cards */
+  .cards { display: grid; gap: var(--s5); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: var(--s6); }
+  .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--s3) var(--s5); margin-bottom: var(--s2); }
+  .card-head .lat { font: 500 48px/1 var(--serif); letter-spacing: -0.01em; }
+  .card-head .ar { font: 700 48px/1 var(--arabic); }
+  .card .say { margin-bottom: var(--s4); }
+  .card .tags { display: flex; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s4); }
+  .card p { font-size: 15px; }
+  .card h4 { font: 500 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: var(--s5) 0 var(--s2); }
+  .domains { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s2); }
+  .domains li { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline; font-size: 14px; }
+  .domains code { min-width: 150px; text-align: start; }
+  .card ul.plain { margin: 0; padding-inline-start: 18px; font-size: 15px; }
+  .card ul.plain li { margin-bottom: var(--s1); }
+
+  .chip { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--ink); white-space: nowrap; }
+  .chip.solid { background: var(--ink); color: var(--paper); }
+  .chip.soft { border-color: var(--muted); color: var(--muted); }
+  .chip.dash { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+  .chip.red { border-color: var(--rubric); color: var(--rubric); }
+
+  .minor { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s5); }
+
+  footer { padding: var(--s7) 0 var(--s8); font-size: 14px; color: var(--muted); }
+  footer p { max-width: none; margin-bottom: var(--s2); }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 var(--s4); }
+    header { padding: var(--s7) 0 var(--s6); }
+    .facts, .minor { grid-template-columns: 1fr; }
+    .funnel { grid-template-columns: repeat(2, 1fr); }
+    .funnel div { border-inline-start: 0; border-top: 1px solid var(--line); }
+    .runner { grid-template-columns: 1fr; }
+    .card { padding: var(--s5) var(--s4); }
+    .calls { padding: var(--s4); }
+    section { padding: var(--s7) 0 var(--s6); }
+    table { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Brand identity · Story 2 of 6</p>
+  <h1>Names</h1>
+  <div class="meta">
+    <span>For your decision</span>
+    <span>16 Oct 2026</span>
+    <span>18 names checked</span>
+    <span>Divine-name rule: option B</span>
+  </div>
+  <p class="lede">Eighteen names checked against the brief and the registries. One recommendation, one runner-up.</p>
+</header>
+
+<div class="hero">
+  <p class="label">Recommended</p>
+  <div class="specimen">
+    <span class="lat">Mihbara</span>
+    <span class="ar" lang="ar" dir="rtl">محبرة</span>
+  </div>
+  <p class="say">mih-BAA-ra · the inkwell</p>
+  <p class="story">The student carried it to every lesson, for life. Imam Ahmad, asked how long he would keep seeking knowledge, is reported to have said: <em>with the inkwell, until the grave.</em> Ink writes — and ink draws, so the name grows into images and video.</p>
+  <div class="facts">
+    <div><b>Nothing on it</b><span>No app, company or product found — Latin or Arabic, App Store Saudi + US, the web</span></div>
+    <div><b>mihbara.ai is free</b><span>and so is mehbara.com; mihbara.com is registered but unused since 2020 — worth an offer</span></div>
+    <div><b>Ownable</b><span>Every Arab knows the word; nobody uses it day to day</span></div>
+  </div>
+</div>
+
+<div class="runner">
+  <div class="names"><span class="lat">Talaqqi</span><span class="ar" lang="ar" dir="rtl">تلقّي</span></div>
+  <p><strong>Runner-up.</strong> Names the practice exactly — receiving knowledge mouth-to-ear from a teacher. <code>talaqqi.com</code> is for sale at $3,995 and <code>talaqqi.ai</code> is free. But "qq" trips English speakers, and it reads as Quran tutoring.</p>
+</div>
+
+<div class="calls">
+  <p class="label">Needs your call</p>
+  <ol>
+    <li><strong>Pick one:</strong> Mihbara, Talaqqi, or neither (I run a third round).</li>
+    <li><strong>Is <code>mustamli.com</code> yours?</strong> It was registered on 3 Oct 2026 and runs an Arabic "read and listen, word by word" app. If it's yours, Mustamli has the best story of all and jumps to the top.</li>
+    <li><strong>Before you buy anything:</strong> a Gemini dialect check (needs <code>GEMINI_API_KEY</code>), a look at the social handles yourself, and a trademark search in Saudi Arabia (SAIP) and your other markets.</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<section id="funnel">
+  <div class="sec-head"><span class="num">1</span><h2>How we got here</h2></div>
+  <div class="funnel">
+    <div><b>36</b><span>names across six territories of the tradition</span></div>
+    <div><b>12</b><span>checked in round 1, Khabeer included</span></div>
+    <div><b>0</b><span>had a free exact .com</span></div>
+    <div><b>6</b><span>rarer words — round 2</span></div>
+    <div class="end"><b>2</b><span>left standing</span></div>
+  </div>
+  <p class="note">Common one-word Arabic names are all registered. Rarer classical words are where the free names are.</p>
+</section>
+
+<!-- 2 -->
+<section id="scores">
+  <div class="sec-head"><span class="num">2</span><h2>Scorecard</h2></div>
+  <div class="legend">
+    <span><i class="dot d2"></i> meets</span>
+    <span><i class="dot d1"></i> partly</span>
+    <span><i class="dot d0"></i> fails</span>
+  </div>
+  <div class="scroll">
+  <table class="score">
+    <thead><tr><th>Name</th><th>Say + spell</th><th>Names the practice</th><th>Past audio</th><th>Wordmark balance</th><th>Available</th><th>Ownable</th><th>Personality</th><th>Total</th></tr></thead>
+    <tbody>
+      <tr class="top"><td>Mihbara <span lang="ar" dir="rtl">محبرة</span></td><td><i class="dot d1"></i></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td class="total">11</td></tr>
+      <tr><td>Talaqqi <span lang="ar" dir="rtl">تلقّي</span></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d1"></i></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td class="total">10</td></tr>
+      <tr><td>Mustamli <span lang="ar" dir="rtl">مستملي</span><span class="chip red">blocked</span></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d1"></i></td><td><i class="dot d0"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td class="total">10</td></tr>
+      <tr><td>Rihla <span lang="ar" dir="rtl">رحلة</span></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d0"></i></td><td><i class="dot d0"></i></td><td><i class="dot d2"></i></td><td class="total">9</td></tr>
+      <tr><td>Imla <span lang="ar" dir="rtl">إملاء</span></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d1"></i></td><td><i class="dot d0"></i></td><td class="total">9</td></tr>
+      <tr><td>Adab <span lang="ar" dir="rtl">أدب</span></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d2"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d0"></i></td><td><i class="dot d1"></i></td><td class="total">9</td></tr>
+      <tr><td>Khabeer <span lang="ar" dir="rtl">خبير</span></td><td><i class="dot d1"></i></td><td><i class="dot d0"></i></td><td><i class="dot d2"></i></td><td><i class="dot d1"></i></td><td><i class="dot d0"></i></td><td><i class="dot d0"></i></td><td><i class="dot d0"></i></td><td class="total">4</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="keys"><strong>Available</strong> = a usable domain and no same-space product. <strong>Ownable</strong> = not an everyday word, so it can be searched and defended. <strong>Personality</strong> = rooted, curious, confident, generous (brand core §4).</p>
+</section>
+
+<!-- 3 -->
+<section id="shortlist">
+  <div class="sec-head"><span class="num">3</span><h2>The shortlist</h2></div>
+  <div class="cards">
+
+    <article class="card">
+      <div class="card-head"><span class="lat">Mihbara</span><span class="ar" lang="ar" dir="rtl">محبرة</span></div>
+      <p class="say">mih-BAA-ra · the inkwell</p>
+      <div class="tags"><span class="chip solid">recommended</span><span class="chip">11 / 14</span></div>
+      <p>The student's inkwell, carried to every circle for life — <em>"with the inkwell, until the grave"</em> (<span lang="ar" dir="rtl">مع المحبرة إلى المقبرة</span>), attributed to Imam Ahmad. Ink writes and ink draws.</p>
+      <h4>Domains</h4>
+      <ul class="domains">
+        <li><code>mihbara.ai</code><span class="chip solid">free</span></li>
+        <li><code>mehbara.com</code><span class="chip solid">free</span><span class="note">spelling variant</span></li>
+        <li><code>mihbara.com</code><span class="chip soft">registered 2020, unused</span><span class="note">default server page — make an offer</span></li>
+        <li><code>mihbara.app</code><span class="chip soft">registered, empty</span></li>
+      </ul>
+      <h4>Conflicts</h4>
+      <p>None found — Latin or Arabic, App Store (Saudi + US), the web.</p>
+      <h4>Watch</h4>
+      <ul class="plain">
+        <li>It names the student's tool, not the practice, and leans to writing while the product leads with listening</li>
+        <li>ح gives two Latin spellings (Mihbara / Mehbara); the Latin form looks a little like <em>mihrab</em></li>
+        <li>Quote the saying as "attributed to Imam Ahmad" — reported via his son Ṣāliḥ; the chain wasn't checked</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><span class="lat">Talaqqi</span><span class="ar" lang="ar" dir="rtl">تلقّي</span></div>
+      <p class="say">ta-LAK-kee · receiving knowledge from a teacher</p>
+      <div class="tags"><span class="chip">runner-up</span><span class="chip">10 / 14</span></div>
+      <p>The defining method of traditional learning: the student receives the text mouth-to-ear from a teacher. An AI voice reading a book to you is literally that.</p>
+      <h4>Domains</h4>
+      <ul class="domains">
+        <li><code>talaqqi.ai</code><span class="chip solid">free</span></li>
+        <li><code>talaqqi.com</code><span class="chip">for sale · $3,995</span><span class="note">Afternic buy-now, offers allowed</span></li>
+        <li><code>gettalaqqi.com</code><span class="chip solid">free</span></li>
+        <li><code>talaqqi.app</code><span class="chip soft">taken</span><span class="note">young Quran-teacher / duas site, "app coming soon"</span></li>
+      </ul>
+      <h4>Conflicts</h4>
+      <p>MyTalaqqi (Malaysia, 0 ratings) and two small Arabic "تلقي" Quran-teaching apps. Medium.</p>
+      <h4>Watch</h4>
+      <ul class="plain">
+        <li>"qq" trips English speakers; some will write Talaqi</li>
+        <li>Tied to Quran recitation — may read as a Quran tutoring app, while ours is turath</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><span class="lat">Mustamli</span><span class="ar" lang="ar" dir="rtl">مستملي</span></div>
+      <p class="say">mus-TAM-lee · the one who carries the teacher's voice</p>
+      <div class="tags"><span class="chip red">blocked unless it's yours</span><span class="chip">10 / 14</span></div>
+      <p>In large dictation sessions the <em>mustamlī</em> repeated the teacher's words aloud so the farthest rows could hear and write (al-Samʿānī, <em>Adab al-imlāʾ wa-l-istimlāʾ</em>). Carrying the teacher's voice to everyone is this product.</p>
+      <h4>Domains</h4>
+      <ul class="domains">
+        <li><code>mustamli.com</code><span class="chip red">live, same space</span><span class="note">registered 3 Oct 2026 · "مستملي — اقرأ واستمع، كلمةً بكلمة"</span></li>
+        <li><code>mustamli.app</code><span class="chip solid">free</span></li>
+        <li><code>mustamli.ai</code><span class="chip solid">free</span></li>
+      </ul>
+    </article>
+
+  </div>
+
+  <div class="minor" style="margin-top: var(--s5);">
+    <article class="card">
+      <div class="card-head"><span class="lat" style="font-size:36px">Rihla</span><span class="ar" lang="ar" dir="rtl" style="font-size:36px">رحلة</span></div>
+      <p>The journey for knowledge — your own framing. But <code>rihla.com</code> is $50,000, only <code>getrehla.com</code> is free, a live Arabic "Rihla — رحلة" site has held <code>rihla.study</code> since July, and in Arabic it's the everyday word for "trip".</p>
+      <p class="note">Keep it as a product word instead — a book's learning path could be its <em>rihla</em>.</p>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="lat" style="font-size:36px">Imla</span><span class="ar" lang="ar" dir="rtl" style="font-size:36px">إملاء</span></div>
+      <p>Dictation sessions. Clean of conflicts, but only <code>imlaa.ai</code> / <code>imlaa.app</code> are free — and to most Arabs it is the school subject "spelling". Drills, not wonder.</p>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="lat" style="font-size:36px">Adab</span><span class="ar" lang="ar" dir="rtl" style="font-size:36px">أدب</span></div>
+      <p>Literature, and the etiquette of learning. An everyday word; <code>adab.com</code> is a live Arabic-literature encyclopedia; only <code>adabapp.com</code> is free.</p>
+    </article>
+    <article class="card">
+      <div class="card-head"><span class="lat" style="font-size:36px">Khabeer</span><span class="ar" lang="ar" dir="rtl" style="font-size:36px">خبير</span></div>
+      <p>The benchmark. Every exact domain is taken, five or more unrelated Khabeer / Khabir apps exist, and it names the expert, not the practice.</p>
+    </article>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="dropped">
+  <div class="sec-head"><span class="num">4</span><h2>Dropped after the checks</h2></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Name</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Rawi <span lang="ar" dir="rtl">راوي</span></td><td>Rawi (Qatar) Arabic audio and AlRawi (Bahrain) audiobooks; every exact domain taken</td></tr>
+      <tr><td>Isnad <span lang="ar" dir="rtl">إسناد</span></td><td><code>isnad.app</code> already gives cited Islamic answers — our feature</td></tr>
+      <tr><td>Sanad <span lang="ar" dir="rtl">سند</span></td><td>Jordan's government Sanad app (2.4M users); every domain taken</td></tr>
+      <tr><td>Midad <span lang="ar" dir="rtl">مداد</span></td><td><code>midad.com</code> — Islamic content with audio books; Medad LMS (Saudi)</td></tr>
+      <tr><td>Athar <span lang="ar" dir="rtl">أثر</span></td><td><code>athar.ai</code> — Islamic da'wah tech; several Islamic apps</td></tr>
+      <tr><td>Amali <span lang="ar" dir="rtl">أمالي</span></td><td><code>amali.app</code> — a live Islamic duas / Quran app</td></tr>
+      <tr><td>Dalil <span lang="ar" dir="rtl">دليل</span></td><td>Daleel AI (hadith verification); generic</td></tr>
+      <tr><td>Samaa <span lang="ar" dir="rtl">سماع</span></td><td>Samaa Quran-audio app; collides with سماء "sky"</td></tr>
+      <tr><td>Tadarus <span lang="ar" dir="rtl">تدارس</span></td><td>Indonesian and Saudi Quran apps; means group Quran reading</td></tr>
+      <tr><td>Kuttab <span lang="ar" dir="rtl">كتّاب</span></td><td><code>kuttab.com</code> — a live Quran / Arabic tutor marketplace</td></tr>
+      <tr><td>Majalis <span lang="ar" dir="rtl">مجالس</span></td><td>Majaalis by Zad Group — a Saudi Islamic lesson app</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">The other 24 names were dropped on the brief before any checks — see <code>names.md</code>, appendix.</p>
+</section>
+
+<!-- 5 -->
+<section id="method">
+  <div class="sec-head"><span class="num">5</span><h2>Method and limits</h2></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Check</th><th>How</th><th>Trust</th></tr></thead>
+    <tbody>
+      <tr><td>Domains</td><td>Registry lookups (RDAP), 16 Oct 2026; a nonsense control returned "not found" on .com, .app, .ai</td><td><span class="chip solid">real</span></td></tr>
+      <tr><td>App Store</td><td>Apple's public search, Saudi + US stores, Latin + Arabic spellings (round 2)</td><td><span class="chip solid">real</span></td></tr>
+      <tr><td>Google Play</td><td>Web search only</td><td><span class="chip soft">weak</span></td></tr>
+      <tr><td>.io domains</td><td>Its registry answers "not found" even for google.io</td><td><span class="chip dash">not checked</span></td></tr>
+      <tr><td>Social handles</td><td>x.com and Instagram answer to any handle, real or not</td><td><span class="chip dash">not checked</span></td></tr>
+      <tr><td>Trademarks</td><td>WIPO and TMview can't be queried this way</td><td><span class="chip dash">not checked</span></td></tr>
+      <tr><td>Arabic dialect meanings</td><td>Waits on Gemini — <code>GEMINI_API_KEY</code> not set</td><td><span class="chip dash">pending</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<footer>
+  <p>Source of truth: <code>readai/brand/names.md</code> · Brand core: <code>readai/brand/brand-core.html</code></p>
+  <p>Evidence: <code>My Vault/Projects/ReadAI Brand/Name Screen A.md</code>, <code>B.md</code>, <code>C.md</code>, <code>D.md</code></p>
+  <p>Document styling only — the brand palette and type are chosen in story 3.</p>
+</footer>
+
+</div>
+</body>
+</html>

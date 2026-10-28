@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narwi Logo Set</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Readex+Pro:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#F7F5EF; --surface:#FFFFFF; --text:#161A2B; --muted:#565B6E; --line:#E2E0D8; --night:#0D1124; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 15px/1.6 "Readex Pro", system-ui, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+  .eyebrow, .label { font: 500 12px/1.4 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  h1 { font: 600 48px/1.05 "Fraunces", serif; margin: 0 0 12px; }
+  section { padding: 40px 0; border-bottom: 1px solid var(--line); }
+  h2 { font: 600 26px/1.2 "Fraunces", serif; margin: 0 0 18px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid.four { grid-template-columns: repeat(4, 1fr); }
+  .cell { border: 1px solid var(--line); border-radius: 8px; padding: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; min-height: 200px; }
+  .cell img { max-width: 100%; max-height: 120px; align-self: center; }
+  .cell.light { background: var(--surface); }
+  .cell.dark { background: var(--night); border-color: #262B44; }
+  .cell.ink { background: #1E3A8A; border-color: #1E3A8A; }
+  .cell code { font: 400 11px/1.4 "IBM Plex Mono", monospace; color: var(--muted); }
+  .cell.dark code, .cell.ink code { color: #A0A4B5; }
+  .sizes { display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap; }
+  .sizes figure { margin: 0; text-align: center; font: 400 11px/1.4 "IBM Plex Mono", monospace; color: var(--muted); }
+  footer { padding: 32px 0 56px; color: var(--muted); font-size: 14px; }
+  @media (max-width: 800px) { .grid, .grid.four { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow">Brand identity · Story 4 of 6 · Logo set v1</p>
+  <h1>Narwi logo set</h1>
+  <p>Mark A2 with the wordmarks converted to outlines — every file here renders the same on any machine, with no fonts installed. Each lockup comes in colour, dark, black and white.</p>
+</header>
+
+<section>
+  <h2>Lockups</h2>
+  <div class="grid">
+    <div class="cell light"><img src="narwi-lockup-ar.svg" alt="Narwi Arabic lockup"><code>narwi-lockup-ar.svg</code></div>
+    <div class="cell dark"><img src="narwi-lockup-ar-dark.svg" alt="Narwi Arabic lockup, dark"><code>narwi-lockup-ar-dark.svg</code></div>
+    <div class="cell light"><img src="narwi-lockup-en.svg" alt="Narwi English lockup"><code>narwi-lockup-en.svg</code></div>
+    <div class="cell dark"><img src="narwi-lockup-en-dark.svg" alt="Narwi English lockup, dark"><code>narwi-lockup-en-dark.svg</code></div>
+    <div class="cell light"><img src="narwi-lockup-stacked.svg" alt="Narwi stacked lockup" style="max-height:220px"><code>narwi-lockup-stacked.svg</code></div>
+    <div class="cell dark"><img src="narwi-lockup-stacked-dark.svg" alt="Narwi stacked lockup, dark" style="max-height:220px"><code>narwi-lockup-stacked-dark.svg</code></div>
+  </div>
+</section>
+
+<section>
+  <h2>Single colour</h2>
+  <div class="grid four">
+    <div class="cell light"><img src="narwi-lockup-ar-black.svg" alt=""><code>-black</code></div>
+    <div class="cell ink"><img src="narwi-lockup-ar-white.svg" alt=""><code>-white</code></div>
+    <div class="cell light"><img src="narwi-lockup-en-black.svg" alt=""><code>-black</code></div>
+    <div class="cell ink"><img src="narwi-lockup-en-white.svg" alt=""><code>-white</code></div>
+  </div>
+</section>
+
+<section>
+  <h2>Wordmarks and mark</h2>
+  <div class="grid four">
+    <div class="cell light"><img src="narwi-wordmark-ar.svg" alt=""><code>narwi-wordmark-ar.svg</code></div>
+    <div class="cell light"><img src="narwi-wordmark-en.svg" alt=""><code>narwi-wordmark-en.svg</code></div>
+    <div class="cell light"><img src="narwi-mark.svg" alt=""><code>narwi-mark.svg</code></div>
+    <div class="cell dark"><img src="narwi-mark-dark.svg" alt=""><code>narwi-mark-dark.svg</code></div>
+  </div>
+</section>
+
+<section>
+  <h2>App icon and favicon</h2>
+  <div class="sizes">
+    <figure><img src="narwi-app-icon.svg" width="180" alt=""><br>180</figure>
+    <figure><img src="narwi-app-icon.svg" width="96" alt=""><br>96</figure>
+    <figure><img src="narwi-app-icon.svg" width="48" alt=""><br>48</figure>
+    <figure><img src="favicon.svg" width="32" alt=""><br>favicon 32</figure>
+    <figure><img src="favicon.svg" width="16" alt=""><br>favicon 16</figure>
+  </div>
+</section>
+
+<footer>
+  <p>Built by <code>build_logo.py</code> from Amiri Bold and Fraunces (600, optical size 72). Arabic uses Amiri's joined letter forms for ن ر و ي. PNG exports come with the final version, after you sign off the shapes.</p>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-view="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narwi Brand Book</title>
+<link rel="icon" href="../logo/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Readex+Pro:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+  /* Page layout only. Every colour, font and radius comes from ../tokens/tokens.css. */
+  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px; --code: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  * { box-sizing: border-box; }
+  html { scroll-padding-top: 72px; }
+  body { margin: 0; background: var(--narwi-bg); color: var(--narwi-text); font: 400 16px/1.7 var(--narwi-font-ui); -webkit-font-smoothing: antialiased; }
+  html[data-view="ar"] [data-v="en"], html[data-view="en"] [data-v="ar"] { display: none !important; }
+  html.dark .when-light, html:not(.dark) .when-dark { display: none !important; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--s5); }
+  a { color: var(--narwi-primary); }
+  code { font: 400 .86em/1.4 var(--code); }
+  .ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+
+  /* Top bar */
+  .bar { position: sticky; top: 0; z-index: 10; background: var(--narwi-bg); border-bottom: 1px solid var(--narwi-line); }
+  .bar .wrap { display: flex; align-items: center; gap: var(--s4); height: 60px; }
+  .bar .brand { display: flex; align-items: center; gap: var(--s2); text-decoration: none; color: var(--narwi-text); font-weight: 500; white-space: nowrap; }
+  .bar .brand img { height: 22px; width: auto; }
+  .bar nav { display: flex; gap: var(--s1); overflow-x: auto; flex: 1; scrollbar-width: none; }
+  .bar nav a { font-size: 14px; color: var(--narwi-muted); text-decoration: none; padding: 6px 10px; border-radius: var(--narwi-radius); white-space: nowrap; }
+  .bar nav a:hover { color: var(--narwi-text); background: var(--narwi-surface); }
+  .toggles { display: flex; gap: var(--s2); flex: none; }
+  .seg { display: inline-flex; border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); overflow: hidden; background: var(--narwi-surface); }
+  .seg button { font: 500 13px/1 var(--narwi-font-ui); color: var(--narwi-muted); background: transparent; border: 0; padding: 8px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--narwi-primary); color: var(--narwi-on-primary); }
+
+  /* Headings: Arabic in Amiri, Latin in Fraunces */
+  h1, h2, h3 { margin: 0; font-weight: 600; }
+  html[data-view="en"] h1, html[data-view="en"] h2, html[data-view="en"] h3 { font-family: var(--narwi-font-latin); letter-spacing: -.01em; }
+  html[data-view="ar"] h1, html[data-view="ar"] h2, html[data-view="ar"] h3 { font-family: var(--narwi-font-arabic); font-weight: 700; }
+  .eyebrow { font: 500 13px/1.4 var(--narwi-font-ui); color: var(--narwi-accent); margin: 0 0 var(--s3); }
+  .muted { color: var(--narwi-muted); }
+  p { margin: 0 0 var(--s4); max-width: 70ch; }
+
+  /* Cover */
+  .cover { padding: var(--s8) 0 var(--s7); border-bottom: 1px solid var(--narwi-line); }
+  .cover-grid { display: grid; grid-template-columns: 1fr auto; gap: var(--s7); align-items: center; }
+  .cover h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1.1; margin-bottom: var(--s4); }
+  html[data-view="ar"] .cover h1 { font-size: clamp(46px, 7vw, 74px); }
+  .cover .lede { font-size: 18px; }
+  .cover .status { font-size: 14px; color: var(--narwi-muted); }
+  .cover-mark img { width: 220px; height: auto; display: block; }
+
+  .flags { margin-top: var(--s6); background: var(--narwi-surface); border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s5); }
+  .flags h2 { font-size: 22px; margin-bottom: var(--s2); }
+  .flags ol { margin: 0; padding-inline-start: 22px; }
+  .flags li { margin-bottom: var(--s2); }
+  .flag { display: inline-block; vertical-align: middle; font: 500 11px/1 var(--narwi-font-ui); color: var(--narwi-muted); border: 1px solid var(--narwi-line); border-radius: 999px; padding: 4px 8px; margin-inline-start: var(--s2); white-space: nowrap; }
+  .flag::after { content: "Added in v1 · approved 28 Oct 2026"; }
+  html[data-view="ar"] .flag::after { content: "أُضيف في الإصدار 1 · اعتُمد 28 أكتوبر 2026"; }
+
+  /* Sections */
+  section.chapter { padding: var(--s8) 0; border-bottom: 1px solid var(--narwi-line); }
+  .chapter-head { display: flex; align-items: baseline; gap: var(--s4); margin-bottom: var(--s5); }
+  .chapter-head .n { font: 600 18px/1 var(--narwi-font-latin); color: var(--narwi-accent); }
+  .chapter-head h2 { font-size: clamp(32px, 4.5vw, 44px); line-height: 1.15; }
+  html[data-view="ar"] .chapter-head h2 { font-size: clamp(36px, 5vw, 50px); }
+  h3 { font-size: 24px; line-height: 1.3; margin: var(--s7) 0 var(--s3); }
+  html[data-view="ar"] h3 { font-size: 27px; }
+  .ornament { display: flex; align-items: center; gap: var(--s3); margin: var(--s6) 0; color: var(--narwi-deco); }
+  .ornament::before, .ornament::after { content: ""; flex: 1; height: 1px; background: var(--narwi-line); }
+  .ornament i { width: 9px; height: 9px; background: var(--narwi-deco); transform: rotate(45deg); }
+
+  .statement { font-size: clamp(30px, 4.4vw, 46px); line-height: 1.2; margin: 0 0 var(--s5); max-width: 22ch; }
+  html[data-view="en"] .statement { font-family: var(--narwi-font-latin); font-weight: 600; }
+  html[data-view="ar"] .statement { font-family: var(--narwi-font-arabic); font-weight: 700; font-size: clamp(36px, 5vw, 54px); }
+
+  .tagline { background: var(--narwi-surface); border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s6); margin: var(--s6) 0; }
+  .tagline .ar { font: 700 clamp(30px, 4.6vw, 44px)/1.5 var(--narwi-font-arabic); direction: rtl; text-align: right; margin: 0 0 var(--s2); max-width: none; }
+  .tagline .en { font: 400 italic 20px/1.5 var(--narwi-font-latin); color: var(--narwi-muted); direction: ltr; text-align: left; margin: 0; max-width: none; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); background: var(--narwi-surface); margin: var(--s4) 0 var(--s5); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: start; vertical-align: top; padding: 12px 16px; border-bottom: 1px solid var(--narwi-line); }
+  tr:last-child td { border-bottom: 0; }
+  th { font-weight: 500; font-size: 13px; color: var(--narwi-muted); background: var(--narwi-bg); }
+  td.term { font-weight: 500; white-space: nowrap; }
+  .status-pill { font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--narwi-line); white-space: nowrap; color: var(--narwi-muted); }
+  .status-pill.now { border-color: var(--narwi-primary); color: var(--narwi-primary); }
+
+  /* Cards */
+  .grid { display: grid; gap: var(--s4); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card { background: var(--narwi-surface); border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s5); min-width: 0; }
+  .card h4 { margin: 0 0 var(--s2); font-size: 16px; font-weight: 500; }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+  .card ul { margin: 0; padding-inline-start: 20px; }
+
+  /* Name */
+  .name-pair { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s4) var(--s7); margin-bottom: var(--s5); }
+  .name-pair .ar { font: 700 88px/1.2 var(--narwi-font-arabic); direction: rtl; }
+  .name-pair .en { font: 600 64px/1 var(--narwi-font-latin); direction: ltr; letter-spacing: -.01em; }
+  .say { font: 500 15px/1.6 var(--narwi-font-ui); }
+  .yes { color: var(--narwi-primary); font-weight: 500; }
+  .no { color: var(--narwi-accent); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  /* Logo */
+  .logo-tile { border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s6) var(--s5) var(--s4); display: flex; flex-direction: column; gap: var(--s4); min-height: 220px; min-width: 0; }
+  .logo-tile .art { flex: 1; display: grid; place-items: center; }
+  .logo-tile .art img { max-width: 100%; max-height: 120px; }
+  .logo-tile .cap { font-size: 13px; color: var(--narwi-muted); }
+  .logo-tile .cap code { direction: ltr; unicode-bidi: isolate; }
+  .logo-tile .cap code { color: var(--narwi-text); }
+  .on-paper { background: #F7F5EF; }   /* fixed: shows the files on the backgrounds they were made for */
+  .on-white { background: #FFFFFF; }
+  .on-night { background: #0D1124; border-color: #262B44; }
+  .on-lapis { background: #1E3A8A; border-color: #1E3A8A; }
+  .on-night .cap, .on-lapis .cap { color: #A0A4B5; }
+  .on-night .cap code, .on-lapis .cap code { color: #ECE9E1; }
+  .on-paper .cap, .on-white .cap { color: #565B6E; }
+  .on-paper .cap code, .on-white .cap code { color: #161A2B; }
+
+  .clear { display: grid; grid-template-columns: auto 1fr; gap: var(--s6); align-items: center; }
+  .clear-box { position: relative; padding: 27px; outline: 1px dashed var(--narwi-accent); background: var(--narwi-surface); border-radius: 2px; }
+  .clear-box img { width: 200px; display: block; outline: 1px solid var(--narwi-line); }
+  .clear-box .x { position: absolute; font: 500 12px/1 var(--code); color: var(--narwi-accent); }
+  .clear-box .x.t { top: 8px; left: 50%; transform: translateX(-50%); }
+  .clear-box .x.s { left: 8px; top: 50%; transform: translateY(-50%); }
+
+  .sizes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s6); }
+  .sizes figure { margin: 0; display: grid; justify-items: center; gap: var(--s2); font-size: 12px; color: var(--narwi-muted); }
+
+  .dont { border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); background: var(--narwi-surface); overflow: hidden; min-width: 0; }
+  .dont .art { height: 150px; display: grid; place-items: center; background: #F7F5EF; overflow: hidden; }
+  .dont .art img { height: 90px; }
+  .dont .cap { display: flex; gap: var(--s2); align-items: flex-start; padding: var(--s3) var(--s4); font-size: 14px; }
+  .dont .cap svg { flex: none; width: 18px; height: 18px; margin-top: 3px; stroke: var(--narwi-accent); }
+  .faux { font: 700 44px/1 Arial, sans-serif; color: #161A2B; margin-inline-start: 8px; }
+
+  /* Colour */
+  .palette { border-radius: var(--narwi-radius); border: 1px solid var(--narwi-line); background: var(--narwi-bg); color: var(--narwi-text); padding: var(--s5); min-width: 0; }
+  .palette h4 { margin: 0 0 var(--s4); font-size: 15px; font-weight: 500; }
+  .swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s3); }
+  .sw i { display: block; height: 56px; border-radius: 4px; border: 1px solid var(--narwi-line); margin-bottom: 6px; }
+  .sw b { display: block; font-size: 12px; font-weight: 500; line-height: 1.35; }
+  .sw .hex { font: 400 12px/1.4 var(--code); color: var(--narwi-muted); direction: ltr; unicode-bidi: isolate; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--s4); }
+  .chk { font-size: 12px; line-height: 1; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--narwi-line); color: var(--narwi-muted); }
+  .chk.ok { border-color: var(--narwi-text); color: var(--narwi-text); }
+  .chk.bad { border-color: var(--narwi-accent); color: var(--narwi-accent); }
+  .chk.info { border-style: dashed; }
+  .chk .r { font-family: var(--code); direction: ltr; unicode-bidi: isolate; }
+  .roles { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s3); }
+  .roles li { display: grid; grid-template-columns: 28px 1fr; gap: var(--s3); align-items: start; }
+  .roles li i { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--narwi-line); }
+
+  /* Type */
+  .spec { background: var(--narwi-surface); border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s5); min-width: 0; }
+  .spec .label { font-size: 13px; color: var(--narwi-muted); margin: 0 0 var(--s3); }
+  .spec .big-ar { font: 700 44px/1.4 var(--narwi-font-arabic); direction: rtl; text-align: right; margin: 0 0 var(--s2); max-width: none; }
+  .spec .big-lat { font: 600 38px/1.2 var(--narwi-font-latin); direction: ltr; text-align: left; margin: 0 0 var(--s2); max-width: none; }
+  .spec .ui-ar { font: 400 16px/1.8 var(--narwi-font-ui); direction: rtl; text-align: right; margin: 0; max-width: none; }
+  .spec .ui-lat { font: 400 16px/1.7 var(--narwi-font-ui); direction: ltr; text-align: left; margin: 0; max-width: none; }
+  .spec .book { font: 400 17px/2 var(--narwi-font-book); direction: rtl; text-align: right; margin: 0; max-width: none; }
+  .spec .book mark { background: var(--narwi-accent-soft); color: var(--narwi-text); border-bottom: 2px solid var(--narwi-accent); padding: 0 2px; }
+  .weights { font-size: 13px; color: var(--narwi-muted); margin-top: var(--s3); }
+  .pairing { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3) var(--s5); }
+  .pairing .a { font: 700 46px/1.3 var(--narwi-font-arabic); direction: rtl; }
+  .pairing .l { font: 600 40px/1.2 var(--narwi-font-latin); direction: ltr; }
+
+  /* Voice */
+  .trait { background: var(--narwi-surface); border: 1px solid var(--narwi-line); border-radius: var(--narwi-radius); padding: var(--s5); min-width: 0; }
+  .trait h4 { font-size: 20px; margin: 0 0 var(--s1); font-weight: 600; }
+  html[data-view="en"] .trait h4 { font-family: var(--narwi-font-latin); }
+  html[data-view="ar"] .trait h4 { font-family: var(--narwi-font-arabic); font-weight: 700; font-size: 24px; }
+  .trait .desc { color: var(--narwi-muted); font-size: 15px; margin-bottom: var(--s4); }
+  .ex { display: grid; grid-template-columns: 64px 1fr; gap: var(--s2) var(--s3); font-size: 15px; padding: var(--s3) 0; border-top: 1px solid var(--narwi-line); }
+  .ex .k { font-size: 12px; font-weight: 500; padding-top: 3px; }
+  .ex .k.this { color: var(--narwi-primary); }
+  .ex .k.not { color: var(--narwi-accent); }
+  .ex .line-ar { direction: rtl; text-align: right; font-family: var(--narwi-font-ui); }
+  .ex .line-en { direction: ltr; text-align: left; }
+  .ex p { margin: 0; max-width: none; }
+
+  /* Rules */
+  .avoid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s5); }
+  .avoid li { display: grid; grid-template-columns: 18px 1fr; gap: var(--s2); padding: var(--s2) 0; border-bottom: 1px solid var(--narwi-line); font-size: 15px; }
+  .avoid svg { width: 16px; height: 16px; margin-top: 5px; stroke: var(--narwi-accent); }
+
+  footer { padding: var(--s7) 0 var(--s8); font-size: 14px; color: var(--narwi-muted); }
+  footer ul { margin: 0; padding-inline-start: 20px; }
+
+  @media (max-width: 900px) {
+    .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .cover-grid, .clear { grid-template-columns: 1fr; }
+    .cover-mark img { width: 140px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .g2, .g3, .avoid { grid-template-columns: 1fr; }
+    .bar nav { display: none; }
+    .bar .wrap { justify-content: space-between; gap: var(--s2); }
+    .bar .brand span { display: none; }
+    .seg button { padding: 8px 9px; }
+    .swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .name-pair .ar { font-size: 68px; } .name-pair .en { font-size: 48px; }
+    section.chapter { padding: var(--s7) 0; }
+    .clear-box img { width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="x" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</svg>
+
+<div class="bar"><div class="wrap">
+  <a class="brand" href="#top">
+    <img class="when-light" src="../logo/narwi-mark.svg" alt="">
+    <img class="when-dark" src="../logo/narwi-mark-dark.svg" alt="">
+    <span data-v="ar" lang="ar">دليل الهوية</span><span data-v="en" lang="en">Brand book</span>
+  </a>
+  <nav>
+    <a href="#story"><span data-v="ar">القصة</span><span data-v="en">Story</span></a>
+    <a href="#name"><span data-v="ar">الاسم</span><span data-v="en">Name</span></a>
+    <a href="#logo"><span data-v="ar">الشعار</span><span data-v="en">Logo</span></a>
+    <a href="#colour"><span data-v="ar">اللون</span><span data-v="en">Colour</span></a>
+    <a href="#type"><span data-v="ar">الخط</span><span data-v="en">Type</span></a>
+    <a href="#voice"><span data-v="ar">النبرة</span><span data-v="en">Voice</span></a>
+    <a href="#rules"><span data-v="ar">القواعد</span><span data-v="en">Rules</span></a>
+  </nav>
+  <div class="toggles">
+    <div class="seg" role="group" aria-label="Language">
+      <button type="button" data-set-view="ar" lang="ar">العربية</button>
+      <button type="button" data-set-view="en" lang="en">English</button>
+    </div>
+    <div class="seg" role="group" aria-label="Theme">
+      <button type="button" data-set-theme="light"><span data-v="ar">فاتح</span><span data-v="en">Light</span></button>
+      <button type="button" data-set-theme="dark"><span data-v="ar">داكن</span><span data-v="en">Dark</span></button>
+    </div>
+  </div>
+</div></div>
+
+<main id="top">
+
+<!-- ============ Cover ============ -->
+<header class="cover"><div class="wrap">
+  <div class="cover-grid">
+    <div>
+      <p class="eyebrow"><span data-v="ar">نروي · Narwi</span><span data-v="en">Narwi · نروي</span></p>
+      <h1><span data-v="ar">دليل هوية نروي</span><span data-v="en">The Narwi brand book</span></h1>
+      <p class="lede" data-v="ar">كل ما تقرّر حتى الآن في مظهر نروي وطريقة كلامه، في مكان واحد. ارجع إليه قبل أن تصمّم لنروي أو تكتب له أو تبني له شيئًا، سواء كنت مصمّمًا أو مطوّرًا أو وكيلًا آليًا.</p>
+      <p class="lede" data-v="en">Everything decided so far about how Narwi looks and speaks, in one place. Read it before you design, write or build anything for Narwi — whether you are a designer, a developer or an agent.</p>
+      <p class="status" data-v="ar">الإصدار 1 · <span class="ltr">20 Oct 2026</span> · الشعار A2 معتمد مبدئيًا، وملفات PNG تأتي بعد الاعتماد النهائي للأشكال.</p>
+      <p class="status" data-v="en">Version 1 · 20 October 2026 · Mark A2 is accepted for now; PNG exports follow final sign-off of the shapes.</p>
+    </div>
+    <div class="cover-mark">
+      <img class="when-light" src="../logo/narwi-lockup-stacked.svg" alt="Narwi نروي">
+      <img class="when-dark" src="../logo/narwi-lockup-stacked-dark.svg" alt="Narwi نروي">
+    </div>
+  </div>
+
+  <div class="flags">
+    <h2><span data-v="ar">ما أضافه هذا الدليل</span><span data-v="en">What this book added</span></h2>
+    <p class="muted" data-v="ar">كل ما عدا هذه البنود مأخوذ من القصص 1 إلى 4. وهذه البنود أُضيفت في هذا الدليل واعتُمدت في <span class="ltr">28 Oct 2026</span>. كل بند موسوم في موضعه.</p>
+    <p class="muted" data-v="en">Everything else comes from stories 1 to 4. These items were added in this book and approved on 28 October 2026. Each is tagged where it appears.</p>
+    <ol data-v="ar">
+      <li><a href="#promise">جمل الوعد بالعربية</a> — كُتبت لهذا الدليل.</li>
+      <li><a href="#spelling">الكتابات التي نتجنّبها</a> للاسم.</li>
+      <li><a href="#lockup-use">متى نستعمل كل صيغة من الشعار</a>، و<a href="#clear-space">المساحة الخالية</a>، و<a href="#min-size">أصغر المقاسات</a>، و<a href="#donts">المحظورات</a>.</li>
+      <li><a href="#app-mapping">ربط الألوان بمتغيّرات التطبيق</a>، ومنه استعمال الحبر الأحمر لونًا للأخطاء.</li>
+      <li><a href="#scale">سلّم المقاسات</a> وتكبير العربية بنحو 15٪.</li>
+      <li><a href="#voice">الأسماء العربية للسمات الأربع</a> وكل أمثلة «هكذا، لا هكذا».</li>
+    </ol>
+    <ol data-v="en">
+      <li><a href="#promise">The Arabic promise lines</a> — written for this book.</li>
+      <li><a href="#spelling">Spellings to avoid</a> for the name.</li>
+      <li><a href="#lockup-use">Which lockup to use when</a>, <a href="#clear-space">clear space</a>, <a href="#min-size">minimum sizes</a> and <a href="#donts">the don'ts</a>.</li>
+      <li><a href="#app-mapping">How the palette maps to the app's variables</a>, including red ink as the error colour.</li>
+      <li><a href="#scale">The type scale</a> and the 15% Arabic size step.</li>
+      <li><a href="#voice">Arabic names for the four traits</a> and every "this, not that" example.</li>
+    </ol>
+  </div>
+</div></header>
+
+<!-- ============ 1 Story ============ -->
+<section class="chapter" id="story"><div class="wrap">
+  <div class="chapter-head"><span class="n">01</span><h2><span data-v="ar">القصة</span><span data-v="en">Story</span></h2></div>
+
+  <p class="statement"><span data-v="ar">تعلَّمْ كما تعلَّموا.</span><span data-v="en">Learn the way they learned.</span></p>
+  <p data-v="ar">في العصر الذهبي كان العلم يُنقل بالصوت. يجلس الطالب في الحلقة فيسمع الكتاب يُقرأ من نسخة شيخه، وتُثبت الهوامش من سمع، وممّن سمع، ومتى. وكانت الشروح تبيّن المتن، والمختصرات تقرّبه، والحواشي تحاوره، والأوقاف تنفق على المكتبات والمعلّمين ونفقة الطلاب.</p>
+  <p data-v="ar">ونحن نعيد بناء تلك الحلقة بأدوات اليوم — أصوات طبيعية بالذكاء الاصطناعي، وشرح بالذكاء الاصطناعي، وقريبًا الصور والمقاطع المرئية — ليتعلّم جيل جديد من الكتب نفسها، بالطريقة نفسها، ويمضي نحو عصر ذهبي جديد.</p>
+  <p data-v="ar"><strong>البدء بالسماع ليس اختصارًا حديثًا، بل هو أقدم طريق نُقلت به هذه الكتب.</strong></p>
+  <p data-v="en">In the golden age, knowledge travelled by voice. A student sat in a <em>ḥalaqa</em> (study circle) and heard a book read aloud from the teacher's copy, and the margins recorded who heard it, from whom, and when. Commentaries explained the text, abridgments condensed it, marginal notes argued with it, and endowments paid for the libraries, the teachers and the students' keep.</p>
+  <p data-v="en">We rebuild that circle with today's tools — natural AI voices, AI explanation, and soon images and video — so a new generation learns from the same books, the same way, and walks toward the next golden age.</p>
+  <p data-v="en"><strong>Audio-first is not a modern shortcut. It is the oldest way these books were passed on.</strong></p>
+
+  <div class="tagline">
+    <p class="ar" lang="ar">نروي، فتتلقّى كما تلقَّوا</p>
+    <p class="en" lang="en">We narrate, you receive, as they did.</p>
+  </div>
+
+  <h3><span data-v="ar">لكل ميزة أصل</span><span data-v="en">Every feature has an ancestor</span></h3>
+  <div class="table-wrap" data-v="ar"><table>
+    <thead><tr><th>الممارسة القديمة</th><th>ما كانت</th><th>في نروي</th><th>الحالة</th></tr></thead>
+    <tbody>
+      <tr><td class="term">السماع</td><td>يُقرأ الكتاب ويسمعه الحاضرون في الحلقة</td><td>القراءة الصوتية وشخصيات الأصوات</td><td><span class="status-pill now">الآن</span></td></tr>
+      <tr><td class="term">السؤال في المجلس</td><td>سؤال الشيخ عن النص</td><td>اسأل الكتاب</td><td><span class="status-pill now">الآن</span></td></tr>
+      <tr><td class="term">الشرح</td><td>بيان المتن وتفسيره</td><td>اشرح فقرة تختارها</td><td><span class="status-pill now">الآن</span></td></tr>
+      <tr><td class="term">الحاشية</td><td>التعليق في الهامش</td><td>ملاحظاتك على الصفحة</td><td><span class="status-pill now">الآن</span></td></tr>
+      <tr><td class="term">المختصر</td><td>تقريب الكتاب واختصاره</td><td>تلخيص فقرة، ثم الكتاب كاملًا</td><td><span class="status-pill now">الفقرة الآن، والكتاب لاحقًا</span></td></tr>
+      <tr><td class="term">المخطوطات المصوّرة</td><td>آلات الجزري وصور الكواكب عند الصوفي</td><td>صور من الكتاب بالذكاء الاصطناعي</td><td><span class="status-pill">التالي</span></td></tr>
+      <tr><td class="term">الدرس</td><td>الدرس</td><td>دروس مرئية بالذكاء الاصطناعي</td><td><span class="status-pill">لاحقًا</span></td></tr>
+      <tr><td class="term">الوقف</td><td>أوقاف أنفقت على المكتبات والمعلّمين ونفقة الطلاب</td><td>تهب تسجيلاتك لكل مستمع بعدك</td><td><span class="status-pill">في تصميم الاشتراكات</span></td></tr>
+      <tr><td class="term">الإسناد</td><td>ردّ كل نص إلى مصدره</td><td>كل جواب يذكر صفحته</td><td><span class="status-pill">مبدأ، قيد البناء</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap" data-v="en"><table>
+    <thead><tr><th>Classical practice</th><th>What it was</th><th>In Narwi</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="term"><em>Samāʿ</em> <span lang="ar">سماع</span></td><td>the book read aloud and heard in the circle</td><td>AI narration, voice personas</td><td><span class="status-pill now">now</span></td></tr>
+      <tr><td class="term"><em>Suʾāl</em> in the <em>majlis</em></td><td>asking the teacher about the text</td><td>ask the book</td><td><span class="status-pill now">now</span></td></tr>
+      <tr><td class="term"><em>Sharḥ</em> <span lang="ar">شرح</span></td><td>commentary that explains the base text</td><td>explain a selected passage</td><td><span class="status-pill now">now</span></td></tr>
+      <tr><td class="term"><em>Ḥāshiya</em> <span lang="ar">حاشية</span></td><td>the gloss in the margin</td><td>notes on the page</td><td><span class="status-pill now">now</span></td></tr>
+      <tr><td class="term"><em>Mukhtaṣar</em> <span lang="ar">مختصر</span></td><td>the abridgment</td><td>summarise a passage; whole-book summaries</td><td><span class="status-pill now">passage now, book later</span></td></tr>
+      <tr><td class="term">Illustrated manuscripts</td><td>al-Jazarī's machines, al-Ṣūfī's star charts</td><td>AI images from the book</td><td><span class="status-pill">next</span></td></tr>
+      <tr><td class="term"><em>Dars</em> <span lang="ar">درس</span></td><td>the lesson</td><td>AI video lessons</td><td><span class="status-pill">later</span></td></tr>
+      <tr><td class="term"><em>Waqf</em> <span lang="ar">وقف</span></td><td>endowments that paid for libraries, teachers and students' keep</td><td>donate your recordings to every listener after you</td><td><span class="status-pill">in the billing design</span></td></tr>
+      <tr><td class="term"><em>Isnād</em> <span lang="ar">إسناد</span></td><td>every text traced back to its source</td><td>every AI answer cites its page</td><td><span class="status-pill">principle — to build</span></td></tr>
+    </tbody>
+  </table></div>
+  <p data-v="ar">الصف الأخير قاعدة للمنتج بقدر ما هو قاعدة للعلامة: <strong>لا يُقال شيء بلا مصدره.</strong></p>
+  <p data-v="en">The last row is a product rule as much as a brand one: <strong>nothing is said without its source.</strong></p>
+
+  <h3 id="promise"><span data-v="ar">الوعد</span><span data-v="en">Promise</span><span class="flag"></span></h3>
+  <p class="muted" data-v="ar">الجمل الإنجليزية معتمدة من القصة 1. العربية مكتوبة لهذا الدليل.</p>
+  <p class="muted" data-v="en">The English lines were approved in story 1. The Arabic is new, written for this book.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th><span data-v="ar">الموضع</span><span data-v="en">Where</span></th><th lang="ar">العربية</th><th lang="en">English</th></tr></thead>
+    <tbody>
+      <tr><td class="term"><span data-v="ar">الفكرة الكبرى</span><span data-v="en">Big idea</span></td><td lang="ar" dir="rtl">تعلَّمْ كما تعلَّموا.</td><td lang="en" dir="ltr">Learn the way they learned.</td></tr>
+      <tr><td class="term"><span data-v="ar">الآن</span><span data-v="en">Now</span></td><td lang="ar" dir="rtl">اسمع كتب تراثنا، واسألها عمّا شئت.</td><td lang="en" dir="ltr">Hear the books of our heritage — and ask them anything.</td></tr>
+      <tr><td class="term"><span data-v="ar">لاحقًا</span><span data-v="en">Later</span></td><td lang="ar" dir="rtl">تعلَّمْ من أي كتاب، بكل صورة: تسمع، وتقرأ، وترى، وتشاهد.</td><td lang="en" dir="ltr">Learn from any book, in every form: listen, read, see, watch.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span data-v="ar">لمن نروي</span><span data-v="en">Who we narrate for</span></h3>
+  <div class="grid g3">
+    <div class="card">
+      <h4><span data-v="ar">الآن</span><span data-v="en">Now</span></h4>
+      <p data-v="ar">مسلمون ناطقون بالعربية يريدون التعلّم من كتب التراث ولا يجدون إليها سبيلًا: طلاب علم خارج الدراسة النظامية، وموظفون وآباء يريدون التراث في الطريق والبيت، ومن لسانه العربي أقوى من قراءته للنثر القديم.</p>
+      <p data-v="en">Arabic-speaking Muslims who want to learn from the classical books but can't get into them: self-directed students of knowledge, professionals and parents who want <em>turāth</em> on the commute and in the kitchen, and heritage learners whose spoken Arabic is stronger than their reading of classical prose.</p>
+    </div>
+    <div class="card">
+      <h4><span data-v="ar">لاحقًا</span><span data-v="en">Later</span></h4>
+      <p data-v="ar">المعلّمون وحلقات العلم، والمساجد والمدارس والأوقاف التي تريد أن تقف مكتبات، والمسلمون غير العرب الذين يتعلّمون بالإنجليزية.</p>
+      <p data-v="en">Teachers and study circles building lessons; masājid, schools and <em>awqāf</em> endowing libraries; non-Arab Muslims learning through English.</p>
+    </div>
+    <div class="card">
+      <h4><span data-v="ar">ليس لهم الآن</span><span data-v="en">Not for, now</span></h4>
+      <p data-v="ar">مستمعو الروايات الصوتية، والباحثون الذين يحتاجون الطبعات المحقّقة — فالشاملة وتراث يخدمونهم.</p>
+      <p data-v="en">Fiction audiobook listeners, and researchers who need critical editions — Shamela and turath.io already serve them.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 2 Name ============ -->
+<section class="chapter" id="name"><div class="wrap">
+  <div class="chapter-head"><span class="n">02</span><h2><span data-v="ar">الاسم</span><span data-v="en">Name</span></h2></div>
+
+  <div class="name-pair">
+    <span class="ar" lang="ar">نروي</span>
+    <span class="en" lang="en">Narwi</span>
+  </div>
+  <p class="say" data-v="ar">يُنطق: <span lang="ar">نَرْوِي</span> · بالإنجليزية <span class="ltr">NAR-wee</span></p>
+  <p class="say" data-v="en">Say it: <strong>NAR-wee</strong> · in Arabic <span lang="ar">نَرْوِي</span>, <em>narwī</em></p>
+  <p data-v="ar">«نروي» بمعنيين: نروي الكتاب، ونروي العطش. وهو فعل كل سلسلة إسناد — «رواه فلان عن فلان» — بصيغة الجمع: نحن ننقله إليك. اسم واحد للعربية والإنجليزية.</p>
+  <p data-v="en">Narwi means "we narrate" and also "we quench" (<span lang="ar">نروي العطش</span>). It is the verb of every chain of transmission — <span lang="ar">رواه</span>, "he narrated it" — said together: we pass it on. One name for Arabic and English.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h4><span data-v="ar">هكذا نكتبه</span><span data-v="en">How to write it</span></h4>
+      <ul data-v="ar">
+        <li>بالعربية: <span class="yes">نروي</span> — بلا تشكيل في النص العادي، و<span class="yes">نَرْوِي</span> عند تعليم النطق.</li>
+        <li>بالإنجليزية: <span class="yes ltr">Narwi</span> — الحرف الأول كبير والباقي صغير.</li>
+        <li>معًا: <span class="yes ltr">Narwi · نروي</span> بنقطة وسطى بينهما.</li>
+        <li>في الشعار يُستعمل الملف المرسوم، لا الخط المكتوب.</li>
+      </ul>
+      <ul data-v="en">
+        <li>Arabic: <span class="yes" lang="ar">نروي</span> — no vowel marks in running text; <span class="yes" lang="ar">نَرْوِي</span> when teaching how to say it.</li>
+        <li>English: <span class="yes">Narwi</span> — capital N, the rest lower case.</li>
+        <li>Together: <span class="yes">Narwi · نروي</span>, with a middle dot.</li>
+        <li>As a logo, always the drawn file — never the name typed in a font.</li>
+      </ul>
+    </div>
+    <div class="card" id="spelling">
+      <h4><span data-v="ar">كتابات نتجنّبها</span><span data-v="en">Spellings to avoid</span><span class="flag"></span></h4>
+      <ul data-v="ar">
+        <li><span class="no ltr">Narwee</span> · <span class="no ltr">Narwy</span> · <span class="no ltr">NarWi</span> · <span class="no ltr">NARWI</span> في النص</li>
+        <li><span class="no ltr">Narwi AI</span> و<span class="no ltr">Narwi.ai</span> اسمًا — النطاق عنوان، لا اسم.</li>
+        <li><span class="no">نروى</span> بالألف المقصورة، و<span class="no">النروي</span> بأل التعريف.</li>
+        <li><span class="no">يروي</span> — منصة كتب صوتية عربية قائمة (<span class="ltr">yarwy.com</span>)؛ لا نخلط بها.</li>
+      </ul>
+      <ul data-v="en">
+        <li><span class="no">Narwee</span> · <span class="no">Narwy</span> · <span class="no">NarWi</span> · <span class="no">NARWI</span> in running text</li>
+        <li><span class="no">Narwi AI</span>, or <span class="no">Narwi.ai</span> as the name — the domain is an address, not the name.</li>
+        <li><span class="no" lang="ar">نروى</span> with alif maqṣūra, or <span class="no" lang="ar">النروي</span> with "al-".</li>
+        <li><span class="no" lang="ar">يروي</span> — a live Arabic audiobook platform (yarwy.com); never blur into it.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:var(--s4)" data-v="ar">النطاقات (بتاريخ <span class="ltr">16 Oct 2026</span>): <span class="ltr">narwi.app</span> و<span class="ltr">narwi.ai</span> متاحان؛ <span class="ltr">narwi.com</span> مسجّل بلا موقع. لم تُفحص الحسابات الاجتماعية ولا العلامات التجارية.</p>
+  <p class="muted" style="margin-top:var(--s4)" data-v="en">Domains (as of 16 Oct 2026): narwi.app and narwi.ai free; narwi.com registered with no site. Social handles and trademarks not yet checked.</p>
+</div></section>
+
+<!-- ============ 3 Logo ============ -->
+<section class="chapter" id="logo"><div class="wrap">
+  <div class="chapter-head"><span class="n">03</span><h2><span data-v="ar">الشعار</span><span data-v="en">Logo</span></h2></div>
+
+  <p data-v="ar">العلامة هي حرف النون، أول حرف من «نروي»، مرسومًا كما يكتبه الخطّاط: الوعاء ضربة قلم واحدة، غليظة في القاع ورقيقة على الجانبين، بطرفين مقطوعين قطع القلم. والنقطة معيّن بالأحمر — الأثر الذي يتركه قلم القصب حين يُضغط مرة. الوعاء كأس («نروي» العطش)، والنقطة قطرة حبر، والحرف يحمل أقدم صورة للعلم في تراثنا: <span lang="ar" style="font-family:var(--narwi-font-arabic);font-size:1.15em">﴿ن والقلم وما يسطرون﴾</span>.</p>
+  <p data-v="en">The mark is the letter nūn (ن), the first letter of نروي, drawn as a scribe writes it: the bowl is one pen stroke, thick at the base and thinner up the sides, with flat, angled ends where the reed pen lifted. The dot is the red diamond a reed pen leaves when pressed once. The bowl is a cup ("we quench"), the dot a drop of ink, and the letter carries the oldest image of learning in the tradition: <em>"Nūn. By the pen and what they write."</em></p>
+  <p class="muted" data-v="ar">الحالة: الشعار A2 معتمد «في الوقت الحالي» (<span class="ltr">16 Oct 2026</span>). الملفات أدناه مأخوذة من <code dir="ltr">brand/logo/</code> مباشرة ولا تُنسخ.</p>
+  <p class="muted" data-v="en">Status: mark A2 accepted "for now" (16 Oct 2026). Every image below is loaded from <code>brand/logo/</code> — nothing is copied into this book.</p>
+
+  <h3><span data-v="ar">الصيغ</span><span data-v="en">Lockups</span></h3>
+  <div class="grid g2">
+    <div class="logo-tile on-paper"><div class="art"><img src="../logo/narwi-lockup-ar.svg" alt="Arabic lockup"></div><div class="cap"><code>narwi-lockup-ar.svg</code></div></div>
+    <div class="logo-tile on-night"><div class="art"><img src="../logo/narwi-lockup-ar-dark.svg" alt="Arabic lockup, dark"></div><div class="cap"><code>narwi-lockup-ar-dark.svg</code></div></div>
+    <div class="logo-tile on-paper"><div class="art"><img src="../logo/narwi-lockup-en.svg" alt="English lockup"></div><div class="cap"><code>narwi-lockup-en.svg</code></div></div>
+    <div class="logo-tile on-night"><div class="art"><img src="../logo/narwi-lockup-en-dark.svg" alt="English lockup, dark"></div><div class="cap"><code>narwi-lockup-en-dark.svg</code></div></div>
+    <div class="logo-tile on-paper"><div class="art"><img src="../logo/narwi-lockup-stacked.svg" alt="Stacked lockup" style="max-height:200px"></div><div class="cap"><code>narwi-lockup-stacked.svg</code></div></div>
+    <div class="logo-tile on-night"><div class="art"><img src="../logo/narwi-lockup-stacked-dark.svg" alt="Stacked lockup, dark" style="max-height:200px"></div><div class="cap"><code>narwi-lockup-stacked-dark.svg</code></div></div>
+  </div>
+
+  <h3><span data-v="ar">العلامة وحدها، والأيقونة، ولون واحد</span><span data-v="en">Mark, icon and single colour</span></h3>
+  <div class="grid g3">
+    <div class="logo-tile on-white"><div class="art"><img src="../logo/narwi-mark.svg" alt="Mark"></div><div class="cap"><code>narwi-mark.svg</code></div></div>
+    <div class="logo-tile on-paper"><div class="art"><img src="../logo/narwi-app-icon.svg" alt="App icon" style="max-height:110px"></div><div class="cap"><code>narwi-app-icon.svg</code> · <code>favicon.svg</code></div></div>
+    <div class="logo-tile on-night"><div class="art"><img src="../logo/narwi-mark-dark.svg" alt="Mark, dark"></div><div class="cap"><code>narwi-mark-dark.svg</code></div></div>
+    <div class="logo-tile on-white"><div class="art"><img src="../logo/narwi-lockup-en-black.svg" alt="Black"></div><div class="cap"><code>*-black.svg</code></div></div>
+    <div class="logo-tile on-lapis"><div class="art"><img src="../logo/narwi-lockup-ar-white.svg" alt="White"></div><div class="cap"><code>*-white.svg</code></div></div>
+    <div class="logo-tile on-white"><div class="art"><img src="../logo/narwi-wordmark-ar.svg" alt="Arabic wordmark" style="max-height:90px"></div><div class="cap"><code>narwi-wordmark-ar.svg</code> · <code>-en.svg</code></div></div>
+  </div>
+
+  <h3 id="lockup-use"><span data-v="ar">متى نستعمل كل صيغة</span><span data-v="en">Which one to use</span><span class="flag"></span></h3>
+  <div class="table-wrap" data-v="ar"><table>
+    <thead><tr><th>الموضع</th><th>الملف</th></tr></thead>
+    <tbody>
+      <tr><td>واجهة عربية، صفحة عربية</td><td>الصيغة العربية — العلامة يمين الاسم</td></tr>
+      <tr><td>واجهة إنجليزية، متجر التطبيقات بالإنجليزية</td><td>الصيغة الإنجليزية — العلامة يسار الاسم</td></tr>
+      <tr><td>مساحة مربّعة، أو حين تظهر اللغتان معًا</td><td>الصيغة الرأسية</td></tr>
+      <tr><td>الاسم ظاهر بجانبها، أو المساحة صغيرة</td><td>العلامة وحدها</td></tr>
+      <tr><td>أيقونة التطبيق، تبويب المتصفح</td><td>أيقونة التطبيق، والأيقونة المصغّرة</td></tr>
+      <tr><td>طباعة بلون واحد، أو فوق الأزرق اللازوردي</td><td><code dir="ltr">-black</code> أو <code dir="ltr">-white</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap" data-v="en"><table>
+    <thead><tr><th>Where</th><th>File</th></tr></thead>
+    <tbody>
+      <tr><td>Arabic interface, Arabic page</td><td>Arabic lockup — mark to the right of the name</td></tr>
+      <tr><td>English interface, English store listing</td><td>English lockup — mark to the left of the name</td></tr>
+      <tr><td>Square spaces, or both languages together</td><td>Stacked lockup</td></tr>
+      <tr><td>The name is already visible nearby, or space is tight</td><td>Mark alone</td></tr>
+      <tr><td>App icon, browser tab</td><td>App icon, favicon</td></tr>
+      <tr><td>One-colour print, or on lapis</td><td><code>-black</code> or <code>-white</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="grid g2" style="margin-top:var(--s5)">
+    <div id="clear-space">
+      <h3 style="margin-top:0"><span data-v="ar">المساحة الخالية</span><span data-v="en">Clear space</span><span class="flag"></span></h3>
+      <div class="clear">
+        <div class="clear-box"><span class="x t">x</span><span class="x s">x</span><img src="../logo/narwi-mark.svg" alt=""></div>
+        <div>
+          <p data-v="ar">اترك حول الشعار مساحة خالية تساوي <strong>ارتفاع النقطة الحمراء</strong> (x) من كل جهة. لا يدخلها نص ولا صورة ولا حافّة.</p>
+          <p data-v="en">Keep clear space equal to <strong>the height of the red dot</strong> (x) on every side. No text, image or edge inside it.</p>
+          <p class="muted" data-v="ar">الحدّ الداخلي في الرسم هو حافّة الملف؛ الملفات فيها هامش صغير مسبق.</p>
+          <p class="muted" data-v="en">The inner line is the file's edge — the files already carry a small margin.</p>
+        </div>
+      </div>
+    </div>
+    <div id="min-size">
+      <h3 style="margin-top:0"><span data-v="ar">أصغر المقاسات</span><span data-v="en">Minimum sizes</span><span class="flag"></span></h3>
+      <div class="sizes">
+        <figure><img class="when-light" src="../logo/narwi-mark.svg" style="height:16px" alt=""><img class="when-dark" src="../logo/narwi-mark-dark.svg" style="height:16px" alt=""><span class="ltr">16px</span></figure>
+        <figure><img class="when-light" src="../logo/narwi-lockup-en.svg" style="height:24px" alt=""><img class="when-dark" src="../logo/narwi-lockup-en-dark.svg" style="height:24px" alt=""><span class="ltr">24px</span></figure>
+        <figure><img class="when-light" src="../logo/narwi-lockup-ar.svg" style="height:28px" alt=""><img class="when-dark" src="../logo/narwi-lockup-ar-dark.svg" style="height:28px" alt=""><span class="ltr">28px</span></figure>
+        <figure><img class="when-light" src="../logo/narwi-lockup-stacked.svg" style="height:64px" alt=""><img class="when-dark" src="../logo/narwi-lockup-stacked-dark.svg" style="height:64px" alt=""><span class="ltr">64px</span></figure>
+      </div>
+      <p style="margin-top:var(--s4)" data-v="ar">الارتفاع على الشاشة: العلامة 16، والصيغة الإنجليزية 24، والعربية 28 (تفاصيل خط أميري أدقّ)، والرأسية 64. العلامة جُرّبت على 16 في القصة 4.</p>
+      <p style="margin-top:var(--s4)" data-v="en">On-screen height: mark 16, English lockup 24, Arabic lockup 28 (Amiri's details are finer), stacked 64. The mark was tested at 16 in story 4.</p>
+    </div>
+  </div>
+
+  <h3 id="donts"><span data-v="ar">المحظورات</span><span data-v="en">Don'ts</span><span class="flag"></span></h3>
+  <div class="grid g3">
+    <div class="dont"><div class="art"><img src="../logo/narwi-mark.svg" style="transform:scaleX(1.6)" alt=""></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا تمطّه ولا تضغطه. غيّر المقاس بالنسبة نفسها.</span><span data-v="en">Don't stretch or squash it. Scale it evenly.</span></span></div></div>
+    <div class="dont"><div class="art"><img src="../logo/narwi-mark.svg" style="filter:hue-rotate(110deg) saturate(1.4)" alt=""></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا تغيّر ألوانه. استعمل الملونة أو الداكنة أو الأسود أو الأبيض فقط.</span><span data-v="en">Don't recolour it. Use colour, dark, black or white — nothing else.</span></span></div></div>
+    <div class="dont"><div class="art"><img src="../logo/narwi-mark.svg" style="filter:drop-shadow(6px 8px 6px rgba(0,0,0,.45))" alt=""></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا ظلال ولا تدرّجات ولا توهّج ولا حدود.</span><span data-v="en">No shadows, gradients, glows or outlines.</span></span></div></div>
+    <div class="dont"><div class="art"><img src="../logo/narwi-mark.svg" style="transform:rotate(-20deg)" alt=""></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا تُدِره. النون تقف على قاعدتها.</span><span data-v="en">Don't rotate it. The nūn sits on its base.</span></span></div></div>
+    <div class="dont"><div class="art" style="background:#1E3A8A"><img src="../logo/narwi-mark.svg" alt=""></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا تضع الملونة فوق اللازوردي أو خلفية مزدحمة. استعمل الأبيض.</span><span data-v="en">Don't put the colour version on lapis or a busy background. Use white.</span></span></div></div>
+    <div class="dont"><div class="art" style="display:flex;justify-content:center;align-items:center"><img src="../logo/narwi-mark.svg" style="height:64px" alt=""><span class="faux">Narwi</span></div><div class="cap"><svg><use href="#x"/></svg><span><span data-v="ar">لا تكتب الاسم بخط آخر بجانب العلامة. استعمل ملفات الصيغ.</span><span data-v="en">Don't retype the name in another font beside the mark. Use the lockup files.</span></span></div></div>
+  </div>
+</div></section>
+
+<!-- ============ 4 Colour ============ -->
+<section class="chapter" id="colour"><div class="wrap">
+  <div class="chapter-head"><span class="n">04</span><h2><span data-v="ar">اللون</span><span data-v="en">Colour</span></h2></div>
+  <p class="statement" style="max-width:none"><span data-v="ar">المُذهَّب</span><span data-v="en">Illuminated</span></p>
+  <p data-v="ar">ألوان صفحة المخطوط المذهّبة: الأزرق اللازوردي يحمل العلامة، والحبر الأحمر يدلّ على ما يُقرأ الآن، والذهبي للزخرفة وحدها. اختير في القصة 3 بدلًا من البنّي الذي كان يبدو باهتًا ومألوفًا.</p>
+  <p data-v="en">The colours of the illuminated manuscript page: lapis carries the brand, red ink marks what is being read, gold is kept for ornament. Chosen in story 3, replacing the brown that read dull and generic.</p>
+
+  <ul class="roles" style="margin:var(--s5) 0">
+    <li><i style="background:var(--narwi-primary)"></i><span data-v="ar"><strong>اللازوردي</strong> — الأزرار، والروابط، وزر التشغيل، والشعار. اللون الذي يُعرف به نروي.</span><span data-v="en"><strong>Lapis</strong> — buttons, links, the play button, the mark. The colour Narwi is known by.</span></li>
+    <li><i style="background:var(--narwi-accent)"></i><span data-v="ar"><strong>الحبر الأحمر</strong> — ما يُقرأ الآن: شريط التقدّم، والخط تحت الفقرة المسموعة، ونقطة النون. كان النسّاخ يكتبون العناوين والكلمات المهمة بالأحمر.</span><span data-v="en"><strong>Red ink</strong> — what is being read now: the progress bar, the underline on the passage being heard, the nūn's dot. Scribes wrote headings and key words in red.</span></li>
+    <li><i style="background:var(--narwi-accent-soft)"></i><span data-v="ar"><strong>التظليل</strong> — خلفية الفقرة المسموعة والعنصر المختار.</span><span data-v="en"><strong>Highlight</strong> — behind the passage being heard and the selected item.</span></li>
+    <li><i style="background:var(--narwi-deco)"></i><span data-v="ar"><strong>الذهبي</strong> — زخرفة فقط: فاصل، أو معيّن صغير. لا نصّ ولا زرّ أبدًا؛ تباينه دون الحدّ للنص.</span><span data-v="en"><strong>Gold</strong> — ornament only: a divider, a small diamond. Never text, never a button; its contrast is below the text threshold.</span></li>
+  </ul>
+
+  <div class="grid g2" id="palettes">
+    <div class="palette" data-theme="light" data-mode="light"><h4><span data-v="ar">فاتح</span><span data-v="en">Light</span></h4><div class="swatches"></div><div class="checks"></div></div>
+    <div class="palette" data-theme="dark" data-mode="dark"><h4><span data-v="ar">داكن</span><span data-v="en">Dark</span></h4><div class="swatches"></div><div class="checks"></div></div>
+  </div>
+  <p class="muted" style="margin-top:var(--s4)" data-v="ar">القيم تُقرأ مباشرة من <code dir="ltr">tokens/tokens.css</code>، وفحوص التباين تُحسب على الصفحة نفسها بمعيار <span class="ltr">WCAG AA</span> (<span class="ltr">4.5 : 1</span> للنص). الفحوص الستّة الأولى هي نفسها التي في صفحة القصة 3.</p>
+  <p class="muted" style="margin-top:var(--s4)" data-v="en">Values are read live from <code>tokens/tokens.css</code>; contrast is computed on this page against WCAG AA (4.5 : 1 for text). The first six checks are the same six as the story 3 colour page.</p>
+
+  <h3 id="app-mapping"><span data-v="ar">في التطبيق</span><span data-v="en">In the app</span><span class="flag"></span></h3>
+  <p data-v="ar">التطبيق مبني على <span class="ltr">shadcn/ui</span>. هكذا تُربط متغيّراته بأدوار العلامة في <code dir="ltr">tokens.css</code>. لا لون جديد؛ بعض الأدوار تتكرّر.</p>
+  <p data-v="en">The app is built on shadcn/ui. This is how its variables map to the brand roles in <code>tokens.css</code>. No new colours — some roles repeat.</p>
+  <div class="table-wrap" dir="ltr"><table>
+    <thead><tr><th>App variable</th><th>Brand role</th><th>Light</th><th>Dark</th><th><span data-v="ar" lang="ar" dir="rtl">ملاحظة</span><span data-v="en">Note</span></th></tr></thead>
+    <tbody>
+      <tr><td><code>background</code></td><td>bg</td><td><code>#F7F5EF</code></td><td><code>#0D1124</code></td><td></td></tr>
+      <tr><td><code>foreground</code></td><td>text</td><td><code>#161A2B</code></td><td><code>#ECE9E1</code></td><td></td></tr>
+      <tr><td><code>card</code> · <code>popover</code></td><td>surface</td><td><code>#FFFFFF</code></td><td><code>#151A30</code></td><td></td></tr>
+      <tr><td><code>primary</code> · <code>ring</code></td><td>primary (lapis)</td><td><code>#1E3A8A</code></td><td><code>#8DA6F2</code></td><td></td></tr>
+      <tr><td><code>primary-foreground</code></td><td>on-primary</td><td><code>#FFFFFF</code></td><td><code>#0D1124</code></td><td></td></tr>
+      <tr><td><code>secondary</code> · <code>muted</code></td><td>bg</td><td><code>#F7F5EF</code></td><td><code>#0D1124</code></td><td><span data-v="ar" lang="ar" dir="rtl">الورق نفسه، لا رماديّ جديد</span><span data-v="en">the paper itself, no new grey</span></td></tr>
+      <tr><td><code>muted-foreground</code></td><td>muted</td><td><code>#565B6E</code></td><td><code>#A0A4B5</code></td><td></td></tr>
+      <tr><td><code>accent</code></td><td>accent-soft (highlight)</td><td><code>#F7E3DF</code></td><td><code>#3A2230</code></td><td><span data-v="ar" lang="ar" dir="rtl">shadcn يسمّي خلفية التحويم accent</span><span data-v="en">shadcn's "accent" is the hover background</span></td></tr>
+      <tr><td><code>destructive</code></td><td>accent (red ink)</td><td><code>#B4322A</code></td><td><code>#EE7B66</code></td><td><span data-v="ar" lang="ar" dir="rtl">الحبر الأحمر هو لون الخطأ أيضًا</span><span data-v="en">red ink doubles as the error colour</span></td></tr>
+      <tr><td><code>border</code> · <code>input</code></td><td>line</td><td><code>#E2E0D8</code></td><td><code>#262B44</code></td><td></td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<!-- ============ 5 Type ============ -->
+<section class="chapter" id="type"><div class="wrap">
+  <div class="chapter-head"><span class="n">05</span><h2><span data-v="ar">الخط</span><span data-v="en">Type</span></h2></div>
+  <p data-v="ar">خطّان كلاسيكيان للعناوين، وخط حديث واحد للواجهة يكتب الحرفين. ونصّ الكتاب يبقى بخطّه الكلاسيكي أيًّا كانت الواجهة.</p>
+  <p data-v="en">Two classical faces for display, one modern face for the interface that covers both scripts. The book text keeps its classical face whatever the interface does.</p>
+
+  <div class="grid g3">
+    <div class="spec">
+      <p class="label">Amiri · <span lang="ar">أميري</span></p>
+      <p class="big-ar" lang="ar">العلم صيدٌ والكتابة قيدُه</p>
+      <p class="weights" data-v="ar">العناوين العربية <span class="ltr">700</span> · نص الكتاب <span class="ltr">400</span></p>
+      <p class="weights" data-v="en">Arabic display 700 · book text 400</p>
+    </div>
+    <div class="spec">
+      <p class="label">Fraunces</p>
+      <p class="big-lat" lang="en">Knowledge is game; writing is its tether.</p>
+      <p class="weights" data-v="ar">العناوين اللاتينية <span class="ltr">600</span> · الشعار <span class="ltr">600</span> بالحجم البصري <span class="ltr">72</span></p>
+      <p class="weights" data-v="en">Latin display 600 · the wordmark is 600 at optical size 72</p>
+    </div>
+    <div class="spec">
+      <p class="label">Readex Pro</p>
+      <p class="ui-ar" lang="ar">استمع إلى الكتاب بصوتٍ طبيعي، وتابع النص على صفحته الأصلية، واسأل عن أي فقرة فيأتيك الجواب مع رقم الصفحة.</p>
+      <p class="ui-lat" lang="en" style="margin-top:var(--s3)">Listen to the book in a natural voice, follow the text on its original page, and ask about any passage.</p>
+      <p class="weights" data-v="ar">الواجهة باللغتين · <span class="ltr">300–600</span></p>
+      <p class="weights" data-v="en">Interface, both scripts · 300–600</p>
+    </div>
+  </div>
+
+  <h3><span data-v="ar">كيف يجتمع الحرفان</span><span data-v="en">How the two scripts pair</span></h3>
+  <div class="spec">
+    <div class="pairing"><span class="a" lang="ar">نروي الكتاب</span><span class="l" lang="en">We narrate the book</span></div>
+    <p style="margin-top:var(--s4)" data-v="ar">حروف أميري تبدو أصغر من حروف <span class="ltr">Fraunces</span> بالمقاس نفسه، فنكبّر العربية نحو 15٪ في الدور نفسه (34 مقابل 30 في صفحة القصة 3). وفي الواجهة لا حاجة لذلك: <span class="ltr">Readex Pro</span> مصمّم للحرفين معًا.</p>
+    <p style="margin-top:var(--s4)" data-v="en">Amiri's letters look smaller than Fraunces' at the same size, so Arabic is set about 15% larger for the same role (34 against 30 on the story 3 page). The interface needs no step: Readex Pro is drawn for both scripts together.</p>
+    <p class="muted" data-v="ar">في الشيفرة: ضع <span class="ltr">Fraunces</span> أولًا ثم أميري (<code dir="ltr">font-display</code>)، فيأخذ كل حرف خطّه تلقائيًا.</p>
+    <p class="muted" data-v="en">In code: list Fraunces first, then Amiri (<code>font-display</code>) — each script picks up its own face automatically.</p>
+  </div>
+
+  <h3><span data-v="ar">نص الكتاب</span><span data-v="en">Book text</span></h3>
+  <div class="spec">
+    <p class="book" lang="ar">الحمد لله الذي له العزة والجبروت، وبيده الملك والملكوت، وله الأسماء الحسنى والنعوت. <mark>العالمُ فلا يعزب عنه ما تظهره النجوى أو يخفيه السكوت،</mark> القادرُ فلا يعجزه شيء في السماوات والأرض ولا يفوت.</p>
+    <p class="weights" data-v="ar">أميري <span class="ltr">400 · 17/34</span> · الفقرة المسموعة: تظليل بخط أحمر تحتها</p>
+    <p class="weights" data-v="en">Amiri 400 · 17/34 · passage being heard: highlight with a red-ink underline</p>
+  </div>
+
+  <h3 id="scale"><span data-v="ar">سلّم المقاسات</span><span data-v="en">Scale</span><span class="flag"></span></h3>
+  <div class="table-wrap" dir="ltr"><table>
+    <thead><tr><th>Role</th><th>Latin</th><th>Arabic</th><th>Line height</th></tr></thead>
+    <tbody>
+      <tr><td>Display</td><td>Fraunces 600 · 56</td><td>Amiri 700 · 64</td><td>1.1 / 1.3</td></tr>
+      <tr><td>Heading 1</td><td>Fraunces 600 · 40</td><td>Amiri 700 · 46</td><td>1.15 / 1.35</td></tr>
+      <tr><td>Heading 2</td><td>Fraunces 600 · 28</td><td>Amiri 700 · 32</td><td>1.25 / 1.4</td></tr>
+      <tr><td>Heading 3</td><td>Fraunces 600 · 20</td><td>Amiri 700 · 23</td><td>1.3 / 1.5</td></tr>
+      <tr><td>Body (UI)</td><td>Readex Pro 400 · 16</td><td>Readex Pro 400 · 16</td><td>1.7 / 1.8</td></tr>
+      <tr><td>Small (UI)</td><td>Readex Pro 400 · 13</td><td>Readex Pro 400 · 13</td><td>1.5</td></tr>
+      <tr><td>Book text</td><td>—</td><td>Amiri 400 · 17</td><td>2.0</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" data-v="ar">بالبكسل. حمّل الأوزان المذكورة فقط؛ لا تدع المتصفّح يصطنع الغامق.</p>
+  <p class="muted" data-v="en">In pixels. Load the listed weights only — never let the browser fake a bold.</p>
+</div></section>
+
+<!-- ============ 6 Voice ============ -->
+<section class="chapter" id="voice"><div class="wrap">
+  <div class="chapter-head"><span class="n">06</span><h2><span data-v="ar">النبرة</span><span data-v="en">Voice</span></h2></div>
+  <p data-v="ar">نتكلّم كمعلّم يعرف النص: جمل قصيرة، واضحة، واثقة. نسمّي الممارسة باسمها الحقيقي، ونذكر المصدر، ولا نستعمل علامات التعجّب.</p>
+  <p data-v="en">We speak like a teacher who knows the text: short, clear, sure. We call a practice by its real name, cite the source, and never use exclamation marks.</p>
+  <p class="muted" data-v="ar">السمات الأربع معتمدة في القصة 1. أسماؤها العربية والأمثلة كلها جديدة.<span class="flag"></span></p>
+  <p class="muted" data-v="en">The four traits were approved in story 1. Their Arabic names and all examples are new.<span class="flag"></span></p>
+
+  <div class="grid g2">
+    <div class="trait">
+      <h4><span data-v="ar">متجذّر</span><span data-v="en">Rooted</span></h4>
+      <p class="desc" data-v="ar">نستمدّ من التراث لنمضي إلى الأمام: مخطوطات حقيقية، وممارسات حقيقية، وأسماء حقيقية.</p>
+      <p class="desc" data-v="en">Draws on the tradition to move forward: real manuscripts, real practices, real names.</p>
+      <div class="ex"><span class="k this"><span data-v="ar">هكذا</span><span data-v="en">This</span></span><div><p class="line-ar" lang="ar">السماع: كان الكتاب يُقرأ في الحلقة. والآن يُقرأ لك.</p><p class="line-en" lang="en">Samāʿ: the book was read aloud in the circle. Now it is read to you.</p></div></div>
+      <div class="ex"><span class="k not"><span data-v="ar">لا هكذا</span><span data-v="en">Not</span></span><div><p class="line-ar" lang="ar">اكتشف أسرار حكمة الشرق القديمة الغامضة.</p><p class="line-en" lang="en">Unlock the mystical secrets of ancient Eastern wisdom.</p></div></div>
+    </div>
+    <div class="trait">
+      <h4><span data-v="ar">شغوف</span><span data-v="en">Curious</span></h4>
+      <p class="desc" data-v="ar">طاقة العالِم الموسوعي: الفلك بجوار النحو، والدهشة في كل صفحة.</p>
+      <p class="desc" data-v="en">The polymath's energy — astronomy beside grammar, wonder in every page.</p>
+      <div class="ex"><span class="k this"><span data-v="ar">هكذا</span><span data-v="en">This</span></span><div><p class="line-ar" lang="ar">الفلك بجوار النحو، على الرفّ نفسه. اختر صفحة واسأل: لماذا؟</p><p class="line-en" lang="en">Astronomy beside grammar, on the same shelf. Pick a page and ask why.</p></div></div>
+      <div class="ex"><span class="k not"><span data-v="ar">لا هكذا</span><span data-v="en">Not</span></span><div><p class="line-ar" lang="ar">تصفّح قاعدة بياناتنا الضخمة من النصوص التراثية.</p><p class="line-en" lang="en">Browse our extensive database of classical texts.</p></div></div>
+    </div>
+    <div class="trait">
+      <h4><span data-v="ar">واثق</span><span data-v="en">Confident</span></h4>
+      <p class="desc" data-v="ar">يتكلّم كمعلّم يعرف النص: قصير، واضح، متيقّن. بلا مبالغة.</p>
+      <p class="desc" data-v="en">Speaks like a teacher who knows the text: short, clear, sure. No hype.</p>
+      <div class="ex"><span class="k this"><span data-v="ar">هكذا</span><span data-v="en">This</span></span><div><p class="line-ar" lang="ar">استمع. اسأل. كل جواب يذكر صفحته.</p><p class="line-en" lang="en">Listen. Ask. Every answer cites its page.</p></div></div>
+      <div class="ex"><span class="k not"><span data-v="ar">لا هكذا</span><span data-v="en">Not</span></span><div><p class="line-ar" lang="ar">منصة تعليمية ثورية مدعومة بالذكاء الاصطناعي!!</p><p class="line-en" lang="en">A revolutionary AI-powered learning platform!!</p></div></div>
+    </div>
+    <div class="trait">
+      <h4><span data-v="ar">معطاء</span><span data-v="en">Generous</span></h4>
+      <p class="desc" data-v="ar">العلم وقف: ندعو، ونشارك، ونعطي لمن بعدنا. بلا وعظ ولا لوم.</p>
+      <p class="desc" data-v="en">Knowledge as <em>waqf</em>: invite, share, give forward. Never preachy, never guilt.</p>
+      <div class="ex"><span class="k this"><span data-v="ar">هكذا</span><span data-v="en">This</span></span><div><p class="line-ar" lang="ar">سجّلت كتابًا؟ اجعله وقفًا يسمعه كل من يأتي بعدك.</p><p class="line-en" lang="en">Recorded a book? Endow it, so everyone after you can hear it.</p></div></div>
+      <div class="ex"><span class="k not"><span data-v="ar">لا هكذا</span><span data-v="en">Not</span></span><div><p class="line-ar" lang="ar">لا تُضِع وقتك. اشترك الآن في الباقة المميّزة لتفتح أبواب العلم.</p><p class="line-en" lang="en">Stop wasting time. Upgrade to Premium now to unlock knowledge.</p></div></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 7 Rules ============ -->
+<section class="chapter" id="rules"><div class="wrap">
+  <div class="chapter-head"><span class="n">07</span><h2><span data-v="ar">القواعد</span><span data-v="en">Rules</span></h2></div>
+
+  <h3 style="margin-top:0"><span data-v="ar">ما نقوله عن التراث</span><span data-v="en">What we say about the tradition</span></h3>
+  <p class="muted" data-v="ar">رُوجعت في <span class="ltr">16 Oct 2026</span>. المصادر في <code dir="ltr">My Vault/Projects/ReadAI Brand/Competitor Scan.md</code>.</p>
+  <p class="muted" data-v="en">Fact-checked 16 Oct 2026. Sources in <code>My Vault/Projects/ReadAI Brand/Competitor Scan.md</code>.</p>
+  <div class="table-wrap" data-v="ar"><table>
+    <thead><tr><th>الادعاء</th><th>الحكم</th><th>قاعدة الكتابة</th></tr></thead>
+    <tbody>
+      <tr><td>كانت الكتب تُنقل بالسماع، وفي المخطوطات طِباق السماع</td><td>صحيح</td><td>استعمله بحرية</td></tr>
+      <tr><td>الإجازة أذنت للطالب برواية النص بسند متصل إلى المؤلف</td><td>صحيح</td><td>استعمله بحرية</td></tr>
+      <tr><td>الشرح والحاشية والمختصر طبقات فوق المتن</td><td>صحيح</td><td>لا تستعمل «التعليقة» — لم نجد لها مصدرًا</td></tr>
+      <tr><td>بيت الحكمة مركز للترجمة والعلم</td><td>صحيح بهذه الصياغة</td><td>لا تقل «جامعة» ولا «أكاديمية» — الباحثون مختلفون في كونه مؤسسة</td></tr>
+      <tr><td>مخطوطات علمية مصوّرة (الجزري، الصوفي، الزهراوي)</td><td>صحيح</td><td>لا تقل «الأقدم» ولا تذكر تواريخ دقيقة دون مصدر جديد</td></tr>
+      <tr><td>الوقف موّل التعليم</td><td>صحيح جزئيًا</td><td>موّل المدارس والمعلّمين ونفقة الطلاب — لا تقل «كان التعليم مجانيًا للجميع»</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap" data-v="en"><table>
+    <thead><tr><th>Claim</th><th>Verdict</th><th>Copy rule</th></tr></thead>
+    <tbody>
+      <tr><td>Books were passed on by <em>samāʿ</em>; manuscripts carry hearing certificates</td><td>true</td><td>use freely</td></tr>
+      <tr><td><em>Ijāza</em> licensed a student to transmit a text, in a chain back to the author</td><td>true</td><td>use freely</td></tr>
+      <tr><td><em>Sharḥ</em>, <em>ḥāshiya</em>, <em>mukhtaṣar</em> layered on a base text (<em>matn</em>)</td><td>true</td><td>don't use <em>taʿlīqa</em> — no source found</td></tr>
+      <tr><td>Bayt al-Ḥikma was a centre of translation and scholarship</td><td>true as worded</td><td>never "university" or "academy" — scholars dispute it was an institution</td></tr>
+      <tr><td>Illustrated scientific manuscripts (al-Jazarī, al-Ṣūfī, al-Zahrāwī)</td><td>true</td><td>no "oldest" or exact dates without a fresh source</td></tr>
+      <tr><td><em>Waqf</em> funded learning</td><td>partly</td><td>it paid for madrasas, teachers and students' keep — don't say "education was free for everyone"</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="ornament"><i></i></div>
+
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0"><span data-v="ar">صور مستهلكة نتجنّبها</span><span data-v="en">Visual clichés we avoid</span></h3>
+      <ul class="avoid" style="grid-template-columns:1fr">
+        <li><svg><use href="#x"/></svg><span data-v="ar">البنّي الداكن، والرقّ المزيّف، و«العتيق» المفتعل</span><span data-v="en">Sepia, fake parchment, "ancient" kitsch</span></li>
+        <li><svg><use href="#x"/></svg><span data-v="ar">الأهلّة، والقباب، وصور المساجد الظلّية</span><span data-v="en">Crescents, domes, mosque silhouettes</span></li>
+        <li><svg><use href="#x"/></svg><span data-v="ar">الزخارف العربية خلفيةً تملأ المساحة</span><span data-v="en">Arabesque as wallpaper</span></li>
+        <li><svg><use href="#x"/></svg><span data-v="ar">الأخضر مع الذهبي أو الأصفر</span><span data-v="en">Green with gold or yellow</span></li>
+        <li><svg><use href="#x"/></svg><span data-v="ar">الرموز التعبيرية (الإيموجي) في الواجهة — أيقونات <span class="ltr">Lucide</span> أو <span class="ltr">Phosphor</span> فقط</span><span data-v="en">Emoji in the interface — Lucide or Phosphor icons only</span></li>
+        <li><svg><use href="#x"/></svg><span data-v="ar">تدرّجات الأزرق والبنفسجي، والأشرطة الملوّنة على حوافّ البطاقات</span><span data-v="en">Blue-to-purple gradients; coloured bars on card edges</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0"><span data-v="ar">ألوان يملكها غيرنا</span><span data-v="en">Colours others own</span></h3>
+      <p class="muted" data-v="ar">لا نجعلها لوننا الرئيسي.</p>
+      <p class="muted" data-v="en">Never our lead colour.</p>
+      <div class="table-wrap"><table>
+        <tbody>
+          <tr><td><span data-v="ar">الأخضر مع الأصفر</span><span data-v="en">Green with yellow</span></td><td>Tarteel</td></tr>
+          <tr><td><span data-v="ar">البيج والبرونزي</span><span data-v="en">Tan / bronze</span></td><td><span data-v="ar">الشاملة — وبنّي ReadAI القديم هنا</span><span data-v="en">Shamela — and the old ReadAI brown</span></td></tr>
+          <tr><td><span data-v="ar">البرتقالي</span><span data-v="en">Orange</span></td><td>Abjjad, Storytel</td></tr>
+          <tr><td><span data-v="ar">الأبيض والأسود «البسيط»</span><span data-v="en">Black-and-white "AI minimal"</span></td><td><span data-v="ar">معظم أدوات الذكاء الاصطناعي</span><span data-v="en">most AI tools</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</div></section>
+
+</main>
+
+<footer><div class="wrap">
+  <p><strong><span data-v="ar">المصادر</span><span data-v="en">Sources</span></strong></p>
+  <ul dir="ltr" style="text-align:left">
+    <li>Story 1 — <code>brand/brand-core.md</code></li>
+    <li>Story 2 — <code>brand/names.md</code>, <code>brand/names-round-3.html</code></li>
+    <li>Story 3 — <code>brand/colour-type.html</code> (direction 1, Illuminated)</li>
+    <li>Story 4 — <code>brand/logo/</code> (mark A2, built by <code>build_logo.py</code>)</li>
+    <li>Tokens — <code>brand/tokens/tokens.css</code>, <code>tailwind.preset.js</code>, <code>tokens.json</code> · Agent guide — <code>brand/BRAND.md</code></li>
+  </ul>
+</div></footer>
+
+<script>
+  const root = document.documentElement;
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  function setView(v) {
+    root.dataset.view = v; root.lang = v; root.dir = v === 'ar' ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-set-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.setView === v)));
+    store.set('narwi-book-view', v);
+  }
+  function setTheme(t) {
+    root.classList.toggle('dark', t === 'dark');
+    document.querySelectorAll('[data-set-theme]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.setTheme === t)));
+    store.set('narwi-book-theme', t);
+  }
+  document.querySelectorAll('[data-set-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.setView)));
+  document.querySelectorAll('[data-set-theme]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.setTheme)));
+  const q = new URLSearchParams(location.search);
+  setView(q.get('lang') || store.get('narwi-book-view') || 'ar');
+  setTheme(q.get('theme') || store.get('narwi-book-theme') || 'light');
+
+  // Palette panels: read the roles from tokens.css and run the contrast check.
+  const ROLES = [
+    ['bg', 'Background', 'الخلفية'], ['surface', 'Surface', 'السطح'], ['text', 'Text', 'النص'], ['muted', 'Muted text', 'النص الثانوي'], ['line', 'Line', 'الخط الفاصل'],
+    ['primary', 'Lapis · primary', 'اللازوردي'], ['on-primary', 'On lapis', 'النص على اللازوردي'], ['accent', 'Red ink · accent', 'الحبر الأحمر'], ['accent-soft', 'Highlight', 'التظليل'], ['deco', 'Gold · ornament', 'الذهبي']
+  ];
+  // The first six are the story 3 checks; the rest cover the other text uses in this book.
+  const PAIRS = [
+    ['text', 'bg', 'Text on background', 'النص على الخلفية'], ['text', 'surface', 'Text on surface', 'النص على السطح'], ['muted', 'surface', 'Muted on surface', 'الثانوي على السطح'],
+    ['primary', 'surface', 'Lapis as text', 'اللازوردي نصًّا'], ['on-primary', 'primary', 'Button label', 'نص الزر'], ['accent', 'surface', 'Red ink as text', 'الأحمر نصًّا'],
+    ['muted', 'bg', 'Muted on background', 'الثانوي على الخلفية'], ['accent', 'bg', 'Red ink on background', 'الأحمر على الخلفية'], ['text', 'accent-soft', 'Text on highlight', 'النص على التظليل'],
+    ['deco', 'surface', 'Gold — ornament only', 'الذهبي — زخرفة فقط', true]
+  ];
+  const lum = hex => { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+  window.narwiChecks = [];
+  document.querySelectorAll('.palette').forEach(p => {
+    const cs = getComputedStyle(p); const get = k => cs.getPropertyValue('--narwi-' + k).trim().toUpperCase();
+    p.querySelector('.swatches').innerHTML = ROLES.map(([k, en, ar]) => `<div class="sw"><i style="background:var(--narwi-${k})"></i><b><span data-v="ar">${ar}</span><span data-v="en">${en}</span></b><span class="hex">${get(k)}</span></div>`).join('');
+    p.querySelector('.checks').innerHTML = PAIRS.map(([f, b, en, ar, ornament]) => {
+      const r = ratio(get(f), get(b)); const ok = r >= 4.5;
+      window.narwiChecks.push({ mode: p.dataset.mode, pair: `${f}/${b}`, ratio: +r.toFixed(2), pass: ok, ornament: !!ornament });
+      const cls = ornament ? 'chk info' : ok ? 'chk ok' : 'chk bad';
+      const verdict = ornament ? '' : ok ? ' AA' : ' <span data-v="ar">دون AA</span><span data-v="en">below AA</span>';
+      return `<span class="${cls}"><span data-v="ar">${ar}</span><span data-v="en">${en}</span> <span class="r">${r.toFixed(1)}${verdict}</span></span>`;
+    }).join('');
+  });
+</script>
+</body>
+</html>

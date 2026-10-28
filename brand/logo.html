@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narwi Logo Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Readex+Pro:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#F7F5EF; --surface:#FFFFFF; --text:#161A2B; --muted:#565B6E; --line:#E2E0D8;
+    --lapis:#1E3A8A; --red:#B4322A; --gold:#B8892B;
+    --mono:"IBM Plex Mono", monospace; --ui:"Readex Pro", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.6 var(--ui); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 64px 0 36px; border-bottom: 1px solid var(--line); }
+  .eyebrow, .label { font: 500 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  h1 { font: 600 clamp(40px, 6vw, 58px)/1.05 "Fraunces", serif; margin: 0 0 14px; }
+  header p { max-width: 64ch; margin: 0 0 10px; }
+  .calls { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; }
+  .calls ol { margin: 0; padding-inline-start: 20px; }
+
+  section { padding: 64px 0 56px; border-bottom: 1px solid var(--line); }
+  .head { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline; margin-bottom: 6px; }
+  .head .n { font: 500 22px/1 var(--mono); color: var(--muted); }
+  .head h2 { font: 600 36px/1.1 "Fraunces", serif; margin: 0; }
+  .head .ar { font: 700 28px/1 "Amiri", serif; color: var(--muted); }
+  .idea { max-width: 72ch; color: var(--muted); margin: 0 0 28px; }
+
+  .row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 18px; }
+  .tile { border: 1px solid var(--line); border-radius: 8px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .tile.light { background: var(--surface); }
+  .tile.dark { background: #0D1124; border-color: #262B44; color: #ECE9E1; }
+  .tile.dark .label { color: #A0A4B5; }
+  .tile.dark { --lapis:#8DA6F2; --red:#EE7B66; --gold:#D9AE4F; }
+
+  .lockup { display: flex; align-items: center; gap: 18px; direction: rtl; justify-content: flex-start; flex-wrap: wrap; }
+  .lockup svg { width: 76px; height: 76px; flex: none; }
+  .lockup .ar { font: 700 64px/1 "Amiri", serif; }
+  .lockup .lat { font: 600 40px/1 "Fraunces", serif; direction: ltr; margin-inline-start: 6px; opacity: .92; }
+
+  .big svg { width: 100%; max-width: 200px; height: auto; display: block; margin: 0 auto; }
+  .sizes { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+  .sizes figure { margin: 0; text-align: center; font: 400 11px/1.4 var(--mono); color: var(--muted); }
+  .tile.dark .sizes figure { color: #A0A4B5; }
+  .appicon { width: 96px; height: 96px; border-radius: 22px; background: #1E3A8A; display: grid; place-items: center; }
+  .appicon svg { width: 64px; height: 64px; }
+  .appicon { --lapis:#FFFFFF; --red:#EE7B66; --gold:#D9AE4F; }
+  .mono { --lapis: currentColor; --red: currentColor; --gold: currentColor; --knock: var(--surface); }
+
+  .verdict { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; font-size: 15px; }
+  .verdict div { border-top: 1px solid var(--text); padding-top: 10px; }
+  .verdict b { display: block; font: 500 12px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .verdict ul { margin: 0; padding-inline-start: 18px; }
+  .chip { font: 500 11px/1 var(--mono); padding: 5px 9px; border: 1px solid var(--text); border-radius: 999px; background: var(--text); color: var(--bg); }
+
+  footer { padding: 40px 0 64px; font-size: 14px; color: var(--muted); }
+  @media (max-width: 900px) { .row, .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- A · Nun: the bowl of ن with its dot — a cup (we quench), an ink dot (the scribe), a letter (ن والقلم) -->
+    <symbol id="nun" viewBox="0 0 100 100">
+      <path d="M17 44 A33 33 0 0 0 83 44" fill="none" stroke="var(--lapis)" stroke-width="13" stroke-linecap="round"/>
+      <circle cx="50" cy="23" r="9.5" fill="var(--red)"/>
+    </symbol>
+    <!-- A2 · Nun refined: a calligraphic bowl (thick at the base, flat pen-cut ends) + a diamond pen dot -->
+    <symbol id="nun2" viewBox="0 0 100 100">
+      <path d="M12 40 C12 72 30 88 50 88 C72 88 90 70 88 34 L76 38 C77 60 66 72 50 72 C36 72 25 60 25 38 Z" fill="var(--lapis)"/>
+      <polygon points="50,15 61,26 50,37 39,26" fill="var(--red)"/>
+    </symbol>
+    <!-- B · Isnad: three links of a chain, the last one is you -->
+    <symbol id="chain" viewBox="0 0 100 100">
+      <path d="M20 66 Q35 34 50 34 Q65 34 80 66" fill="none" stroke="var(--lapis)" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="20" cy="66" r="11" fill="var(--lapis)"/>
+      <circle cx="50" cy="34" r="11" fill="var(--lapis)"/>
+      <circle cx="80" cy="66" r="11" fill="var(--red)"/>
+    </symbol>
+    <!-- C · Drop: a drop of water that is also a speech mark -->
+    <symbol id="drop" viewBox="0 0 100 100">
+      <path d="M50 10 C50 10 21 45 21 63 A29 29 0 0 0 79 63 C79 45 50 10 50 10 Z" fill="var(--lapis)"/>
+      <path d="M38 64 A12 12 0 0 0 62 64" fill="none" stroke="var(--knock, var(--red))" stroke-width="7" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Brand identity · Story 4 of 6 · Concepts</p>
+  <h1>Narwi — three marks</h1>
+  <p>Each concept is shown as a lockup with نروي and Narwi, large, as an app icon, and at 48, 32 and 16 pixels — in light, dark and a single colour. Colours are the Illuminated palette: lapis, red ink, gold.</p>
+  <div class="calls">
+    <p class="label">Needs your call</p>
+    <ol><li><strong>Pick one mark</strong> to refine into the full logo set. You can also ask to combine ideas.</li></ol>
+  </div>
+</header>
+</div>
+
+<!-- A -->
+<section><div class="wrap">
+  <div class="head"><span class="n">A</span><h2>Nūn</h2><span class="ar" lang="ar">ن</span><span class="chip">recommended</span></div>
+  <p class="idea">The first letter of نروي, drawn as its bowl and dot. The bowl is a cup — نروي, "we quench". The red dot is the scribe's ink and a drop falling into it. And the letter carries the oldest image of learning in the Arabic tradition: <em>ن والقلم وما يسطرون</em> — "Nūn. By the pen and what they write."</p>
+  <div class="row" data-mark="nun"></div>
+  <div class="verdict">
+    <div><b>Works</b><ul><li>The only one that is also Arabic script — it says نروي before you read it</li><li>Three meanings in two shapes: letter, cup, ink drop</li><li>Crisp at 16px; two shapes, nothing thin</li></ul></div>
+    <div><b>Watch</b><ul><li><strong>As sketched, it can read as a smiley face.</strong> The refinement fixes this by drawing a true calligraphic nūn: a deeper bowl that thickens at the bottom and tapers to a point at each tip, with a diamond-shaped pen dot instead of a round one</li><li>Simple shapes are easy to resemble — needs a trademark look-up</li><li>Latin readers see a bowl and a dot, not a letter — the wordmark carries "Narwi"</li></ul></div>
+  </div>
+</div></section>
+
+<!-- A2 -->
+<section><div class="wrap">
+  <div class="head"><span class="n">A2</span><h2>Nūn, refined</h2><span class="ar" lang="ar">ن</span><span class="chip">new</span></div>
+  <p class="idea">The same idea drawn as a scribe would write it. The bowl is one pen stroke: thick at the base, thinner up the sides, with flat, angled ends where the reed pen lifted. The dot is the diamond a reed pen leaves when pressed once. Flat pen-cut ends stop it reading as a crescent; the deeper, heavier bowl stops it reading as a smile.</p>
+  <div class="row" data-mark="nun2"></div>
+  <p class="label" style="margin-top:28px">A next to A2 · same sizes</p>
+  <div class="tile light" style="flex-direction:row;flex-wrap:wrap;gap:36px;align-items:flex-end">
+    <div class="sizes"><figure><svg width="96" height="96"><use href="#nun"/></svg><br>A · 96</figure><figure><svg width="32" height="32"><use href="#nun"/></svg><br>A · 32</figure><figure><svg width="16" height="16"><use href="#nun"/></svg><br>A · 16</figure></div>
+    <div class="sizes"><figure><svg width="96" height="96"><use href="#nun2"/></svg><br>A2 · 96</figure><figure><svg width="32" height="32"><use href="#nun2"/></svg><br>A2 · 32</figure><figure><svg width="16" height="16"><use href="#nun2"/></svg><br>A2 · 16</figure></div>
+  </div>
+  <div class="verdict">
+    <div><b>Changed from A</b><ul><li>Bowl: uniform line → one calligraphic stroke, heavier at the base</li><li>Ends: round → flat pen cuts, the right end higher, like a written ن</li><li>Dot: circle → diamond pen dot</li></ul></div>
+    <div><b>Still to check</b><ul><li>Whether you still see a face — your eye is the test here</li><li>Trademark look-up for the final shape</li></ul></div>
+  </div>
+</div></section>
+
+<!-- B -->
+<section><div class="wrap">
+  <div class="head"><span class="n">B</span><h2>Isnād</h2><span class="ar" lang="ar">إسناد</span></div>
+  <p class="idea">The chain of transmission: author, teacher, you. Two lapis links that came before, and a red one that is the learner receiving — نروي، فتتلقّى.</p>
+  <div class="row" data-mark="chain"></div>
+  <div class="verdict">
+    <div><b>Works</b><ul><li>Tells the tagline as a picture</li><li>Reads clearly at every size</li></ul></div>
+    <div><b>Watch</b><ul><li>Three linked dots is a common "network / share" icon — generic</li><li>Says nothing Arabic or classical on its own</li></ul></div>
+  </div>
+</div></section>
+
+<!-- C -->
+<section><div class="wrap">
+  <div class="head"><span class="n">C</span><h2>Drop</h2><span class="ar" lang="ar">قطرة</span></div>
+  <p class="idea">نروي as "we quench": a drop of water, with a red curve inside that reads as a smile, a ripple, or the curve of a voice.</p>
+  <div class="row" data-mark="drop"></div>
+  <div class="verdict">
+    <div><b>Works</b><ul><li>Instantly recognisable shape; warm and friendly</li><li>Strong as an app icon</li></ul></div>
+    <div><b>Watch</b><ul><li>Water drops belong to utilities, water brands and health apps</li><li>Loses the learning story — the drop needs the name to explain it</li></ul></div>
+  </div>
+</div></section>
+
+<div class="wrap"><footer>
+  <p>Concept sketches in SVG. After you pick, the mark gets optical fine-tuning, and the wordmarks are converted to outlines and exported to <code>readai/brand/logo/</code>.</p>
+</footer></div>
+
+<template id="tpl">
+  <div class="tile light">
+    <p class="label">Lockup · light</p>
+    <div class="lockup"><svg><use href="#M"/></svg><span class="ar" lang="ar">نروي</span><span class="lat">Narwi</span></div>
+    <p class="label" style="margin-top:8px">Sizes</p>
+    <div class="sizes">
+      <figure><div class="appicon"><svg><use href="#M"/></svg></div>app icon</figure>
+      <figure><svg width="48" height="48"><use href="#M"/></svg><br>48</figure>
+      <figure><svg width="32" height="32"><use href="#M"/></svg><br>32</figure>
+      <figure><svg width="16" height="16"><use href="#M"/></svg><br>16</figure>
+    </div>
+  </div>
+  <div class="tile dark">
+    <p class="label">Dark</p>
+    <div class="big"><svg viewBox="0 0 100 100"><use href="#M"/></svg></div>
+    <div class="sizes">
+      <figure><svg width="48" height="48"><use href="#M"/></svg><br>48</figure>
+      <figure><svg width="16" height="16"><use href="#M"/></svg><br>16</figure>
+    </div>
+  </div>
+  <div class="tile light">
+    <p class="label">Single colour</p>
+    <div class="big mono" style="color:var(--text)"><svg viewBox="0 0 100 100"><use href="#M"/></svg></div>
+    <div class="sizes mono" style="color:var(--text)">
+      <figure><svg width="48" height="48"><use href="#M"/></svg><br>48</figure>
+      <figure><svg width="16" height="16"><use href="#M"/></svg><br>16</figure>
+    </div>
+  </div>
+</template>
+
+<script>
+  const tpl = document.getElementById('tpl').innerHTML;
+  document.querySelectorAll('[data-mark]').forEach(row => { row.innerHTML = tpl.replaceAll('#M', '#' + row.dataset.mark); });
+</script>
+</body>
+</html>

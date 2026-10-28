@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Document styling only. The brand palette and type are chosen in story 3. */
+  :root {
+    --paper: #FCFBF8;
+    --surface: #FFFFFF;
+    --ink: #1B1A17;
+    --muted: #5E5A52;
+    --line: #E4E1DA;
+    --rubric: #A8322A;      /* the scribes' red ink, used for numbering only */
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --arabic: "Amiri", "IBM Plex Sans Arabic", serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141311; --surface: #1C1B18; --ink: #ECE8E0; --muted: #A39E94; --line: #2E2C27; --rubric: #E0705F;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141311; --surface: #1C1B18; --ink: #ECE8E0; --muted: #A39E94; --line: #2E2C27; --rubric: #E0705F;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 var(--s5); }
+  p { margin: 0 0 var(--s4); max-width: 68ch; }
+  em { font-style: italic; }
+  strong { font-weight: 600; }
+  code { font: 400 0.86em var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  [lang="ar"] { font-family: var(--arabic); font-size: 1.12em; line-height: 1.5; }
+
+  /* Header */
+  header { padding: var(--s8) 0 var(--s7); border-bottom: 1px solid var(--line); }
+  .eyebrow { font: 500 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  h1 { font: 500 clamp(44px, 7vw, 68px)/1.02 var(--serif); letter-spacing: -0.015em; margin: var(--s3) 0 var(--s5); }
+  .meta { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); font: 400 14px/1.5 var(--mono); color: var(--muted); margin: 0 0 var(--s5); }
+  .lede { font: 400 20px/1.5 var(--serif); max-width: 52ch; margin: 0; }
+
+  /* At a glance */
+  .glance { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s6); padding: var(--s7) 0; border-bottom: 1px solid var(--line); }
+  .glance > div { border-top: 1px solid var(--ink); padding-top: var(--s4); }
+  .label { font: 500 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 var(--s3); }
+  .glance p { font: 400 18px/1.45 var(--serif); margin: 0; }
+
+  .calls { margin: var(--s7) 0 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: var(--s5) var(--s6); }
+  .calls ol { margin: 0; padding-inline-start: var(--s5); }
+  .calls li { margin: 0 0 var(--s3); max-width: 70ch; }
+  .calls li:last-child { margin-bottom: 0; }
+
+  /* Sections */
+  section { padding: var(--s8) 0 var(--s7); border-bottom: 1px solid var(--line); }
+  .sec-head { display: flex; align-items: baseline; gap: var(--s4); margin: 0 0 var(--s6); }
+  .num { font: 500 22px/1 var(--serif); color: var(--rubric); min-width: 1.4em; }
+  h2 { font: 500 clamp(30px, 4vw, 38px)/1.1 var(--serif); letter-spacing: -0.01em; margin: 0; }
+  h3 { font: 500 23px/1.25 var(--serif); margin: var(--s7) 0 var(--s4); }
+  .statement { font: 400 clamp(26px, 3.6vw, 36px)/1.22 var(--serif); letter-spacing: -0.005em; max-width: 30ch; margin: 0 0 var(--s5); }
+  .statement.big { font-size: clamp(40px, 6vw, 60px); line-height: 1.05; max-width: none; }
+  .pending { font: 400 14px/1.5 var(--mono); color: var(--muted); margin: 0 0 var(--s6); }
+  .note { font-size: 14px; color: var(--muted); }
+
+  /* Tables */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 var(--s4); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.5; }
+  th { text-align: start; font: 500 12px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); padding: var(--s2) var(--s4) var(--s2) 0; vertical-align: bottom; }
+  td { border-bottom: 1px solid var(--line); padding: var(--s3) var(--s4) var(--s3) 0; vertical-align: top; }
+  td:first-child { font-weight: 500; }
+  td.term { min-width: 160px; }
+  td.term [lang="ar"] { display: block; font-weight: 400; color: var(--muted); }
+
+  .chip { display: inline-block; font: 500 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--ink); white-space: nowrap; }
+  .chip.now { background: var(--ink); color: var(--paper); }
+  .chip.later { border-color: var(--muted); color: var(--muted); }
+  .chip.principle { border-style: dashed; color: var(--muted); border-color: var(--muted); }
+
+  /* Grids */
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s6); }
+  .cols.two { grid-template-columns: repeat(2, 1fr); }
+  .cols > div { border-top: 1px solid var(--ink); padding-top: var(--s4); }
+  .cols ul { margin: 0; padding-inline-start: 18px; }
+  .cols li { margin: 0 0 var(--s2); }
+  .cols p { font-size: 15px; }
+
+  /* Swatches */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--s4); margin: 0 0 var(--s5); }
+  .sw .chipblock { height: 72px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: var(--s2); }
+  .sw b { display: block; font-weight: 500; font-size: 14px; }
+  .sw span { display: block; font: 400 12px/1.5 var(--mono); color: var(--muted); }
+  .sw .split { display: flex; overflow: hidden; }
+  .sw .split i { flex: 1; }
+
+  /* Findings */
+  .findings { list-style: none; padding: 0; margin: 0 0 var(--s7); counter-reset: f; }
+  .findings li { counter-increment: f; display: grid; grid-template-columns: 2.2em 1fr; gap: var(--s3); padding: var(--s4) 0; border-bottom: 1px solid var(--line); }
+  .findings li::before { content: counter(f); font: 500 20px/1.3 var(--serif); color: var(--rubric); }
+  .findings b { display: block; font: 500 19px/1.35 var(--serif); margin-bottom: var(--s1); }
+  .findings p { margin: 0; font-size: 15px; color: var(--muted); }
+
+  footer { padding: var(--s7) 0 var(--s8); font-size: 14px; color: var(--muted); }
+  footer p { max-width: none; margin-bottom: var(--s2); }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 var(--s4); }
+    header { padding: var(--s7) 0 var(--s6); }
+    .glance, .cols, .cols.two { grid-template-columns: 1fr; gap: var(--s5); }
+    .calls { padding: var(--s4); }
+    section { padding: var(--s7) 0 var(--s6); }
+    table { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Brand identity · Story 1 of 6</p>
+  <h1>Brand core</h1>
+  <div class="meta">
+    <span>Draft for owner review</span>
+    <span>16 Oct 2026</span>
+    <span>Working name: ReadAI (taken)</span>
+    <span>Candidate: Khabeer</span>
+  </div>
+  <p class="lede">Every later decision — name, colour, type, logo, copy — is judged against this page.</p>
+</header>
+
+<div class="glance">
+  <div>
+    <p class="label">Big idea</p>
+    <p>Learn the way they learned.</p>
+  </div>
+  <div>
+    <p class="label">Positioning</p>
+    <p>The only place the classical Arabic library is <em>heard</em> — from the original page, every answer traced to its source.</p>
+  </div>
+  <div>
+    <p class="label">Khabeer</p>
+    <p>The benchmark, not the default. Usable, but crowded, and it names the expert — not the practice.</p>
+  </div>
+</div>
+
+<div class="calls">
+  <p class="label">Needs your call</p>
+  <ol>
+    <li><strong>Divine-name line.</strong> Can a product carry one of the 99 names, or a word shared with one? Sources found say "allowed with conditions" or "not ideal", never forbidden. This decides whether Khabeer stays.</li>
+    <li><strong>Audience.</strong> The three primary groups in section 2 are inferred. Correct them if they're wrong.</li>
+    <li><strong>Arabic lines.</strong> The promise in Arabic waits on a <code>GEMINI_API_KEY</code> — written by Gemini, not by me.</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<section id="idea">
+  <div class="sec-head"><span class="num">1</span><h2>The big idea</h2></div>
+
+  <p class="statement big">Learn the way they learned.</p>
+  <p class="pending">Arabic line — pending Gemini</p>
+
+  <p>In the golden age, knowledge travelled by voice. A student sat in a <em>ḥalaqa</em> (study circle) and heard a book read aloud from the teacher's copy, and the margins recorded who heard it, from whom, and when. Commentaries explained the text, abridgments condensed it, marginal notes argued with it, and endowments paid for the libraries, the teachers and the students' keep.</p>
+  <p>We rebuild that circle with today's tools — natural AI voices, AI explanation, and soon images and video — so a new generation learns from the same books, the same way, and walks toward the next golden age.</p>
+  <p><strong>Audio-first is not a modern shortcut. It is the oldest way these books were passed on.</strong></p>
+
+  <h3>Every feature has an ancestor</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Classical practice</th><th>What it was</th><th>In the product</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="term"><em>Samāʿ</em> <span lang="ar" dir="rtl">سماع</span></td><td>The book read aloud and heard in the circle</td><td>AI narration, voice personas</td><td><span class="chip now">now</span></td></tr>
+      <tr><td class="term"><em>Suʾāl</em> in the <em>majlis</em> <span lang="ar" dir="rtl">السؤال في المجلس</span></td><td>Asking the teacher about the text</td><td>Ask the book (AI chat)</td><td><span class="chip now">now</span></td></tr>
+      <tr><td class="term"><em>Sharḥ</em> <span lang="ar" dir="rtl">شرح</span></td><td>Commentary that explains the base text</td><td>Explain a selected passage</td><td><span class="chip now">now</span></td></tr>
+      <tr><td class="term"><em>Ḥāshiya</em> <span lang="ar" dir="rtl">حاشية</span></td><td>The gloss in the margin</td><td>Notes on the page</td><td><span class="chip now">now</span></td></tr>
+      <tr><td class="term"><em>Mukhtaṣar</em> <span lang="ar" dir="rtl">مختصر</span></td><td>The abridgment</td><td>Summarise a passage; whole-book summaries</td><td><span class="chip now">passage now</span> <span class="chip later">book later</span></td></tr>
+      <tr><td class="term">Illustrated manuscripts</td><td>al-Jazarī's machines, al-Ṣūfī's star charts</td><td>AI images from the book</td><td><span class="chip">next</span></td></tr>
+      <tr><td class="term"><em>Dars</em> <span lang="ar" dir="rtl">درس</span></td><td>The lesson</td><td>AI video lessons and tutorials</td><td><span class="chip later">later</span></td></tr>
+      <tr><td class="term"><em>Waqf</em> <span lang="ar" dir="rtl">وقف</span></td><td>Endowments that paid for libraries, teachers and students' keep</td><td>Donate your recordings to every listener (pay it forward)</td><td><span class="chip">in billing design</span></td></tr>
+      <tr><td class="term"><em>Isnād</em> <span lang="ar" dir="rtl">إسناد</span></td><td>Every text traced back to its source</td><td>Every AI answer cites its page</td><td><span class="chip principle">principle · to build</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The last row is a product rule as much as a brand one: <strong>nothing is said without its source.</strong></p>
+
+  <h3>Claims we can make — and how</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Claim</th><th>Verdict</th><th>Copy rule</th></tr></thead>
+    <tbody>
+      <tr><td>Books were passed on by <em>samāʿ</em>; manuscripts carry hearing certificates</td><td><span class="chip now">true</span></td><td>Use freely</td></tr>
+      <tr><td><em>Ijāza</em> licensed a student to transmit a text, in a chain back to the author</td><td><span class="chip now">true</span></td><td>Use freely</td></tr>
+      <tr><td><em>Sharḥ</em>, <em>ḥāshiya</em>, <em>mukhtaṣar</em> layered on a base text (<em>matn</em>)</td><td><span class="chip now">true</span></td><td>Don't use <em>taʿlīqa</em> — no source found</td></tr>
+      <tr><td>Bayt al-Ḥikma was a centre of translation and scholarship</td><td><span class="chip">true as worded</span></td><td>Never "university" or "academy" — scholars dispute it was an institution</td></tr>
+      <tr><td>Illustrated scientific manuscripts (al-Jazarī, al-Ṣūfī, al-Zahrāwī)</td><td><span class="chip now">true</span></td><td>No "oldest" or exact dates without a fresh source</td></tr>
+      <tr><td><em>Waqf</em> funded learning</td><td><span class="chip later">partly</span></td><td>It paid for madrasas, teachers and students' keep — don't say "education was free for everyone"</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">Fact-checked 16 Oct 2026. Sources: <code>My Vault/Projects/ReadAI Brand/Competitor Scan.md</code> §4.</p>
+</section>
+
+<!-- 2 -->
+<section id="audience">
+  <div class="sec-head"><span class="num">2</span><h2>Audience</h2></div>
+  <p class="statement">Arabic-speaking Muslims who want to learn from the classical books but can't get into them.</p>
+  <p>The books are long, dense, scanned, and silent. These people have the will — not the hours at a desk.</p>
+
+  <div class="cols" style="margin-top: var(--s6);">
+    <div>
+      <p class="label">Primary · now</p>
+      <ul>
+        <li>Self-directed students of knowledge (<em>ṭullāb al-ʿilm</em>) outside formal study</li>
+        <li>Professionals and parents who want <em>turāth</em> in the commute, the gym, the kitchen</li>
+        <li>Heritage learners whose spoken Arabic is stronger than their reading of classical prose</li>
+      </ul>
+    </div>
+    <div>
+      <p class="label">Secondary · later</p>
+      <ul>
+        <li>Teachers and study circles building lessons</li>
+        <li>Masājid, schools and <em>awqāf</em> endowing libraries</li>
+        <li>Non-Arab Muslims learning through English</li>
+      </ul>
+    </div>
+    <div>
+      <p class="label">Not for · now</p>
+      <ul>
+        <li>Fiction audiobook listeners</li>
+        <li>Researchers who need critical editions — Shamela and turath.io already serve them</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="promise">
+  <div class="sec-head"><span class="num">3</span><h2>Promise</h2></div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th></th><th>English</th><th>Arabic</th></tr></thead>
+    <tbody>
+      <tr><td>Big idea</td><td>Learn the way they learned.</td><td class="note">pending Gemini</td></tr>
+      <tr><td>Now</td><td>Hear the books of our heritage — and ask them anything.</td><td class="note">pending Gemini</td></tr>
+      <tr><td>Later</td><td>Learn from any book, in every form: listen, read, see, watch.</td><td class="note">pending Gemini</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="personality">
+  <div class="sec-head"><span class="num">4</span><h2>Personality</h2></div>
+  <p>Aimed squarely at "dull / generic".</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Trait</th><th>This</th><th>Not that</th></tr></thead>
+    <tbody>
+      <tr><td>Rooted</td><td>Draws on the tradition to move forward; real manuscripts, real practices, real names</td><td>Sepia, fake parchment, "ancient" kitsch, mosque silhouettes</td></tr>
+      <tr><td>Curious</td><td>The polymath's energy — astronomy beside grammar, wonder in every page</td><td>Footnote fatigue, a lecture hall, a dry database</td></tr>
+      <tr><td>Confident</td><td>Speaks like a teacher who knows the text: short, clear, sure</td><td>Hype — "revolutionary", "powered by AI", exclamation marks</td></tr>
+      <tr><td>Generous</td><td>Knowledge as <em>waqf</em>: invite, share, give forward</td><td>Preachy, moralising, guilt, paywall-first</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Where colour should come from</h3>
+  <p>The fix for "dull" is in the manuscripts themselves. Classical scribes wrote headings and key words in <strong>red ink</strong>; illuminators used lapis and gold. A colour that carries a meaning from the tradition is ownable — "warm brown" is not.</p>
+  <div class="swatches">
+    <div class="sw"><div class="chipblock" style="background:#26619C"></div><b>Lapis</b><span>lāzaward · illumination</span></div>
+    <div class="sw"><div class="chipblock" style="background:#B5422F"></div><b>Vermilion</b><span>red ink · rubrics</span></div>
+    <div class="sw"><div class="chipblock" style="background:#C9A23F"></div><b>Gold leaf</b><span>illumination</span></div>
+    <div class="sw"><div class="chipblock" style="background:#E3A72F"></div><b>Saffron</b><span>pigment, dye</span></div>
+    <div class="sw"><div class="chipblock" style="background:#1F1B16"></div><b>Oak-gall ink</b><span>the text itself</span></div>
+    <div class="sw"><div class="chipblock" style="background:#B08D57"></div><b>Astrolabe brass</b><span>the instruments</span></div>
+  </div>
+  <p class="note">Pigment references for story 3 — approximate, and not the palette.</p>
+
+  <h3>Already taken — avoid as the lead colour</h3>
+  <div class="swatches">
+    <div class="sw"><div class="chipblock split"><i style="background:#1E7A4C"></i><i style="background:#E9C440"></i></div><b>Green + yellow</b><span>Tarteel · approx.</span></div>
+    <div class="sw"><div class="chipblock" style="background:#A88452"></div><b>Tan / bronze</b><span>Shamela · approx.</span></div>
+    <div class="sw"><div class="chipblock" style="background:#8C3C12"></div><b>Today's ReadAI brown</b><span>#8C3C12 · exact</span></div>
+    <div class="sw"><div class="chipblock" style="background:#E8722C"></div><b>Orange</b><span>Abjjad, Storytel · approx.</span></div>
+    <div class="sw"><div class="chipblock split"><i style="background:#0B0B0B"></i><i style="background:#F4F4F4"></i></div><b>Black + white</b><span>"AI minimal"</span></div>
+  </div>
+  <p><strong>Today's brown sits right in Shamela's territory</strong> — part of why it reads generic.</p>
+  <p class="note">Motifs to avoid: crescents, arabesque wallpaper, domes (assumed from the category; logos were not inspected).</p>
+</section>
+
+<!-- 5 -->
+<section id="naming">
+  <div class="sec-head"><span class="num">5</span><h2>Naming brief</h2></div>
+  <p class="statement">Name the practice, not the content.</p>
+  <p>Every competitor names what it holds — library, books, light, heritage. None names <em>how</em> scholars learned. That is the opening.</p>
+
+  <div class="cols two" style="margin-top: var(--s6);">
+    <div>
+      <p class="label">Must</p>
+      <ul>
+        <li>One word, 2–3 syllables, easy to say and to spell after hearing it once — in Arabic and English</li>
+        <li>Prefer letters with one obvious Latin spelling: خ ع ح ق ذ split into many (Khabeer / Khabir / Kabeer)</li>
+        <li>Rooted in the learning tradition, but wide enough for images and video later — not literally "audio" or "read"</li>
+        <li>Similar length as a wordmark in Arabic and Latin script</li>
+        <li>Available: usable domain (.com ideal; .app / .ai fine), no same-name product in edtech or Arabic AI, open handles</li>
+      </ul>
+    </div>
+    <div>
+      <p class="label">Must not</p>
+      <ul>
+        <li>Generic descriptors: "-AI", ".ai" in the name, "-ify", "Smart-", Reader / Book / Notebook</li>
+        <li>Crowded words: <em>kitāb</em>, <em>maktaba</em>, <em>turāth</em>, <em>iqraʾ</em>, <em>Noor</em></li>
+        <li>Coined syllables with no meaning in Arabic</li>
+        <li>A divine name, or a revered person's name as a product label — <strong>your call where the line sits</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Territories to mine</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Territory</th><th>Seeds</th><th>Arabic</th></tr></thead>
+    <tbody>
+      <tr><td>The circle</td><td><em>ḥalaqa</em>, <em>majlis</em>, <em>dars</em></td><td><span lang="ar" dir="rtl">حلقة · مجلس · درس</span></td></tr>
+      <tr><td>The transmission</td><td><em>samāʿ</em>, <em>riwāya</em>, <em>isnād</em>, <em>ijāza</em></td><td><span lang="ar" dir="rtl">سماع · رواية · إسناد · إجازة</span></td></tr>
+      <tr><td>The craft of the book</td><td><em>warrāq</em> (copyist-bookseller), <em>midād</em> (ink), <em>qalam</em>, <em>ḥāshiya</em></td><td><span lang="ar" dir="rtl">ورّاق · مداد · قلم · حاشية</span></td></tr>
+      <tr><td>The journey</td><td><em>riḥla fī ṭalab al-ʿilm</em> (travelling for knowledge)</td><td><span lang="ar" dir="rtl">الرحلة في طلب العلم</span></td></tr>
+      <tr><td>The places</td><td>Bayt al-Ḥikma, al-Qarawiyyīn, the Niẓāmiyya</td><td><span lang="ar" dir="rtl">بيت الحكمة · القرويين · النظامية</span></td></tr>
+      <tr><td>The instruments</td><td><em>asṭurlāb</em> (astrolabe), the <em>kursī</em> (lectern)</td><td><span lang="ar" dir="rtl">أسطرلاب · كرسي</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Your candidate: Khabeer <span lang="ar" dir="rtl">خبير</span></h3>
+  <div class="cols two">
+    <div>
+      <p class="label">Works</p>
+      <ul>
+        <li>Arabic, short, easy to say</li>
+        <li>Fits "ask the book"</li>
+      </ul>
+    </div>
+    <div>
+      <p class="label">Doesn't</p>
+      <ul>
+        <li>A common noun — "expert" — so it is everywhere and hard to own</li>
+        <li>Puts the AI as the authority; in the tradition the text and the teacher are the authority and the <strong>learner</strong> is the hero</li>
+        <li>Says "expert", not "learning" or "journey" — the big idea doesn't live in it</li>
+        <li><em>Al-Khabīr</em> (<span lang="ar" dir="rtl">الخبير</span>) is one of the 99 names of God — some of the audience may object</li>
+        <li>Three Latin spellings in the wild: Khabeer, Khabir, Kabeer</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="label" style="margin-top: var(--s6);">Availability · seen 16 Oct 2026, no registrar or trademark check</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Check</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Same-name AI / edtech / Islamic product</td><td>None confirmed; one Arabic edtech app "<span lang="ar" dir="rtl">الخبير</span>" seen, unconfirmed</td></tr>
+      <tr><td>Other uses</td><td>Khabir (Arab freelance platform, with apps), a "khabeer" legal-advice iOS app, Alkhabeer Capital (Saudi investment), Al Khabeer Network (Beirut expert network)</td></tr>
+      <tr><td>khabeer.com</td><td>For sale (GoDaddy)</td></tr>
+      <tr><td>khabeer.io</td><td>Live "coming soon" page</td></tr>
+      <tr><td>khabeer.ai / khabeer.app</td><td>Did not resolve — possibly free</td></tr>
+      <tr><td>Divine-name guidance</td><td><span lang="ar" dir="rtl">خبير</span> without "al-" is an ordinary word; Egypt's Dar al-Ifta allows shared names for businesses with conditions; SeekersGuidance calls it "not ideal", not forbidden; nothing addresses this exact name</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Verdict:</strong> keep it on the shortlist as the benchmark, not the default. Usable, but crowded in the Saudi market — and it names the expert, not the practice.</p>
+</section>
+
+<!-- 6 -->
+<section id="gap">
+  <div class="sec-head"><span class="num">6</span><h2>Where the gap is</h2></div>
+  <ol class="findings">
+    <li><div><b>Nobody turns classical Arabic books into AI-voiced audio.</b><p>Shamela, turath.io, Usul and Waqfeya are read-and-search only. Arabic audiobook apps (Storytel, Audible, Abjjad, Masmu3, Kitab Sawti, AlRawi in Bahrain, Rawi in Qatar) sell modern books read by human narrators. Generic Arabic AI voice tools (Nabarati, Sawt) speak text you paste in — no scans, no classical books, no questions. The one Islamic audiobook app found is in English translation.</p></div></li>
+    <li><div><b>Nobody starts from the scanned PDF.</b><p>Waqfeya is full of scanned books nobody can listen to; Usul works only on text that is already digitised. No "upload a scan, then listen" flow exists.</p></div></li>
+    <li><div><b>Nobody closes the loop.</b><p>Listen, see the real page, ask with citations, take notes. Usul and Ansari give cited answers with no audio; Tarteel is Quran only; Gemini Notebook (formerly NotebookLM, renamed July 2026) does audio and video but is generic and not built for classical Arabic.</p></div></li>
+    <li><div><b>Nobody tells the story.</b><p>Competitors describe their shelves. None claims the scholars' way of learning.</p></div></li>
+  </ol>
+  <p class="label">Positioning in one line</p>
+  <p class="statement">The only place the classical Arabic library is <em>heard</em> — from the original page, with every answer traced to its source, as the scholars learned.</p>
+</section>
+
+<footer>
+  <p>Source of truth: <code>readai/brand/brand-core.md</code> · Research: <code>My Vault/Projects/ReadAI Brand/Competitor Scan.md</code></p>
+  <p>Document styling only — the brand palette and type are chosen in story 3.</p>
+</footer>
+
+</div>
+</body>
+</html>

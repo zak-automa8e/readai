@@ -1,0 +1,103 @@
+/*
+ * Narwi · نروي — design tokens
+ * Palette: "Illuminated" (brand story 3, approved 2026-10-16). Source of truth: brand/book/index.html.
+ *
+ * Two layers:
+ *   --narwi-*      the brand roles as hex. Use these in plain CSS.
+ *   --background … the shadcn/ui variables the app already uses, as space-separated RGB channels
+ *                  (exact, no HSL rounding). tailwind.preset.js reads them as rgb(var(--x) / <alpha-value>).
+ *
+ * Dark mode: add class "dark" (the app's Tailwind setting) or data-theme="dark" to <html>.
+ * data-theme="light" / "dark" on any element pins that part of the page to one mode.
+ * Fonts are not loaded here — load Amiri 400/700, Fraunces (opsz 9..144, 400/600) and Readex Pro 300–600.
+ */
+
+:root,
+[data-theme="light"] {
+  /* Brand roles — light */
+  --narwi-bg: #F7F5EF;          /* paper */
+  --narwi-surface: #FFFFFF;     /* cards, panels, the book page */
+  --narwi-text: #161A2B;        /* oak-gall ink */
+  --narwi-muted: #565B6E;       /* secondary text */
+  --narwi-line: #E2E0D8;        /* hairline borders */
+  --narwi-primary: #1E3A8A;     /* lapis — carries the brand */
+  --narwi-on-primary: #FFFFFF;  /* text on lapis */
+  --narwi-accent: #B4322A;      /* red ink — marks what is being read */
+  --narwi-accent-soft: #F7E3DF; /* highlight behind the passage being read */
+  --narwi-deco: #B8892B;        /* gold — ornament only, never text */
+
+  /* Type */
+  --narwi-font-arabic: "Amiri", serif;
+  --narwi-font-latin: "Fraunces", Georgia, serif;
+  --narwi-font-ui: "Readex Pro", system-ui, sans-serif;
+  --narwi-font-book: "Amiri", serif; /* the book text keeps its classical face everywhere */
+
+  /* Shape */
+  --narwi-radius: 6px;
+
+  /* shadcn/ui variables (RGB channels) */
+  --background: 247 245 239;
+  --foreground: 22 26 43;
+  --card: 255 255 255;
+  --card-foreground: 22 26 43;
+  --popover: 255 255 255;
+  --popover-foreground: 22 26 43;
+  --primary: 30 58 138;
+  --primary-foreground: 255 255 255;
+  --secondary: 247 245 239;
+  --secondary-foreground: 22 26 43;
+  --muted: 247 245 239;
+  --muted-foreground: 86 91 110;
+  --accent: 247 227 223;
+  --accent-foreground: 22 26 43;
+  --destructive: 180 50 42;
+  --destructive-foreground: 255 255 255;
+  --border: 226 224 216;
+  --input: 226 224 216;
+  --ring: 30 58 138;
+  --radius: 0.375rem;
+
+  /* Brand extras for Tailwind (red-ink, highlight, ornament) */
+  --red-ink: 180 50 42;
+  --highlight: 247 227 223;
+  --ornament: 184 137 43;
+}
+
+.dark,
+[data-theme="dark"] {
+  /* Brand roles — dark */
+  --narwi-bg: #0D1124;          /* night */
+  --narwi-surface: #151A30;
+  --narwi-text: #ECE9E1;
+  --narwi-muted: #A0A4B5;
+  --narwi-line: #262B44;
+  --narwi-primary: #8DA6F2;     /* lapis, lifted for night */
+  --narwi-on-primary: #0D1124;
+  --narwi-accent: #EE7B66;      /* red ink, lifted for night */
+  --narwi-accent-soft: #3A2230;
+  --narwi-deco: #D9AE4F;
+
+  --background: 13 17 36;
+  --foreground: 236 233 225;
+  --card: 21 26 48;
+  --card-foreground: 236 233 225;
+  --popover: 21 26 48;
+  --popover-foreground: 236 233 225;
+  --primary: 141 166 242;
+  --primary-foreground: 13 17 36;
+  --secondary: 13 17 36;
+  --secondary-foreground: 236 233 225;
+  --muted: 13 17 36;
+  --muted-foreground: 160 164 181;
+  --accent: 58 34 48;
+  --accent-foreground: 236 233 225;
+  --destructive: 238 123 102;
+  --destructive-foreground: 13 17 36;
+  --border: 38 43 68;
+  --input: 38 43 68;
+  --ring: 141 166 242;
+
+  --red-ink: 238 123 102;
+  --highlight: 58 34 48;
+  --ornament: 217 174 79;
+}
