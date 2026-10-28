@@ -1,70 +1,9 @@
+/* Narwi colour tokens, light + dark (synced from ../brand by `npm run brand:sync`) */
+@import "./brand/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer base {
-  :root {
-    --background: 40 36% 95%;
-    --foreground: 36 10% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 36 10% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 36 10% 10%;
-
-    --primary: 20.5 77% 31%;
-    --primary-foreground: 40 36% 95%;
-
-    --secondary: 40 32% 91%;
-    --secondary-foreground: 36 10% 10%;
-
-    --muted: 40 32% 91%;
-    --muted-foreground: 36 8% 39%;
-
-    --accent: 40 32% 91%;
-    --accent-foreground: 36 10% 10%;
-
-    --destructive: 6.3 67% 36.5%;
-    --destructive-foreground: 40 36% 95%;
-
-    --border: 39 24% 86%;
-    --input: 39 24% 86%;
-    --ring: 20.5 77% 31%;
-
-    --radius: 0.375rem;
-  }
-
-  .dark {
-    --background: 43 19% 7%;
-    --foreground: 41 30% 89%;
-
-    --card: 37.5 15% 10%;
-    --card-foreground: 41 30% 89%;
-
-    --popover: 37.5 15% 10%;
-    --popover-foreground: 41 30% 89%;
-
-    --primary: 22 56% 58%;
-    --primary-foreground: 43 19% 7%;
-
-    --secondary: 38 17% 13%;
-    --secondary-foreground: 41 30% 89%;
-
-    --muted: 38 17% 13%;
-    --muted-foreground: 37 10% 60%;
-
-    --accent: 38 17% 13%;
-    --accent-foreground: 41 30% 89%;
-
-    --destructive: 6 65% 65.5%;
-    --destructive-foreground: 43 19% 7%;
-
-    --border: 38 14% 16%;
-    --input: 38 14% 16%;
-    --ring: 22 56% 58%;
-  }
-}
 
 @layer base {
   * {
@@ -79,8 +18,8 @@
     @apply font-serif tracking-tight;
   }
   :lang(ar) {
-    --font-ar-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif;
-    --font-ar-serif: "Amiri", "Newsreader", Georgia, serif;
+    --font-ar-sans: "Readex Pro", system-ui, sans-serif;
+    --font-ar-serif: "Amiri", "Fraunces", Georgia, serif;
   }
   :lang(ar) body {
     font-family: var(--font-ar-sans);

@@ -67,7 +67,7 @@ const Settings = () => {
   return (
     <ContentLayout
       title="Settings"
-      description="Customize your ReadAI experience"
+      description="Customize your Narwi experience"
     >
       <div className="space-y-8 max-w-4xl">
         {/* Reading Preferences */}

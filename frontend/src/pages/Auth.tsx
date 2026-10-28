@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export const AuthPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -92,9 +93,8 @@ export const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-none">
         <CardHeader className="space-y-4">
-          <div className="flex items-center justify-center gap-2">
-            <BookOpen className="w-6 h-6 text-primary" />
-            <span className="font-serif text-2xl font-semibold tracking-tight text-foreground">ReadAI</span>
+          <div className="flex items-center justify-center">
+            <BrandLogo className="h-10" />
           </div>
           <div className="text-center">
             <CardTitle className="font-serif text-2xl">Welcome</CardTitle>

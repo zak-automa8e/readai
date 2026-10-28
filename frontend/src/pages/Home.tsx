@@ -49,7 +49,7 @@ const Home = () => {
             <h1 className="text-4xl lg:text-6xl font-light text-foreground">
               Welcome to{" "}
               <span className="text-primary font-semibold">
-                ReadAI
+                Narwi
               </span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
