@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Sparkles, StickyNote } from "lucide-react";
 import { useNotes } from "@/contexts/NotesContext";
@@ -19,19 +19,36 @@ const HALF_WIDTH_PX = 110;
  * shown on the AI pane's Explain tab) or Save as note. A fixed overlay, portalled to <body>.
  * On mobile the same actions sit in a bottom sheet instead of floating over the text.
  */
-export const SelectionPopover = () => {
+export const SelectionPopover = ({
+  containerRef,
+  scrollRef,
+  textSelector,
+  pageOf,
+  clearOnPageChange = true,
+}: {
+  /** Defaults to the PDF page; the text view passes its own container and text spans. */
+  containerRef?: RefObject<HTMLElement>;
+  scrollRef?: RefObject<HTMLElement>;
+  textSelector?: string;
+  pageOf?: (element: Element) => number | null;
+  /** The text view keeps its selection when playback turns the page under it. */
+  clearOnPageChange?: boolean;
+} = {}) => {
   const { book, pageRef, canvasRef, pageNumber, panes } = useReadingRoom();
   const { explain } = useAssistant();
   const { createNote } = useNotes();
   const { isMobile } = useUI();
   const popoverRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
+  const paneRef = scrollRef ?? canvasRef;
   const { selection, clear } = useTextSelection({
-    pageRef,
-    scrollRef: canvasRef,
+    pageRef: containerRef ?? pageRef,
+    scrollRef: paneRef,
     keepRef: popoverRef,
-    pageNumber,
+    pageNumber: clearOnPageChange ? pageNumber : 0,
     settleOnSelectionChange: isMobile,
+    textSelector,
+    pageOf,
   });
 
   if (!selection) return null;
@@ -94,7 +111,7 @@ export const SelectionPopover = () => {
   }
 
   // Hide (but keep) the selection while it is scrolled out of the canvas pane
-  const pane = canvasRef.current?.getBoundingClientRect();
+  const pane = paneRef.current?.getBoundingClientRect();
   const { rect } = selection;
   if (pane && (rect.bottom < pane.top || rect.top > pane.bottom)) return null;
 

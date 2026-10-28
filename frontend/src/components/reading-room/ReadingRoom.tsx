@@ -5,7 +5,7 @@ import { RoomHeader } from "./RoomHeader";
 import { LeftRail } from "./LeftRail";
 import { RailStrip } from "./RailStrip";
 import { CanvasPane } from "./CanvasPane";
-import { PageCanvas } from "./PageCanvas";
+import { CanvasViews } from "./CanvasViews";
 import { AIPane } from "./AIPane";
 import { AIStrip } from "./AIStrip";
 import { NowPlayingBar } from "./NowPlayingBar";
@@ -56,7 +56,7 @@ export const ReadingRoom = () => {
 
         <ResizablePanel id="canvas" order={2} {...PANE_SIZES.canvas} className="min-w-0 bg-background">
           <CanvasPane>
-            <PageCanvas />
+            <CanvasViews />
           </CanvasPane>
         </ResizablePanel>
 

@@ -6,7 +6,7 @@ import { useReadingRoom } from "./ReadingRoomContext";
 import { RoomHeader } from "./RoomHeader";
 import { LeftRail } from "./LeftRail";
 import { CanvasPane } from "./CanvasPane";
-import { PageCanvas } from "./PageCanvas";
+import { CanvasViews } from "./CanvasViews";
 import { AIPane } from "./AIPane";
 import { NowPlayingBar } from "./NowPlayingBar";
 
@@ -71,7 +71,7 @@ export const MobileReadingRoom = () => {
 
       <main className="min-h-0 min-w-0 bg-background">
         <CanvasPane>
-          <PageCanvas fixedFit />
+          <CanvasViews fixedFit />
         </CanvasPane>
       </main>
 

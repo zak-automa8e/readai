@@ -35,6 +35,8 @@ export const useTextSelection = ({
   keepRef,
   pageNumber,
   settleOnSelectionChange = false,
+  textSelector = TEXT_LAYER,
+  pageOf,
 }: {
   pageRef: RefObject<HTMLElement>;
   scrollRef: RefObject<HTMLElement>;
@@ -42,6 +44,10 @@ export const useTextSelection = ({
   pageNumber: number;
   /** Also read the selection a moment after it changes (touch devices). */
   settleOnSelectionChange?: boolean;
+  /** Where selectable text lives inside pageRef (default: the PDF text layer). */
+  textSelector?: string;
+  /** The page a selected element's text comes from (default: the page on screen). */
+  pageOf?: (element: Element) => number | null;
 }) => {
   const [selection, setSelection] = useState<PageSelection | null>(null);
   const rangeRef = useRef<Range | null>(null);
@@ -61,7 +67,8 @@ export const useTextSelection = ({
     const anchor = elementOf(current.anchorNode);
     const focus = elementOf(current.focusNode);
     if (!anchor || !focus || !page.contains(anchor) || !page.contains(focus)) return null;
-    if (!anchor.closest(TEXT_LAYER) && !focus.closest(TEXT_LAYER)) return null;
+    const start = anchor.closest(textSelector);
+    if (!start && !focus.closest(textSelector)) return null;
 
     const text = normalise(current.toString());
     if (!text) return null;
@@ -69,15 +76,19 @@ export const useTextSelection = ({
     const range = current.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     if (rect.width === 0 && rect.height === 0) return null;
-    return { range, text, rect };
-  }, [pageRef]);
+    return { range, text, rect, start: start ?? focus.closest(textSelector) };
+  }, [pageRef, textSelector]);
+
+  const pageOfRef = useRef(pageOf);
+  pageOfRef.current = pageOf;
 
   useEffect(() => {
     const update = () => {
       const found = read();
       if (!found) return;
       rangeRef.current = found.range;
-      setSelection({ text: found.text, pageNumber: pageNumberRef.current, rect: found.rect });
+      const page = (found.start && pageOfRef.current?.(found.start)) || pageNumberRef.current;
+      setSelection({ text: found.text, pageNumber: page, rect: found.rect });
     };
     // Let the browser settle the selection (a plain click collapses it after mouseup)
     const onPointerUp = () => window.setTimeout(update, 0);

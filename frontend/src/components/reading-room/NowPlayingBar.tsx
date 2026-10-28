@@ -11,6 +11,8 @@ import {
   Play,
   Repeat,
   RotateCcw,
+  SkipBack,
+  SkipForward,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -112,6 +114,9 @@ const PageJump = ({
  */
 export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
   const { pageNumber, numPages, goToPage, fitMode, setFitMode, zoomScale, setZoomScale, roomRef } = useReadingRoom();
+  const playback = usePlayback();
+  // The segment player steps by paragraph and has no auto-play or redo-page
+  const segmentPlayer = playback.kind === "segments" ? playback : null;
   const {
     isPlaying,
     isReading,
@@ -127,7 +132,8 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
     handleNextPage,
     redoPage,
     handleSeek,
-  } = usePlayback();
+  } = playback;
+  const preparingLabel = segmentPlayer?.status === "waiting-text" ? "Waiting for this page's text" : "Preparing the audio";
   const isFullscreen = useIsFullscreen();
 
   const toggleFullscreen = () => {
@@ -164,8 +170,8 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
           {isPrefetching && (
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"
-              title="Preparing next page"
-              aria-label="Preparing next page"
+              title={segmentPlayer ? "Preparing the next paragraph" : "Preparing next page"}
+              aria-label={segmentPlayer ? "Preparing the next paragraph" : "Preparing next page"}
             />
           )}
         </span>
@@ -185,13 +191,27 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
 
       {/* Playback */}
       <div className="flex shrink-0 items-center gap-1">
+        {segmentPlayer && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => segmentPlayer.skipParagraph(-1)}
+            disabled={segmentPlayer.currentSeq === null || isReading}
+            aria-label="Previous paragraph"
+            title="Previous paragraph"
+          >
+            <SkipBack className="h-4 w-4 rtl:rotate-180" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
           className="h-9 w-9"
           onClick={() => handleReadPage(false)}
-          disabled={isReading || isLoadingPersonas}
-          aria-label={isPlaying ? "Pause" : "Play"}
+          disabled={isReading || isLoadingPersonas || playback.player === "pending"}
+          aria-label={isReading ? preparingLabel : isPlaying ? "Pause" : "Play"}
+          title={isReading ? preparingLabel : undefined}
         >
           {isReading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -201,27 +221,48 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
             <Play className="h-4 w-4" />
           )}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-8 w-8 ${autoPlayEnabled ? "bg-muted text-primary" : ""}`}
-          onClick={() => setAutoPlayEnabled(!autoPlayEnabled)}
-          aria-pressed={autoPlayEnabled}
-          title={autoPlayEnabled ? "Disable auto-play" : "Enable auto-play"}
-        >
-          <Repeat className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={redoPage}
-          disabled={isReading || isLoadingPersonas}
-          aria-label="Redo this page"
-          title="Redo this page: extract the text and generate the audio again"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+        {segmentPlayer ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => segmentPlayer.skipParagraph(1)}
+            disabled={segmentPlayer.currentSeq === null || isReading}
+            aria-label="Next paragraph"
+            title="Next paragraph"
+          >
+            <SkipForward className="h-4 w-4 rtl:rotate-180" />
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${autoPlayEnabled ? "bg-muted text-primary" : ""}`}
+              onClick={() => setAutoPlayEnabled(!autoPlayEnabled)}
+              aria-pressed={autoPlayEnabled}
+              title={autoPlayEnabled ? "Disable auto-play" : "Enable auto-play"}
+            >
+              <Repeat className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={redoPage}
+              disabled={isReading || isLoadingPersonas}
+              aria-label="Redo this page"
+              title="Redo this page: extract the text and generate the audio again"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        {segmentPlayer?.status === "limit" && (
+          <span className="ms-1 whitespace-nowrap text-xs text-destructive" role="status">
+            Daily limit reached
+          </span>
+        )}
         <div className="ms-1">
           <VoiceSelect />
         </div>

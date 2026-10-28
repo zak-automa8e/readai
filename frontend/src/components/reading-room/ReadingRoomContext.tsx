@@ -5,6 +5,9 @@ import { useBooks, type Book } from "@/contexts/BooksContext";
 import { useVoiceChoice } from "./hooks/useVoiceChoice";
 import { usePdfDocument } from "./hooks/usePdfDocument";
 import { usePageAudio } from "./hooks/usePageAudio";
+import { useSegmentPlayback } from "./hooks/useSegmentPlayback";
+import { useBookProcessing, type PlayerKind } from "./hooks/useBookProcessing";
+import type { ProcessingStatus } from "@/types/segments";
 import { usePaneLayout, type PaneLayout } from "./hooks/usePaneLayout";
 import { useViewPrefs } from "./hooks/usePageFit";
 import { copyCanvas, renderPageToCanvas } from "./pageCapture";
@@ -38,7 +41,11 @@ interface ReadingRoomValue {
   panes: PaneLayout;
 }
 
-type PlaybackValue = ReturnType<typeof usePageAudio> & ReturnType<typeof useVoiceChoice>;
+type PagePlayback = ReturnType<typeof usePageAudio> & { kind: "legacy" };
+type SegmentPlayback = ReturnType<typeof useSegmentPlayback>;
+/** Either player, plus the voice choice; `kind` tells the segment player's extras apart. */
+type PlaybackValue = (PagePlayback | SegmentPlayback) &
+  ReturnType<typeof useVoiceChoice> & { player: PlayerKind; processing: ProcessingStatus | null };
 
 const ReadingRoomContext = createContext<ReadingRoomValue | undefined>(undefined);
 const PlaybackContext = createContext<PlaybackValue | undefined>(undefined);
@@ -95,7 +102,10 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
     return pageCanvasRef.current ? copyCanvas(pageCanvasRef.current) : null;
   };
 
-  const audio = usePageAudio({
+  const { processing, player } = useBookProcessing(currentBook);
+
+  // The page player stays mounted but does nothing until its play is pressed (Read-mode books)
+  const pageAudio = usePageAudio({
     currentBook,
     pageNumber,
     setPageNumber,
@@ -107,7 +117,22 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
     capturePage,
   });
 
-  const { prefetchPageRef, prefetchPageNumber } = audio;
+  const segmentAudio = useSegmentPlayback({
+    enabled: player === "segments",
+    book: currentBook,
+    pageNumber,
+    setPageNumber,
+    numPages,
+    activePersonaId: voice.activePersonaId,
+    processing,
+  });
+
+  // Until the first status answer the (inert) segment player is shown, so play cannot start the
+  // page player's OCR path on a Listen-mode book
+  const audio: PagePlayback | SegmentPlayback = player === "legacy" ? { ...pageAudio, kind: "legacy" } : segmentAudio;
+
+  const { prefetchPageRef } = pageAudio;
+  const prefetchPageNumber = player === "legacy" ? pageAudio.prefetchPageNumber : null;
 
   // Stable wrapper so page-jump callers (the counter, later the rail) don't re-render with playback
   const goToPageRef = useRef(audio.goToPage);
@@ -159,7 +184,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   );
 
   // Playback changes several times a second while audio plays; only the now-playing bar reads it.
-  const playback: PlaybackValue = { ...audio, ...voice };
+  const playback: PlaybackValue = { ...audio, ...voice, player, processing };
 
   // Don't render anything if no book (useEffect above will handle redirect)
   if (!room) {
