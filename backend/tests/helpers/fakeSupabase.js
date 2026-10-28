@@ -208,6 +208,9 @@ function createFakeSupabase() {
       state.subscriptions.set(userId, { user_id: userId, plan_id: planId, status: 'active', ends_at: null, ...extra });
     },
 
+    getSegmentsByIds: jest.fn(async (extractionId, ids) => fake.segmentsOf(extractionId)
+      .filter((s) => ids.includes(s.id))
+      .map((s) => ({ id: s.id, seq: s.seq, text_sha256: s.text_sha256 }))),
     getSegmentById: jest.fn(async (id) => {
       const row = state.segments.find((s) => s.id === id);
       return row ? { ...row } : null;

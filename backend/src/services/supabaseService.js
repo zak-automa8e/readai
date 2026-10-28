@@ -1056,6 +1056,19 @@ class SupabaseService {
 
   // ---- Audio pipeline: segment audio, listening window, plans and daily usage (spec §3, §5.3, O12) ----
 
+  // Segments of one extraction by id, in seq order (ids from another extraction are left out)
+  async getSegmentsByIds(extractionId, segmentIds) {
+    if (!segmentIds.length) return [];
+    const { data, error } = await this.adminClient
+      .from('segments')
+      .select('id, seq, text_sha256')
+      .eq('extraction_id', extractionId)
+      .in('id', segmentIds)
+      .order('seq', { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
   async getSegmentById(segmentId) {
     const { data, error } = await this.adminClient
       .from('segments')

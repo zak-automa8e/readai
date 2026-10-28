@@ -224,7 +224,8 @@ without ownership, a clip only needs text hash × voice hash.
 | `GET /api/books/:id/processing` | — | `{ status, pagesTotal, pagesDone, pagesFailed, finalizedThroughPage, mode: 'legacy'|'segments' }` | `mode='segments'` once `finalizedThroughPage ≥ 1`. Client polls every 3 s while `running`. |
 | `GET /api/books/:id/segments?fromPage=&limit=` | — | `{ extractionId, segments: [{ id, seq, role, startPage, endPage, parts, text, sentenceOffsets, charCount, status }] }` | Text for the text view + highlight; no audio URLs here. |
 | `POST /api/books/:id/listen` | `{ fromSeq, voicePersonaId?, windowSeconds? }` | `{ voiceKey, estimatedSeconds, reserved: bool, balanceSeconds, items: [{ segmentId, seq, status: 'ready'|'pending'|'failed', audioUrl?, durationSeconds? }] }` | Plans the window (§5.3), reserves credits, enqueues `tts_segment` jobs. Returns `402 { code:'INSUFFICIENT_CREDITS', balanceSeconds, items }` with whatever is already cached when balance < one segment. |
-| `GET /api/segments/:id/audio?voicePersonaId=` | — | `{ status, audioUrl?, durationSeconds?, cached: bool }` | Cache-only lookup + bump `use_count/last_used_at`; never generates. Client polls this for `pending` items (2 s). |
+| `GET /api/segments/:id/audio?voicePersonaId=` | — | `{ status, audioUrl?, durationSeconds?, cached: bool }` | Cache-only lookup + bump `use_count/last_used_at`; never generates. Fetched once per clip when it is ready — no polling (story 7a). |
+| `POST /api/books/:id/listen/wait` | `{ segmentIds (≤ 50), voiceKey, timeoutSeconds? }` | `{ voiceKey, items: [{ segmentId, seq, status: 'ready'\|'pending'\|'failed'\|'missing', durationSeconds? }], timedOut }` | Story 7a. Held until any listed clip is no longer `pending`, or 25 s. Statuses only, never counts. `failed`/`missing` → the player calls `/listen` again. |
 | `POST /api/books/:id/progress` | `{ seq, positionSeconds, listenedSecondsDelta }` | `{ ok, sessionListenedSeconds }` | Extends today's `updateProgress`; feeds the chapter-ahead trigger and `user_books.last_read_page`. |
 | `GET /api/credits` | — | `{ balanceSeconds, reservedSeconds, ledger: last 20 }` | |
 
@@ -366,6 +367,10 @@ Acceptance (running app, processed book from story 4, owner's persona + base voi
 Files: `backend/src/services/audio/windowService.js` (`lastWindowPage`, page-based `planWindow`), config `audio.pagesAhead = 1` (replaces `windowSeconds`/`min`/`max`), `segmentsController.listen` (drops `windowSeconds`), tests.
 
 Acceptance: `/listen` prepares the rest of the current page plus the next read page (skipped pages passed over); a segment starting on the last window page is taken whole, so a paragraph cut by the next page break is one clip; an open segment inside the window stops it with `processing`; the allowance cap and count-on-delivery rule are unchanged; no chapter-ahead jobs. Live check 2026-10-20: `fromSeq` 66 (page 18) planned 66–69 (69 = pages 19→20) and stopped at 70 with `window`.
+
+### Story 7a — Request limits for listening (S) · **Opus** · 2026-10-28
+
+The production limit (100 requests / 15 min per IP, all of `/api`) ran out in ~3 minutes with 2-s clip polling, and is shared by everyone on one IP. Owner chose: wait-for-ready + per-user limit. `POST /listen/wait` replaces polling; the playback routes (`processing`, `segments`, `listen`, `listen/wait`, `segments/:id/audio`, `plan`) leave the general limiter for their own budget per signed-in user (`PLAYBACK_RATE_LIMIT_MAX`, default 600 / 15 min) behind a per-IP flood guard (`PLAYBACK_IP_RATE_LIMIT_MAX`, 3000). Player contract for story 7: after `/listen`, send the pending ids to `/listen/wait` in a loop; fetch `/segments/:id/audio` only for clips reported ready.
 
 ### Story 7 — Frontend: segment playback, text view, highlight, page flip (L) · **Opus** for `useSegmentPlayback`; **Sonnet** for `ExtractedTextView` + bar changes
 

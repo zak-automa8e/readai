@@ -149,6 +149,67 @@ describe('GET /api/segments/:segmentId/audio', () => {
   });
 });
 
+describe('POST /api/books/:bookId/listen/wait', () => {
+  const config = require('../../src/config');
+  const plainHash = async () => (await segmentAudio.resolveListenerVoice('user-1', {})).hash;
+  const wait = (body, user = 'user-1') => request(app).post(`/api/books/${BOOK}/listen/wait`).set('x-test-user', user).send(body);
+  const row = (seq, voiceHash, status) => {
+    const s = db.state.segments.find((x) => x.seq === seq);
+    const r = { text_sha256: s.text_sha256, voice_snapshot_sha256: voiceHash, status, duration_seconds: status === 'ready' ? '29.97' : null };
+    db.state.segmentAudio.push(r);
+    return r;
+  };
+
+  beforeAll(() => { config.audio.clipWaitPollMs = 10; });
+
+  it('answers at once when a listed clip is already ready, with statuses only', async () => {
+    const voiceKey = await plainHash();
+    row(1, voiceKey, 'ready');
+    row(2, voiceKey, 'pending');
+
+    const res = await wait({ segmentIds: [segId(1), segId(2)], voiceKey });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ voiceKey, timedOut: false, items: [
+      { segmentId: segId(1), seq: 1, status: 'ready', durationSeconds: 29.97 },
+      { segmentId: segId(2), seq: 2, status: 'pending' },
+    ] });
+    expect(db.recordPageListen).not.toHaveBeenCalled();
+  });
+
+  it('holds the request while every clip is pending and answers as soon as one turns ready', async () => {
+    const voiceKey = await plainHash();
+    const r = row(1, voiceKey, 'pending');
+    setTimeout(() => Object.assign(r, { status: 'ready', duration_seconds: '12.5' }), 80);
+
+    const started = Date.now();
+    const res = await wait({ segmentIds: [segId(1)], voiceKey });
+
+    expect(Date.now() - started).toBeGreaterThanOrEqual(70);
+    expect(res.body).toMatchObject({ timedOut: false, items: [{ seq: 1, status: 'ready', durationSeconds: 12.5 }] });
+  });
+
+  it('times out with the pending statuses; failed and never-queued clips answer at once', async () => {
+    const voiceKey = await plainHash();
+    row(1, voiceKey, 'pending');
+    expect((await wait({ segmentIds: [segId(1)], voiceKey, timeoutSeconds: 0.05 })).body).toMatchObject({ timedOut: true, items: [{ status: 'pending' }] });
+
+    row(2, voiceKey, 'failed');
+    expect((await wait({ segmentIds: [segId(1), segId(2)], voiceKey })).body.items.map((i) => i.status)).toEqual(['pending', 'failed']);
+    expect((await wait({ segmentIds: [segId(3)], voiceKey })).body.items[0].status).toBe('missing');
+  });
+
+  it('rejects bad input, a stranger and segments of another book', async () => {
+    const voiceKey = await plainHash();
+    expect((await wait({ segmentIds: [], voiceKey })).status).toBe(400);
+    expect((await wait({ segmentIds: ['not-a-uuid'], voiceKey })).status).toBe(400);
+    expect((await wait({ segmentIds: Array.from({ length: 51 }, (_, i) => segId(i + 1)), voiceKey })).status).toBe(400);
+    expect((await wait({ segmentIds: [segId(1)], voiceKey: 'abc' })).status).toBe(400);
+    expect((await wait({ segmentIds: [segId(1)], voiceKey }, 'stranger')).status).toBe(403);
+    expect((await wait({ segmentIds: [segId(99)], voiceKey })).status).toBe(404);
+  });
+});
+
 describe('GET /api/plan', () => {
   it('reads the plan without counting anything', async () => {
     db.subscribe('user-1', 'basic');

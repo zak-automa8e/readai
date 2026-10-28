@@ -52,6 +52,10 @@ const config = {
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
   // Local development shares one IP across the app, tests and tooling, so it gets more headroom
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 100 : 1000),
+  // Listening calls have their own allowance per signed-in user (listening ≈ 6 calls a minute),
+  // behind a high per-IP flood guard, so people sharing one IP do not share one budget
+  playbackRateLimitMax: parseInt(process.env.PLAYBACK_RATE_LIMIT_MAX, 10) || 600,
+  playbackIpRateLimitMax: parseInt(process.env.PLAYBACK_IP_RATE_LIMIT_MAX, 10) || 3000,
   
   // Retry configuration
   maxRetries: parseInt(process.env.MAX_RETRIES, 10) || 3,
@@ -134,6 +138,10 @@ const config = {
     // woken when extraction closes paragraphs, re-checked on this interval, given up after the max wait
     followupPollMs: 30000,
     followupMaxWaitMs: 10 * 60 * 1000,
+    // POST /listen/wait holds a request this long at most, checking the clip cache on this interval
+    clipWaitMaxSeconds: 25,
+    clipWaitPollMs: 1000,
+    clipWaitMaxSegments: 50,
     // Seconds of audio per spoken character (bake-off F4: 99.9 s per 1 000 chars)
     secondsPerChar: 0.0999,
   },

@@ -4,6 +4,7 @@ const segmentAudioService = require('../services/audio/segmentAudioService');
 const windowService = require('../services/audio/windowService');
 const jobRunner = require('../services/jobs/jobRunner');
 const logger = require('../utils/logger');
+const config = require('../config');
 
 const DEFAULT_LIMIT = 200;
 const MAX_LIMIT = 500;
@@ -97,6 +98,53 @@ const segmentsController = {
     } catch (error) {
       logger.error('Error in listen:', error);
       return res.status(500).json({ error: 'LISTEN_FAILED', message: 'Failed to prepare the audio.' });
+    }
+  },
+
+  /**
+   * POST /api/books/:bookId/listen/wait { segmentIds, voiceKey, timeoutSeconds? }
+   * Holds the request until any listed clip is no longer pending, or up to 25 s. The player sends
+   * the clips it is waiting on (voiceKey from /listen) instead of polling each one.
+   * Returns { voiceKey, items: [{ segmentId, seq, status, durationSeconds? }], timedOut }.
+   */
+  async waitForClips(req, res) {
+    try {
+      const userId = req.user.id;
+      const { bookId } = req.params;
+      const { clipWaitMaxSeconds, clipWaitMaxSegments } = config.audio;
+      const segmentIds = req.body?.segmentIds;
+      const voiceKey = req.body?.voiceKey;
+      if (!Array.isArray(segmentIds) || !segmentIds.length || segmentIds.length > clipWaitMaxSegments
+        || !segmentIds.every((id) => typeof id === 'string' && UUID_PATTERN.test(id))) {
+        return res.status(400).json({ error: 'INVALID_SEGMENT_IDS', message: `segmentIds must be 1 to ${clipWaitMaxSegments} segment ids.` });
+      }
+      if (typeof voiceKey !== 'string' || !/^[0-9a-f]{64}$/.test(voiceKey)) {
+        return res.status(400).json({ error: 'INVALID_VOICE_KEY', message: 'voiceKey must be the voiceKey returned by /listen.' });
+      }
+
+      const hasAccess = await supabaseService.ensureUserHasBookAccess(userId, bookId);
+      if (!hasAccess) return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied to this book' });
+      const book = await supabaseService.getBookById(bookId);
+      if (book.mode !== 'listen') return notInListenMode(res);
+      const extraction = await extractionService.findLiveExtraction(book.content_sha256);
+      if (!extraction) {
+        return res.status(409).json({ error: 'BOOK_NOT_PROCESSED', message: 'This book has not been prepared for listening yet.' });
+      }
+      const segments = await supabaseService.getSegmentsByIds(extraction.id, [...new Set(segmentIds)]);
+      if (!segments.length) return res.status(404).json({ error: 'SEGMENT_NOT_FOUND', message: 'None of these segments belong to this book.' });
+
+      const seconds = Number(req.body?.timeoutSeconds);
+      const timeoutSeconds = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, clipWaitMaxSeconds) : clipWaitMaxSeconds;
+      let aborted = false;
+      // The response closing before we answered = the player went away (req 'close' fires once the body is read)
+      res.on('close', () => { if (!res.writableEnded) aborted = true; });
+
+      const result = await windowService.waitForClips({ segments, voiceHash: voiceKey, timeoutMs: timeoutSeconds * 1000, isAborted: () => aborted });
+      if (aborted) return undefined;
+      return res.json({ voiceKey, ...result });
+    } catch (error) {
+      logger.error('Error in waitForClips:', error);
+      return res.status(500).json({ error: 'WAIT_FAILED', message: 'Failed to check the audio.' });
     }
   },
 

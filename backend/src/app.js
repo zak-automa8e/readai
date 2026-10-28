@@ -6,6 +6,7 @@ const config = require('./config');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const corsMiddleware = require('./middleware/corsMiddleware');
+const { isPlaybackPath, playbackIpLimiter } = require('./middleware/playbackRateLimit');
 const logger = require('./utils/logger');
 
 // Initialize Express app
@@ -26,12 +27,15 @@ const limiter = rateLimit({
   max: config.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  // Listening calls have their own limits (playbackRateLimit.js)
+  skip: (req) => isPlaybackPath(req.path),
   // JSON like every other API error, so the frontend can show it instead of failing to parse
   message: { error: 'RATE_LIMITED', message: 'Too many requests from this IP, please try again later.' }
 });
 
 // Apply rate limiting to API routes
 app.use('/api', limiter);
+app.use('/api', playbackIpLimiter);
 
 // Body parsing middleware with increased limit for base64 images
 app.use(express.json({ limit: config.maxRequestSize }));

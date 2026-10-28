@@ -298,6 +298,33 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
   };
 }
 
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+/**
+ * POST /books/:id/listen/wait: hold the request until any of the listed clips is no longer pending
+ * (ready, failed, or never queued = 'missing'), or the timeout passes. Replaces client polling:
+ * one request per clip that becomes ready instead of one every 2 s. Statuses only, never counts
+ * a page; URLs still come from GET /segments/:id/audio.
+ * @param {{segments: Object[], voiceHash: string, timeoutMs: number, isAborted?: () => boolean}} args
+ * @returns {Promise<{items: Object[], timedOut: boolean}>}
+ */
+async function waitForClips({ segments, voiceHash, timeoutMs, isAborted = () => false }) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const rows = await segmentAudio.lookup(voiceHash, segments.map((s) => s.text_sha256));
+    const items = segments.map((segment) => {
+      const row = rows.get(segment.text_sha256);
+      const item = { segmentId: segment.id, seq: segment.seq, status: row ? row.status : 'missing' };
+      if (row?.status === 'ready') item.durationSeconds = Number(row.duration_seconds);
+      return item;
+    });
+    const settled = items.some((item) => item.status !== 'pending');
+    const left = deadline - Date.now();
+    if (settled || left <= 0 || isAborted()) return { items, timedOut: !settled };
+    await sleep(Math.min(config.audio.clipWaitPollMs, left));
+  }
+}
+
 function limitReached({ used, limit, plan }) {
   return {
     status: 402,
@@ -367,6 +394,7 @@ module.exports = {
   planWindow,
   queueFollowup,
   runFollowup,
+  waitForClips,
   listen,
   deliver,
 };
