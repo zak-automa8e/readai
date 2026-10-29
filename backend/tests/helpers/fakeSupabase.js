@@ -26,9 +26,9 @@ function createFakeSupabase() {
         segmentAudio: [],
         skipOverrides: [],
         plans: new Map([
-          ['free', { id: 'free', name: 'Free', daily_page_limit: 2 }],
-          ['basic', { id: 'basic', name: 'Basic', daily_page_limit: 10 }],
-          ['pro', { id: 'pro', name: 'Pro', daily_page_limit: 50 }],
+          ['free', { id: 'free', name: 'Free', daily_page_limit: 2, price_cents: 0, currency: 'usd' }],
+          ['basic', { id: 'basic', name: 'Basic', daily_page_limit: 10, price_cents: 500, currency: 'usd' }],
+          ['pro', { id: 'pro', name: 'Pro', daily_page_limit: 50, price_cents: 1500, currency: 'usd' }],
         ]),
         subscriptions: new Map(),
         dailyUsage: [],
@@ -274,6 +274,7 @@ function createFakeSupabase() {
       return sub ? { ...sub, plans: { ...state.plans.get(sub.plan_id) } } : null;
     }),
     getPlan: jest.fn(async (id) => (state.plans.has(id) ? { ...state.plans.get(id) } : null)),
+    listPlans: jest.fn(async () => [...state.plans.values()].map((plan) => ({ ...plan }))),
     getDailyPageUsage: jest.fn(async (userId, date) => state.dailyUsage
       .filter((u) => u.user_id === userId && u.usage_date === date)
       .map((u) => ({ book_id: u.book_id, page_number: u.page_number }))),

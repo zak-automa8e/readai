@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import type { Book } from "@/contexts/BooksContext";
 import { listeningService } from "@/services/listeningService";
+import { useUpdatePlanUsage } from "@/hooks/usePlan";
 import type { BookLength, DailyLimitReached, ListenItem, ListenWindow, ProcessingStatus, Segment, SegmentsPage } from "@/types/segments";
 
 /**
@@ -78,6 +79,7 @@ export const useSegmentPlayback = ({
   resumeSeq,
 }: Params) => {
   const bookId = enabled ? book?.id ?? null : null;
+  const updatePlanUsage = useUpdatePlanUsage();
 
   const [status, setStatusState] = useState<SegmentPlayerStatus>("idle");
   // The ref moves with the state at once: audio events fired right after a change read the new value
@@ -197,8 +199,9 @@ export const useSegmentPlayback = ({
     stopAudio();
     setLimit(info);
     setStatus("limit");
+    updatePlanUsage(info);
     toast({ ...LIMIT_TOAST, variant: "destructive" });
-  }, [setStatus, stopAudio]);
+  }, [setStatus, stopAudio, updatePlanUsage]);
 
   // ---------------------------------------------------------------- planning and clips
 
@@ -207,12 +210,16 @@ export const useSegmentPlayback = ({
     const cached = clipsRef.current.get(item.seq);
     if (cached) return cached;
     const result = await listeningService.getClip(bookId!, item.segmentId, personaRef.current);
-    if (!result.ok) return "limit";
+    if (result.ok === false) {
+      updatePlanUsage(result.limit);
+      return "limit";
+    }
     if (result.data.status !== "ready" || !result.data.audioUrl) return null;
+    updatePlanUsage(result.data);
     const clip = { url: result.data.audioUrl, duration: result.data.durationSeconds ?? 0 };
     clipsRef.current.set(item.seq, clip);
     return clip;
-  }, [bookId]);
+  }, [bookId, updatePlanUsage]);
 
   /** Wait (held requests, no polling) until `target` is no longer pending. */
   const waitUntilSettled = useCallback(async (target: ListenItem, plan: ListenWindow, signal: AbortSignal) => {

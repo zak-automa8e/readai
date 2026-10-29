@@ -20,6 +20,7 @@ import {
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useUI, type Lang } from "@/contexts/UIContext";
+import { PlanSection } from "@/components/settings/PlanSection";
 
 const Settings = () => {
   const { theme: activeTheme, setTheme } = useTheme();
@@ -70,6 +71,8 @@ const Settings = () => {
       description="Customize your Narwi experience"
     >
       <div className="space-y-8 max-w-4xl">
+        <PlanSection />
+
         {/* Reading Preferences */}
         <section>
           <div className="flex items-center gap-2 mb-6">

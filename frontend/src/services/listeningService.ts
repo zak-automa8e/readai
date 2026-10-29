@@ -1,4 +1,4 @@
-import type { Clip, ClipWait, DailyLimitReached, ListenWindow, ProcessingStatus, SegmentsPage } from "@/types/segments";
+import type { Clip, ClipWait, DailyLimitReached, ListenWindow, PlanUsage, ProcessingStatus, SegmentsPage } from "@/types/segments";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -88,6 +88,9 @@ export const listeningService = {
     if (voicePersonaId) query.set("voicePersonaId", voicePersonaId);
     return limited<Clip>(`/segments/${segmentId}/audio?${query}`);
   },
+
+  /** The plan and today's count; reading it counts nothing. */
+  getPlan: () => request<PlanUsage>("/plan"),
 
   saveReadingPosition: (bookId: string, lastReadPage: number) =>
     request<unknown>(`/books/${bookId}/progress`, {

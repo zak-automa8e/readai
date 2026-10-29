@@ -80,11 +80,27 @@ export interface ClipWait {
   timedOut: boolean;
 }
 
-export interface Clip {
+/** A ready clip also carries today's count after its pages were counted. */
+export interface Clip extends Partial<PlanQuota> {
   status: ClipStatus;
   audioUrl?: string;
   durationSeconds?: number;
   voiceKey: string;
+}
+
+export interface PlanSummary {
+  id: string;
+  name: string;
+  dailyPageLimit: number;
+  priceCents: number;
+  currency: string;
+}
+
+/** GET /plan: the listener's plan, today's count, when it starts over, and the plans on offer. */
+export interface PlanUsage extends PlanQuota {
+  name: string;
+  resetsAt: string;
+  plans: PlanSummary[];
 }
 
 /** 402 from /listen or /segments/:id/audio: today's page allowance is used up. */

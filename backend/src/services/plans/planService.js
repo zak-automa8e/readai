@@ -14,6 +14,11 @@ function todayUtc(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
+// When today's count starts over: the next UTC midnight
+function nextResetUtc(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+}
+
 function activePlanOf(subscription, now = new Date()) {
   if (!subscription || subscription.status !== 'active' || !subscription.plans) return null;
   if (subscription.ends_at && Date.parse(subscription.ends_at) <= now.getTime()) return null;
@@ -66,4 +71,4 @@ async function recordPageListens(userId, bookId, pages) {
   return { allowed: true, used: last?.used ?? null, limit: last?.limit ?? null, plan: last?.plan ?? null, counted };
 }
 
-module.exports = { FREE_PLAN_ID, todayUtc, activePlanOf, getPlanUsage, recordPageListens };
+module.exports = { FREE_PLAN_ID, todayUtc, nextResetUtc, activePlanOf, getPlanUsage, recordPageListens };

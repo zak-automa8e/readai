@@ -23,6 +23,7 @@ import { usePlayback, useReadingRoom } from "./ReadingRoomContext";
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "./hooks/usePageFit";
 import { BookProgressBar, formatTime } from "./BookProgressBar";
 import { VolumeControl } from "./VolumeControl";
+import { DailyPagesChip } from "./DailyPagesChip";
 
 
 const Divider = () => <div className="h-6 w-px shrink-0 bg-border" aria-hidden="true" />;
@@ -252,14 +253,14 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
             </Button>
           </>
         )}
-        {segmentPlayer?.status === "limit" && (
-          <span className="ms-1 whitespace-nowrap text-xs text-destructive" role="status">
-            Daily limit reached
-          </span>
-        )}
         <div className="ms-1">
           <VoiceSelect />
         </div>
+        {segmentPlayer && (
+          <div className="ms-1">
+            <DailyPagesChip limitReached={segmentPlayer.status === "limit"} />
+          </div>
+        )}
       </div>
 
       {!compact && <Divider />}

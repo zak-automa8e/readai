@@ -112,7 +112,7 @@ describe('GET /api/segments/:segmentId/audio', () => {
     expect(db.state.dailyUsage.map((u) => [u.book_id, u.page_number])).toEqual([[BOOK, 1], [BOOK, 2]]);
 
     const plan = await request(app).get('/api/plan');
-    expect(plan.body).toEqual({ plan: 'free', name: 'Free', limit: 2, usedToday: 2, remainingToday: 0 });
+    expect(plan.body).toMatchObject({ plan: 'free', name: 'Free', limit: 2, usedToday: 2, remainingToday: 0 });
   });
 
   it('looks the clip up in the requested voice', async () => {
@@ -214,7 +214,18 @@ describe('GET /api/plan', () => {
   it('reads the plan without counting anything', async () => {
     db.subscribe('user-1', 'basic');
     const res = await request(app).get('/api/plan');
-    expect(res.body).toEqual({ plan: 'basic', name: 'Basic', limit: 10, usedToday: 0, remainingToday: 10 });
+    expect(res.body).toMatchObject({ plan: 'basic', name: 'Basic', limit: 10, usedToday: 0, remainingToday: 10 });
     expect(db.recordPageListen).not.toHaveBeenCalled();
+  });
+
+  it('lists the plans on offer and when the count resets (next UTC midnight)', async () => {
+    const res = await request(app).get('/api/plan');
+    expect(res.body.plans.map((p) => [p.id, p.dailyPageLimit, p.priceCents])).toEqual([
+      ['free', 2, 0], ['basic', 10, 500], ['pro', 50, 1500],
+    ]);
+    const reset = new Date(res.body.resetsAt);
+    expect(reset.toISOString().slice(11)).toBe('00:00:00.000Z');
+    expect(reset.getTime() - Date.now()).toBeGreaterThan(0);
+    expect(reset.getTime() - Date.now()).toBeLessThanOrEqual(24 * 3600 * 1000);
   });
 });

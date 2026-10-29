@@ -1274,6 +1274,17 @@ class SupabaseService {
     return data;
   }
 
+  // Plans on offer, cheapest first (Settings lists them)
+  async listPlans() {
+    const { data, error } = await this.adminClient
+      .from('plans')
+      .select('id, name, daily_page_limit, price_cents, currency')
+      .eq('active', true)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
   // Pages counted toward the user's limit on one UTC day (every book)
   async getDailyPageUsage(userId, usageDate) {
     return this.selectAll(() => this.adminClient
