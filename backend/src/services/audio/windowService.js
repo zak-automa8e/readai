@@ -216,7 +216,9 @@ function toItem(segment, row) {
 
 /**
  * POST /books/:id/listen: plan the window and prepare its audio.
- * @param {{userId: string, book: Object, extraction: Object, fromSeq: number, voice: {snapshot, hash}}} args
+ * fromSeq null = the listener's page has no text yet: nothing is planned, the answer is 'processing'
+ * (or 'end' past the last page) and the caller asks again once text lands.
+ * @param {{userId: string, book: Object, extraction: Object, fromSeq: number|null, voice: {snapshot, hash}}} args
  * @returns {Promise<{status: 200|402, body: Object, enqueued: boolean}>}
  */
 async function listen({ userId, book, extraction, fromSeq, voice }) {
@@ -230,7 +232,9 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
     remaining: usage.remainingToday,
     pagesAhead: config.audio.pagesAhead,
   };
-  const plan = await planFromStore(extraction, fromSeq, options);
+  const plan = fromSeq === null
+    ? { items: [], skippedSeqs: [], estimatedSeconds: 0, newPages: [], stopReason: extraction.status === 'complete' ? 'end' : 'processing' }
+    : await planFromStore(extraction, fromSeq, options);
   const quota = { plan: usage.plan, limit: usage.limit, usedToday: usage.usedToday, remainingToday: usage.remainingToday };
 
   if (!plan.items.length && plan.stopReason === 'allowance') {
@@ -265,7 +269,7 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
     return toItem(i.segment, row?.status === 'ready' ? row : null);
   });
   const enqueued = items.some((item) => item.status !== 'ready');
-  const followup = plan.stopReason === 'processing' && extraction.status === 'running'
+  const followup = plan.stopReason === 'processing' && extraction.status === 'running' && plan.waitSeq !== undefined
     && await queueFollowup({ userId, bookId: book.id, extraction, fromSeq, voice, waitSeq: plan.waitSeq });
 
   logger.info('Listening window planned', {

@@ -72,11 +72,17 @@ export const listeningService = {
   getSegmentsAtChar: (bookId: string, atChar: number, limit = 200) =>
     request<SegmentsPage>(`/books/${bookId}/segments?atChar=${Math.max(Math.floor(atChar), 0)}&limit=${limit}`),
 
-  /** Plan from fromSeq (the rest of that page and the next) and queue its audio. */
-  listen: (bookId: string, fromSeq: number, voicePersonaId: string | null) =>
+  /**
+   * Plan from fromSeq (the rest of that page and the next ones) and queue its audio; or from
+   * fromPage when that page has no text yet. Either way the server queues the text ahead (O15).
+   */
+  listen: (bookId: string, fromSeq: number | null, voicePersonaId: string | null, fromPage?: number) =>
     limited<ListenWindow>(`/books/${bookId}/listen`, {
       method: "POST",
-      body: JSON.stringify(voicePersonaId ? { fromSeq, voicePersonaId } : { fromSeq }),
+      body: JSON.stringify({
+        ...(fromPage ? { fromPage } : { fromSeq }),
+        ...(voicePersonaId ? { voicePersonaId } : {}),
+      }),
     }),
 
   /** Held by the server until one of these clips is no longer pending (≤ 25 s). */

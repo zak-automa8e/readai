@@ -132,8 +132,9 @@ const config = {
     opusBitrateKbps: 32,
     storageBucket: 'readai-media',
     storagePrefix: 'segment-audio',
-    // Read pages prepared after the current one (O13); a later Settings choice changes this value
-    pagesAhead: 1,
+    // Read pages prepared after the current one (O13, O15): audio for these, text for one page more.
+    // A later Settings choice changes this value
+    pagesAhead: 2,
     // A window that stopped at a paragraph still being extracted is finished by a listen_followup job:
     // woken when extraction closes paragraphs, re-checked on this interval, given up after the max wait
     followupPollMs: 30000,

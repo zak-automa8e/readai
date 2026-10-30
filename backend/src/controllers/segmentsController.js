@@ -12,6 +12,29 @@ const MAX_LIMIT = 500;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const optionalString = (value) => (typeof value === 'string' && value ? value : null);
+const positiveInt = (value) => {
+  const n = parseInt(value, 10);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+};
+
+/**
+ * Where a listen request starts: fromPage → the paragraph that starts on that page (else the one
+ * running across it, else the next one); fromSeq → that paragraph's page. seq is null when the page
+ * has no text yet; page is what the text window is built around.
+ */
+async function listenStart(extraction, { fromSeq, fromPage }) {
+  if (fromPage) {
+    const rows = await supabaseService.getSegments(extraction.id, { fromPage, limit: 3 });
+    const hit = rows.find((s) => s.start_page === fromPage) || rows[0];
+    return { seq: hit ? hit.seq : null, page: fromPage };
+  }
+  const seq = fromSeq || 1;
+  const [segment] = await supabaseService.getSegmentsFromSeq(extraction.id, seq, 1);
+  if (segment) return { seq, page: segment.start_page };
+  // Past the known text: listening continues at the page after the last paragraph
+  const last = await supabaseService.getLastSegment(extraction.id);
+  return { seq, page: last ? last.end_page + 1 : 1 };
+}
 
 function notInListenMode(res) {
   return res.status(409).json({
@@ -91,7 +114,9 @@ const segmentsController = {
   },
 
   /**
-   * POST /api/books/:bookId/listen { fromSeq, voicePersonaId?, voicePersona? }
+   * POST /api/books/:bookId/listen { fromSeq | fromPage, voicePersonaId?, voicePersona? }
+   * Queues text for the pages around the start first (O15); a page with no text yet answers
+   * stopReason 'processing' with no items, and the player asks again once text lands.
    * Plans the rest of the current page and the next page from fromSeq (never past today's page
    * allowance) and prepares its audio.
    * Returns item statuses only: audio URLs come from GET /api/segments/:id/audio, which counts pages.
@@ -110,7 +135,17 @@ const segmentsController = {
         return res.status(409).json({ error: 'BOOK_NOT_PROCESSED', message: 'This book has not been prepared for listening yet.' });
       }
 
-      const fromSeq = Math.max(parseInt(req.body?.fromSeq, 10) || 1, 1);
+      const start = await listenStart(extraction, {
+        fromSeq: positiveInt(req.body?.fromSeq),
+        fromPage: positiveInt(req.body?.fromPage),
+      });
+      // O15: text is prepared only here, for the pages this listener is about to reach
+      const { extraction: current, queued } = await extractionService.ensureText({
+        extraction,
+        page: start.page,
+        ahead: config.audio.pagesAhead,
+        userId,
+      });
       const voice = await segmentAudioService.resolveListenerVoice(userId, {
         voicePersonaId: optionalString(req.body?.voicePersonaId),
         voicePersona: optionalString(req.body?.voicePersona),
@@ -118,11 +153,11 @@ const segmentsController = {
       const result = await windowService.listen({
         userId,
         book,
-        extraction,
-        fromSeq,
+        extraction: current,
+        fromSeq: start.seq,
         voice,
       });
-      if (result.enqueued) jobRunner.wake();
+      if (result.enqueued || queued.length) jobRunner.wake();
       return res.status(result.status).json(result.body);
     } catch (error) {
       logger.error('Error in listen:', error);

@@ -68,7 +68,7 @@ describe('POST /api/books/:bookId/process', () => {
     const hash = pdfSource.sha256(PDF);
     expect(db.state.books.get(BOOK).content_sha256).toBe(hash);
     expect(db.state.extractions.get(res.body.extractionId)).toMatchObject({ content_sha256: hash, source_book_id: BOOK, prompt_version: 2, model: 'test/model', started_by: 'user-1' });
-    expect(db.state.jobs[0].payload).toEqual({ phase: 'plan', fromPage: 4 });
+    expect(db.state.jobs[0].payload).toEqual({ phase: 'plan', fromPage: 4, ahead: require('../../src/config').audio.pagesAhead });
     expect(jobRunner.wake).toHaveBeenCalled();
   });
 

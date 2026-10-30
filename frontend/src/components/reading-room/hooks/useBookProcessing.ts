@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import type { Book } from "@/contexts/BooksContext";
 import { listeningService } from "@/services/listeningService";
@@ -22,7 +22,8 @@ const isRunning = (status: ProcessingStatus) => status.status === "running" || s
  * book that has none or stopped part way, and follows it while it runs: every 3 s until page 1 is
  * ready, then every 15 s so new pages' text shows up. A Read-mode book asks nothing; switching it
  * to Listen runs all of this, as an open would. `onModeKnown` reports the server's answer when it
- * differs from the library's (switched on another device).
+ * differs from the library's (switched on another device). Text is prepared a few pages at a time
+ * as the listener moves on (O15), so `follow` asks again now and every 3 s while those pages run.
  */
 export const useBookProcessing = (book: Book | null, onModeKnown: (mode: BookMode) => void) => {
   const [status, setStatus] = useState<ProcessingStatus | null>(null);
@@ -31,6 +32,8 @@ export const useBookProcessing = (book: Book | null, onModeKnown: (mode: BookMod
   const mode: BookMode = book?.mode ?? "read";
   const onModeKnownRef = useRef(onModeKnown);
   onModeKnownRef.current = onModeKnown;
+  const followRef = useRef(() => {});
+  const follow = useCallback(() => followRef.current(), []);
 
   useEffect(() => {
     if (!bookId) return;
@@ -43,11 +46,19 @@ export const useBookProcessing = (book: Book | null, onModeKnown: (mode: BookMod
     let timer = 0;
     let started = false;
     let seen = false;
+    // The player waits for pages being prepared: poll fast until the extraction stops running
+    let closely = false;
     setStatus(null);
     setPlayer("pending");
 
     const schedule = (ms: number) => {
+      window.clearTimeout(timer);
       timer = window.setTimeout(tick, ms);
+    };
+    followRef.current = () => {
+      if (cancelled) return;
+      closely = true;
+      schedule(0);
     };
 
     async function tick() {
@@ -96,15 +107,20 @@ export const useBookProcessing = (book: Book | null, onModeKnown: (mode: BookMod
 
       setStatus(current);
       setPlayer("segments");
-      if (isRunning(current)) schedule(current.mode === "segments" ? POLL_WHILE_RUNNING_MS : POLL_UNTIL_READY_MS);
+      if (!isRunning(current)) {
+        closely = false;
+        return;
+      }
+      schedule(current.mode === "segments" && !closely ? POLL_WHILE_RUNNING_MS : POLL_UNTIL_READY_MS);
     }
 
     void tick();
     return () => {
       cancelled = true;
+      followRef.current = () => {};
       window.clearTimeout(timer);
     };
   }, [bookId, mode]);
 
-  return { processing: status, player };
+  return { processing: status, player, follow };
 };

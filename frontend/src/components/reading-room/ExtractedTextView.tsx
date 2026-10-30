@@ -120,7 +120,7 @@ export const ExtractedTextView = () => {
         {preparing ? (
           <span className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Preparing this book… {processing.pagesDone} of {processing.pagesTotal ?? "?"} pages
+            Preparing the next pages…
           </span>
         ) : (
           "No text for this page yet."

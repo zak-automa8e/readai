@@ -113,6 +113,8 @@ describe('listen and deliver against the store', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // These windows are written for one page ahead; the planner takes any value
+    require('../../src/config').audio.pagesAhead = 1;
     db.reset();
     db.addBook({ id: BOOK, user_id: USER, content_sha256: 'sha-1' });
     db.addPages(BOOK, 8);

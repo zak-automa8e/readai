@@ -130,7 +130,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   const onModeKnown = (known: BookMode) => {
     if (currentBook && currentBook.mode !== known) setCurrentBook({ ...currentBook, mode: known });
   };
-  const { processing, player } = useBookProcessing(currentBook, onModeKnown);
+  const { processing, player, follow } = useBookProcessing(currentBook, onModeKnown);
   // setBookMode is recreated with every library render; the room value only changes with the book
   const setBookModeRef = useRef(setBookMode);
   setBookModeRef.current = setBookMode;
@@ -161,6 +161,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
     activePersonaId: voice.activePersonaId,
     processing,
     resumeSeq,
+    onWaitingText: follow,
   });
 
   // A stored page past the end of the PDF (replaced file): the last page

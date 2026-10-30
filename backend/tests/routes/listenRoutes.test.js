@@ -38,6 +38,8 @@ function addSegments() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // The windows below are written for one page ahead
+  require('../../src/config').audio.pagesAhead = 1;
   db.reset();
   jest.spyOn(voicePersonaService, 'getAccessiblePersona').mockImplementation(async (id, userId) => (id === PERSONA.id && userId === 'user-1' ? PERSONA : null));
   db.addBook({ id: BOOK, user_id: 'user-1', content_sha256: 'sha-1' });
@@ -85,6 +87,40 @@ describe('POST /api/books/:bookId/listen', () => {
     expect(none.status).toBe(409);
     expect(none.body.error).toBe('BOOK_NOT_PROCESSED');
     expect(db.state.jobs).toHaveLength(0);
+  });
+});
+
+describe('POST /api/books/:bookId/listen prepares the text ahead (O15)', () => {
+  // Pages 1-6 have text (and segments) out of 20
+  beforeEach(() => {
+    db.addPages(BOOK, 20);
+    Object.assign(extraction, { status: 'partial', pages_total: 20, source_book_id: BOOK });
+    for (let n = 1; n <= 6; n++) db.landPage(extraction, BOOK, n, { blocks: [], pageType: 'body' });
+  });
+  const textJobs = () => db.state.jobs.filter((j) => j.kind === 'extract_pages').map((j) => j.payload.pages);
+
+  it('queues text for the pages just past the listener and wakes the runner', async () => {
+    const res = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 5 });
+
+    expect(res.status).toBe(200);
+    expect(textJobs()).toEqual([[7]]); // pages 4..7 around page 5, one page ahead; 4-6 are done
+    expect(db.state.extractions.get(extraction.id).status).toBe('running');
+    expect(jobRunner.wake).toHaveBeenCalled();
+  });
+
+  it('answers processing with no items for a page with no text yet, and queues its window', async () => {
+    const res = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ stopReason: 'processing', items: [] });
+    expect(textJobs()).toEqual([[7, 8, 9, 10, 11]]); // reaches back to page 7: segments grow from page 1
+    expect(db.state.segmentAudio).toHaveLength(0);
+  });
+
+  it('queues nothing more on a second request for the same window', async () => {
+    await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
+    await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
+    expect(textJobs()).toHaveLength(1);
   });
 });
 
