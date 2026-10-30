@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { toast } from '@/hooks/use-toast'
+import { renewSession, SESSION_ENDED, SESSION_RENEWED, type StoredSession } from '@/lib/session'
+
+// Renew this long before the access token expires
+const RENEW_EARLY_MS = 60 * 1000
 
 interface User {
   id: string
@@ -89,13 +94,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(parsedUser)
         } else {
           // Session expired, try to refresh
-          refreshTokenInternal(parsedSession.refresh_token)
+          refreshTokenInternal()
         }
       } catch (error) {
         clearSession()
       }
     }
     setLoading(false)
+  }, [])
+
+  // Keep the session alive while the app is open: renew a minute before expiry, and at once when
+  // the tab comes back after its timer was held up (background tabs run timers late)
+  useEffect(() => {
+    if (!session) return
+    const renewAt = session.expires_at * 1000 - RENEW_EARLY_MS
+    const timer = window.setTimeout(() => void renewSession(), Math.max(renewAt - Date.now(), 0))
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() >= renewAt) void renewSession()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [session])
+
+  // Renewals made anywhere (timer or a refused request) land here; a refused refresh token ends the session
+  useEffect(() => {
+    const onRenewed = (event: Event) => setSession((event as CustomEvent<StoredSession>).detail)
+    const onEnded = () => {
+      clearSession()
+      toast({ title: 'Your session ended', description: 'Sign in again to continue.' })
+    }
+    window.addEventListener(SESSION_RENEWED, onRenewed)
+    window.addEventListener(SESSION_ENDED, onEnded)
+    return () => {
+      window.removeEventListener(SESSION_RENEWED, onRenewed)
+      window.removeEventListener(SESSION_ENDED, onEnded)
+    }
   }, [])
 
   const saveSession = (user: User, session: Session) => {
@@ -112,22 +148,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('readai_session')
   }
 
-  const refreshTokenInternal = async (refreshToken: string) => {
+  // Through the shared renewal (lib/session): the refresh token is single-use
+  const refreshTokenInternal = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      })
-
-      if (!response.ok) {
+      const newSession = await renewSession()
+      if (!newSession) {
         throw new Error('Token refresh failed')
       }
-
-      const data = await response.json()
-      const newSession = data.session
 
       // Get updated user profile
       const userResponse = await fetch(`${API_BASE_URL}/auth/profile`, {
@@ -243,7 +270,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
-      await refreshTokenInternal(session.refresh_token)
+      await refreshTokenInternal()
       return { error: null }
     } catch (error) {
       return { error: { message: 'Token refresh failed' } }
