@@ -7,7 +7,7 @@ import { usePdfDocument } from "./hooks/usePdfDocument";
 import { usePageAudio } from "./hooks/usePageAudio";
 import { useSegmentPlayback } from "./hooks/useSegmentPlayback";
 import { useBookProcessing, type PlayerKind } from "./hooks/useBookProcessing";
-import type { ProcessingStatus } from "@/types/segments";
+import type { BookMode, ProcessingStatus } from "@/types/segments";
 import { listeningService } from "@/services/listeningService";
 import { loadPosition, storePosition } from "./readingPosition";
 
@@ -43,6 +43,10 @@ interface ReadingRoomValue {
   prefetchPageNumber: number | null;
   roomRef: RefObject<HTMLDivElement>;
   panes: PaneLayout;
+  /** This reader's Read/Listen mode (spec O14). */
+  mode: BookMode;
+  /** Stable. Saves the switch on the server; the player follows the new mode. */
+  switchMode: (mode: BookMode) => Promise<void>;
 }
 
 type PagePlayback = ReturnType<typeof usePageAudio> & { kind: "legacy" };
@@ -55,7 +59,7 @@ const ReadingRoomContext = createContext<ReadingRoomValue | undefined>(undefined
 const PlaybackContext = createContext<PlaybackValue | undefined>(undefined);
 
 export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
-  const { currentBook } = useBooks();
+  const { currentBook, setCurrentBook, setBookMode } = useBooks();
   const navigate = useNavigate();
 
   const [pageNumber, setPageNumber] = useState(1);
@@ -121,7 +125,19 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
     return pageCanvasRef.current ? copyCanvas(pageCanvasRef.current) : null;
   };
 
-  const { processing, player } = useBookProcessing(currentBook);
+  const mode: BookMode = currentBook?.mode ?? "read";
+  // The server knows better (switched on another device): follow it without asking it to change
+  const onModeKnown = (known: BookMode) => {
+    if (currentBook && currentBook.mode !== known) setCurrentBook({ ...currentBook, mode: known });
+  };
+  const { processing, player } = useBookProcessing(currentBook, onModeKnown);
+  // setBookMode is recreated with every library render; the room value only changes with the book
+  const setBookModeRef = useRef(setBookMode);
+  setBookModeRef.current = setBookMode;
+  const switchMode = useCallback(
+    (next: BookMode) => (bookId ? setBookModeRef.current(bookId, next) : Promise.resolve()),
+    [bookId]
+  );
 
   // The page player stays mounted but does nothing until its play is pressed (Read-mode books)
   const pageAudio = usePageAudio({
@@ -191,8 +207,10 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => flushSave, [bookId, flushSave]);
 
   // Until the first status answer the (inert) segment player is shown, so play cannot start the
-  // page player's OCR path on a Listen-mode book
-  const audio: PagePlayback | SegmentPlayback = player === "legacy" ? { ...pageAudio, kind: "legacy" } : segmentAudio;
+  // page player's OCR path on a Listen-mode book. Read mode keeps the page player for page turns
+  // only: the bar shows no play control for it.
+  const audio: PagePlayback | SegmentPlayback =
+    player === "legacy" || player === "off" ? { ...pageAudio, kind: "legacy" } : segmentAudio;
 
   const { prefetchPageRef } = pageAudio;
   const prefetchPageNumber = player === "legacy" ? pageAudio.prefetchPageNumber : null;
@@ -225,6 +243,8 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
             prefetchPageNumber,
             roomRef,
             panes,
+            mode,
+            switchMode,
           }
         : undefined,
     [
@@ -243,6 +263,8 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
       prefetchPageRef,
       prefetchPageNumber,
       panes,
+      mode,
+      switchMode,
     ]
   );
 

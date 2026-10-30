@@ -2,6 +2,7 @@ const supabaseService = require('../services/supabaseService');
 const extractionService = require('../services/extraction/extractionService');
 const segmentAudioService = require('../services/audio/segmentAudioService');
 const windowService = require('../services/audio/windowService');
+const bookModeService = require('../services/bookModeService');
 const jobRunner = require('../services/jobs/jobRunner');
 const logger = require('../utils/logger');
 const config = require('../config');
@@ -103,7 +104,7 @@ const segmentsController = {
       if (!hasAccess) return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied to this book' });
 
       const book = await supabaseService.getBookById(bookId);
-      if (book.mode !== 'listen') return notInListenMode(res);
+      if (await bookModeService.modeFor(userId, book) !== 'listen') return notInListenMode(res);
       const extraction = await extractionService.findLiveExtraction(book.content_sha256);
       if (!extraction) {
         return res.status(409).json({ error: 'BOOK_NOT_PROCESSED', message: 'This book has not been prepared for listening yet.' });
@@ -153,7 +154,7 @@ const segmentsController = {
       const hasAccess = await supabaseService.ensureUserHasBookAccess(userId, bookId);
       if (!hasAccess) return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied to this book' });
       const book = await supabaseService.getBookById(bookId);
-      if (book.mode !== 'listen') return notInListenMode(res);
+      if (await bookModeService.modeFor(userId, book) !== 'listen') return notInListenMode(res);
       const extraction = await extractionService.findLiveExtraction(book.content_sha256);
       if (!extraction) {
         return res.status(409).json({ error: 'BOOK_NOT_PROCESSED', message: 'This book has not been prepared for listening yet.' });
@@ -206,7 +207,7 @@ const segmentsController = {
         book = await supabaseService.findAccessibleBookByContent(userId, extraction.content_sha256);
       }
       if (!book) return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied to this segment' });
-      if (book.mode !== 'listen') return notInListenMode(res);
+      if (await bookModeService.modeFor(userId, book) !== 'listen') return notInListenMode(res);
 
       const voice = await segmentAudioService.resolveListenerVoice(userId, {
         voicePersonaId: optionalString(req.query.voicePersonaId),

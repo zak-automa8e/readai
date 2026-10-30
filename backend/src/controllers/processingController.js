@@ -1,5 +1,6 @@
 const supabaseService = require('../services/supabaseService');
 const extractionService = require('../services/extraction/extractionService');
+const bookModeService = require('../services/bookModeService');
 const jobRunner = require('../services/jobs/jobRunner');
 const logger = require('../utils/logger');
 
@@ -30,8 +31,9 @@ const processingController = {
       const book = await loadBook(req, res);
       if (!book) return;
 
-      // O1: Read books are never extracted
-      if (book.mode !== 'listen') {
+      // O1: Read books are never extracted; O14: the mode is this reader's own
+      const userBook = await supabaseService.getUserBook(userId, book.id);
+      if ((userBook?.mode || book.mode) !== 'listen') {
         return res.status(409).json({
           error: 'BOOK_NOT_IN_LISTEN_MODE',
           message: 'This book is in Read mode. Switch it to Listen mode to prepare it for listening.',
@@ -43,7 +45,7 @@ const processingController = {
 
       const contentSha256 = await extractionService.ensureContentHash(book);
       let fromPage = positiveInt(req.body?.fromPage);
-      if (!fromPage) fromPage = positiveInt((await supabaseService.getUserBook(userId, book.id))?.last_read_page) || 1;
+      if (!fromPage) fromPage = positiveInt(userBook?.last_read_page) || 1;
 
       const { extraction, reused } = await extractionService.startOrResume({
         book: { ...book, content_sha256: contentSha256 },
@@ -84,12 +86,13 @@ const processingController = {
       const book = await loadBook(req, res);
       if (!book) return;
 
+      const bookMode = await bookModeService.modeFor(req.user.id, book);
       const extraction = await extractionService.findLiveExtraction(book.content_sha256);
       if (!extraction) {
         return res.json({
           extractionId: null,
           status: 'none',
-          bookMode: book.mode,
+          bookMode,
           pagesTotal: book.total_pages ?? null,
           pagesDone: 0,
           pagesFailed: 0,
@@ -98,10 +101,33 @@ const processingController = {
           mode: 'legacy',
         });
       }
-      return res.json({ ...(await extractionService.getStatus(extraction)), bookMode: book.mode });
+      return res.json({ ...(await extractionService.getStatus(extraction)), bookMode });
     } catch (error) {
       logger.error('Error in getProcessing:', error);
       return res.status(500).json({ error: 'PROCESSING_STATUS_FAILED', message: 'Failed to read the processing status.' });
+    }
+  },
+
+  /**
+   * PUT /api/books/:bookId/mode { mode: 'read' | 'listen' }
+   * Switches Read/Listen for this reader (spec O14). Switching to Listen does not start the
+   * extraction: the room asks for it with POST /process, as on any open.
+   */
+  async setMode(req, res) {
+    try {
+      const { mode } = req.body || {};
+      if (!bookModeService.isMode(mode)) {
+        return res.status(400).json({ error: 'INVALID_MODE', message: "mode must be 'read' or 'listen'." });
+      }
+      const book = await loadBook(req, res);
+      if (!book) return;
+
+      await bookModeService.setMode(req.user.id, book, mode);
+      logger.info('Book mode set', { bookId: book.id, userId: req.user.id, mode });
+      return res.json({ mode });
+    } catch (error) {
+      logger.error('Error in setMode:', error);
+      return res.status(500).json({ error: 'MODE_UPDATE_FAILED', message: 'Failed to switch the book mode.' });
     }
   },
 };

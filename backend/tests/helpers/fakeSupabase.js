@@ -79,6 +79,10 @@ function createFakeSupabase() {
       return Boolean(book && (book.user_id === userId || state.userBooks.some((u) => u.user_id === userId && u.book_id === bookId)));
     }),
     getUserBook: jest.fn(async (userId, bookId) => state.userBooks.find((u) => u.user_id === userId && u.book_id === bookId) || null),
+    setUserBookMode: jest.fn(async (userId, bookId, mode) => {
+      const userBook = state.userBooks.find((u) => u.user_id === userId && u.book_id === bookId);
+      if (userBook) userBook.mode = mode;
+    }),
 
     getLiveExtraction: jest.fn(async (sha, promptVersion, model) => {
       const rows = [...state.extractions.values()].filter((e) => e.content_sha256 === sha

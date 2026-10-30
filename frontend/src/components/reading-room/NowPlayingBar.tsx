@@ -129,6 +129,8 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
     handleSeek,
   } = playback;
   const preparingLabel = segmentPlayer?.status === "waiting-text" ? "Waiting for this page's text" : "Preparing the audio";
+  // Read mode (spec O1): page turns and the view only
+  const listening = playback.player !== "off";
   const isFullscreen = useIsFullscreen();
 
   const toggleFullscreen = () => {
@@ -182,111 +184,117 @@ export const NowPlayingBar = ({ compact = false }: { compact?: boolean }) => {
         </Button>
       </div>
 
-      {!compact && <Divider />}
+      {!listening && <div className="flex-1" aria-hidden="true" />}
 
-      {/* Playback */}
-      <div className="flex shrink-0 items-center gap-1">
-        {segmentPlayer && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => segmentPlayer.skipParagraph(-1)}
-            disabled={segmentPlayer.currentSeq === null || isReading}
-            aria-label="Previous paragraph"
-            title="Previous paragraph"
-          >
-            <SkipBack className="h-4 w-4 rtl:rotate-180" />
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => handleReadPage(false)}
-          disabled={isReading || isLoadingPersonas || playback.player === "pending"}
-          aria-label={isReading ? preparingLabel : isPlaying ? "Pause" : "Play"}
-          title={isReading ? preparingLabel : undefined}
-        >
-          {isReading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isPlaying ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
-        {segmentPlayer ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => segmentPlayer.skipParagraph(1)}
-            disabled={segmentPlayer.currentSeq === null || isReading}
-            aria-label="Next paragraph"
-            title="Next paragraph"
-          >
-            <SkipForward className="h-4 w-4 rtl:rotate-180" />
-          </Button>
-        ) : (
-          <>
+      {listening && (
+        <>
+          {!compact && <Divider />}
+
+          {/* Playback */}
+          <div className="flex shrink-0 items-center gap-1">
+            {segmentPlayer && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => segmentPlayer.skipParagraph(-1)}
+                disabled={segmentPlayer.currentSeq === null || isReading}
+                aria-label="Previous paragraph"
+                title="Previous paragraph"
+              >
+                <SkipBack className="h-4 w-4 rtl:rotate-180" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 ${autoPlayEnabled ? "bg-muted text-primary" : ""}`}
-              onClick={() => setAutoPlayEnabled(!autoPlayEnabled)}
-              aria-pressed={autoPlayEnabled}
-              title={autoPlayEnabled ? "Disable auto-play" : "Enable auto-play"}
+              className="h-9 w-9"
+              onClick={() => handleReadPage(false)}
+              disabled={isReading || isLoadingPersonas || playback.player === "pending"}
+              aria-label={isReading ? preparingLabel : isPlaying ? "Pause" : "Play"}
+              title={isReading ? preparingLabel : undefined}
             >
-              <Repeat className="h-4 w-4" />
+              {isReading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={redoPage}
-              disabled={isReading || isLoadingPersonas}
-              aria-label="Redo this page"
-              title="Redo this page: extract the text and generate the audio again"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-        <div className="ms-1">
-          <VoiceSelect />
-        </div>
-        {segmentPlayer && (
-          <div className="ms-1">
-            <DailyPagesChip limitReached={segmentPlayer.status === "limit"} />
+            {segmentPlayer ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => segmentPlayer.skipParagraph(1)}
+                disabled={segmentPlayer.currentSeq === null || isReading}
+                aria-label="Next paragraph"
+                title="Next paragraph"
+              >
+                <SkipForward className="h-4 w-4 rtl:rotate-180" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 ${autoPlayEnabled ? "bg-muted text-primary" : ""}`}
+                  onClick={() => setAutoPlayEnabled(!autoPlayEnabled)}
+                  aria-pressed={autoPlayEnabled}
+                  title={autoPlayEnabled ? "Disable auto-play" : "Enable auto-play"}
+                >
+                  <Repeat className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={redoPage}
+                  disabled={isReading || isLoadingPersonas}
+                  aria-label="Redo this page"
+                  title="Redo this page: extract the text and generate the audio again"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            <div className="ms-1">
+              <VoiceSelect />
+            </div>
+            {segmentPlayer && (
+              <div className="ms-1">
+                <DailyPagesChip limitReached={segmentPlayer.status === "limit"} />
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {!compact && <Divider />}
+          {!compact && <Divider />}
 
-      {/* Seek */}
-      <div className={compact ? "order-first flex w-full min-w-0 items-center gap-3" : "flex min-w-0 flex-1 items-center gap-3"}>
-        {segmentPlayer?.bookProgress ? (
-          <BookProgressBar progress={segmentPlayer.bookProgress} onSeek={(fraction) => void segmentPlayer.seekBook(fraction)} />
-        ) : (
-          <>
-            <Slider
-              value={[audioDuration > 0 ? (audioCurrentTime / audioDuration) * 100 : 0]}
-              max={100}
-              step={0.1}
-              onValueChange={(value) => handleSeek(value[0])}
-              className="min-w-16 flex-1"
-              disabled={!audioRef.current || audioDuration === 0}
-              aria-label="Seek"
-            />
-            <span dir="ltr" className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
-              {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
-            </span>
-          </>
-        )}
-        <VolumeControl compact={compact} />
-      </div>
+          {/* Seek */}
+          <div className={compact ? "order-first flex w-full min-w-0 items-center gap-3" : "flex min-w-0 flex-1 items-center gap-3"}>
+            {segmentPlayer?.bookProgress ? (
+              <BookProgressBar progress={segmentPlayer.bookProgress} onSeek={(fraction) => void segmentPlayer.seekBook(fraction)} />
+            ) : (
+              <>
+                <Slider
+                  value={[audioDuration > 0 ? (audioCurrentTime / audioDuration) * 100 : 0]}
+                  max={100}
+                  step={0.1}
+                  onValueChange={(value) => handleSeek(value[0])}
+                  className="min-w-16 flex-1"
+                  disabled={!audioRef.current || audioDuration === 0}
+                  aria-label="Seek"
+                />
+                <span dir="ltr" className="shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">
+                  {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
+                </span>
+              </>
+            )}
+            <VolumeControl compact={compact} />
+          </div>
+        </>
+      )}
 
       {!compact && <Divider />}
 

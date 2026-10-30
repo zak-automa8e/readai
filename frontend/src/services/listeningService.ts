@@ -1,4 +1,4 @@
-import type { Clip, ClipWait, DailyLimitReached, ListenWindow, PlanUsage, ProcessingStatus, SegmentsPage } from "@/types/segments";
+import type { BookMode, Clip, ClipWait, DailyLimitReached, ListenWindow, PlanUsage, ProcessingStatus, SegmentsPage } from "@/types/segments";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -54,6 +54,10 @@ async function limited<T>(path: string, init: RequestInit = {}): Promise<Limited
  */
 export const listeningService = {
   getProcessing: (bookId: string) => request<ProcessingStatus>(`/books/${bookId}/processing`),
+
+  /** Read or Listen for this reader; switching to Listen does not start the extraction. */
+  setMode: (bookId: string, mode: BookMode) =>
+    request<{ mode: BookMode }>(`/books/${bookId}/mode`, { method: "PUT", body: JSON.stringify({ mode }) }),
 
   startProcessing: (bookId: string, fromPage?: number) =>
     request<{ extractionId: string; status: string }>(`/books/${bookId}/process`, {

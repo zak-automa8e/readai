@@ -265,6 +265,7 @@ const apiService = {
     pdf_source?: string;
     thumbnail_url?: string;
     total_pages?: number;
+    mode?: 'read' | 'listen';
   }) {
     try {
       const response = await fetch(`${API_BASE_URL}/books`, {
@@ -296,13 +297,14 @@ const apiService = {
    * @param {Object} metadata - Book metadata
    * @returns {Promise<Object>} - Upload result
    */
-  async uploadPDF(file: File, metadata: { title: string; author?: string; description?: string }) {
+  async uploadPDF(file: File, metadata: { title: string; author?: string; description?: string; mode?: 'read' | 'listen' }) {
     try {
       const formData = new FormData();
       formData.append('pdf', file);
       formData.append('title', metadata.title);
       if (metadata.author) formData.append('author', metadata.author);
       if (metadata.description) formData.append('description', metadata.description);
+      if (metadata.mode) formData.append('mode', metadata.mode);
 
       const response = await fetch(`${API_BASE_URL}/books/upload`, {
         method: 'POST',

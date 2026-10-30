@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import type { Book } from "@/contexts/BooksContext";
 import { listeningService } from "@/services/listeningService";
-import type { ProcessingStatus } from "@/types/segments";
+import type { BookMode, ProcessingStatus } from "@/types/segments";
 
 /**
  * Which player a book gets: Listen-mode books get the segment player from the start (it shows
- * "preparing" until page 1 is ready, so playback never switches players mid-book); Read-mode books
- * and books that cannot be extracted keep the page player.
+ * "preparing" until page 1 is ready, so playback never switches players mid-book); Listen books
+ * that cannot be extracted keep the page player; Read-mode books get none (spec O1).
  */
-export type PlayerKind = "pending" | "segments" | "legacy";
+export type PlayerKind = "pending" | "segments" | "legacy" | "off";
 
 const POLL_UNTIL_READY_MS = 3000;
 const POLL_WHILE_RUNNING_MS = 15000;
@@ -20,15 +20,25 @@ const isRunning = (status: ProcessingStatus) => status.status === "running" || s
 /**
  * Reads a book's extraction status on open, starts (or resumes) the extraction of a Listen-mode
  * book that has none or stopped part way, and follows it while it runs: every 3 s until page 1 is
- * ready, then every 15 s so new pages' text shows up.
+ * ready, then every 15 s so new pages' text shows up. A Read-mode book asks nothing; switching it
+ * to Listen runs all of this, as an open would. `onModeKnown` reports the server's answer when it
+ * differs from the library's (switched on another device).
  */
-export const useBookProcessing = (book: Book | null) => {
+export const useBookProcessing = (book: Book | null, onModeKnown: (mode: BookMode) => void) => {
   const [status, setStatus] = useState<ProcessingStatus | null>(null);
   const [player, setPlayer] = useState<PlayerKind>("pending");
   const bookId = book?.id;
+  const mode: BookMode = book?.mode ?? "read";
+  const onModeKnownRef = useRef(onModeKnown);
+  onModeKnownRef.current = onModeKnown;
 
   useEffect(() => {
     if (!bookId) return;
+    if (mode === "read") {
+      setStatus(null);
+      setPlayer("off");
+      return;
+    }
     let cancelled = false;
     let timer = 0;
     let started = false;
@@ -57,7 +67,8 @@ export const useBookProcessing = (book: Book | null) => {
 
       if (current.bookMode !== "listen") {
         setStatus(current);
-        setPlayer("legacy");
+        setPlayer("off");
+        onModeKnownRef.current(current.bookMode);
         return;
       }
 
@@ -93,7 +104,7 @@ export const useBookProcessing = (book: Book | null) => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [bookId]);
+  }, [bookId, mode]);
 
   return { processing: status, player };
 };

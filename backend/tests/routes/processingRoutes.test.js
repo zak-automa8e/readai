@@ -127,6 +127,63 @@ describe('GET /api/books/:bookId/processing', () => {
 
     expect(res.body).toMatchObject({ extractionId: ext.id, status: 'running', pagesTotal: 20, pagesDone: 10, finalizedThroughPage: 9, mode: 'segments' });
   });
+
+  it("reports the reader's own mode over the book's", async () => {
+    db.addBook({ id: BOOK, mode: 'read', content_sha256: 'sha-1', visibility: 'public' });
+    db.state.userBooks.push({ user_id: 'user-2', book_id: BOOK, mode: 'listen' });
+
+    const own = await request(app).get(`/api/books/${BOOK}/processing`).set('x-test-user', 'user-2');
+    const owner = await request(app).get(`/api/books/${BOOK}/processing`);
+
+    expect(own.body.bookMode).toBe('listen');
+    expect(owner.body.bookMode).toBe('read');
+  });
+});
+
+describe('PUT /api/books/:bookId/mode (spec O14)', () => {
+  const setMode = (mode, user = 'user-1') => request(app).put(`/api/books/${BOOK}/mode`).set('x-test-user', user).send({ mode });
+
+  it("the owner of a private book changes the book itself", async () => {
+    db.addBook({ id: BOOK, mode: 'read', visibility: 'private', content_sha256: 'sha-1' });
+    db.state.userBooks.push({ user_id: 'user-1', book_id: BOOK, mode: null });
+
+    const res = await setMode('listen');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ mode: 'listen' });
+    expect(db.state.books.get(BOOK).mode).toBe('listen');
+    expect(db.state.userBooks[0].mode).toBeNull();
+  });
+
+  it('on a shared book every switch, the owner\'s too, changes only that reader', async () => {
+    db.addBook({ id: BOOK, mode: 'listen', visibility: 'public', content_sha256: 'sha-1' });
+    db.state.userBooks.push({ user_id: 'user-1', book_id: BOOK, mode: null }, { user_id: 'user-2', book_id: BOOK, mode: null });
+
+    await setMode('read', 'user-2');
+    await setMode('read', 'user-1');
+
+    expect(db.state.books.get(BOOK).mode).toBe('listen');
+    expect(db.state.userBooks.map((u) => u.mode)).toEqual(['read', 'read']);
+  });
+
+  it('a reader switched to Listen can start the extraction; one switched to Read cannot', async () => {
+    db.addBook({ id: BOOK, mode: 'read', visibility: 'public', content_sha256: 'sha-1' });
+    db.state.userBooks.push({ user_id: 'user-2', book_id: BOOK, mode: null });
+
+    expect((await request(app).post(`/api/books/${BOOK}/process`).set('x-test-user', 'user-2').send({})).status).toBe(409);
+    await setMode('listen', 'user-2');
+    expect((await request(app).post(`/api/books/${BOOK}/process`).set('x-test-user', 'user-2').send({})).status).toBe(202);
+    // The owner still has the book in Read
+    expect((await request(app).post(`/api/books/${BOOK}/process`).send({})).status).toBe(409);
+  });
+
+  it('refuses an unknown mode and a user without access', async () => {
+    db.addBook({ id: BOOK, mode: 'read', content_sha256: 'sha-1' });
+
+    expect((await setMode('both')).status).toBe(400);
+    expect((await setMode('listen', 'stranger')).status).toBe(403);
+    expect(db.state.books.get(BOOK).mode).toBe('read');
+  });
 });
 
 describe('GET /api/books/:bookId/segments', () => {

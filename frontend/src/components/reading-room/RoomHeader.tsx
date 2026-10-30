@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { Button } from "../ui/button";
 import { useReadingRoom } from "./ReadingRoomContext";
+import { ModeSwitch } from "./ModeSwitch";
 
 /** `children` render just before the theme toggle (the mobile room puts its sheet buttons there). */
 export const RoomHeader = ({ children }: { children?: ReactNode }) => {
@@ -28,6 +29,7 @@ export const RoomHeader = ({ children }: { children?: ReactNode }) => {
         <h1 className="truncate font-serif text-base font-medium leading-none">{book.title}</h1>
         {book.author && <span className="truncate text-sm text-muted-foreground">{book.author}</span>}
       </div>
+      <ModeSwitch />
       {children}
       <Button
         variant="ghost"

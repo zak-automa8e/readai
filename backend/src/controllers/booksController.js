@@ -2,6 +2,10 @@ const supabaseService = require('../services/supabaseService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 const ThumbnailService = require('../services/thumbnailService');
+const bookModeService = require('../services/bookModeService');
+
+// Read unless Listen was chosen at upload (spec O1)
+const uploadMode = (mode) => (bookModeService.isMode(mode) ? mode : 'read');
 
 /**
  * Get user's book library
@@ -37,7 +41,8 @@ const createBook = async (req, res) => {
       pdf_url,
       pdf_source = 'upload',
       thumbnail_url,
-      total_pages
+      total_pages,
+      mode
     } = req.body;
 
     if (!title) {
@@ -54,7 +59,8 @@ const createBook = async (req, res) => {
       pdf_url,
       pdf_source,
       thumbnail_url,
-      total_pages
+      total_pages,
+      mode: uploadMode(mode)
     });
 
     // Add to user's library automatically
@@ -165,7 +171,7 @@ const uploadPDF = async (req, res) => {
       });
     }
 
-  let { title, author, description } = req.body;
+  let { title, author, description, mode } = req.body;
     
     if (!title) {
       return res.status(400).json({
@@ -226,7 +232,8 @@ const uploadPDF = async (req, res) => {
       description,
       pdf_url: pdfUrl,
       pdf_source: 'upload',
-      total_pages: null // Will be determined during processing
+      total_pages: null, // Will be determined during processing
+      mode: uploadMode(mode)
     });
 
     // Add to user's library

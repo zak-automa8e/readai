@@ -23,6 +23,8 @@ import {
 import { useBooks, Book } from "@/contexts/BooksContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { BookModeChoice } from "./BookModeChoice";
+import type { BookMode } from "@/types/segments";
 
 interface AddBookModalProps {
   isOpen: boolean;
@@ -59,6 +61,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
     description: ''
   });
   const [urlInput, setUrlInput] = useState('');
+  const [mode, setMode] = useState<BookMode>('read');
   const [errorMessage, setErrorMessage] = useState('');
   const [uploadedBook, setUploadedBook] = useState<Book | null>(null);
   
@@ -80,6 +83,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
     setSelectedFile(null);
     setMetadata({ title: '', author: '', description: '' });
     setUrlInput('');
+    setMode('read');
     setErrorMessage('');
     setUploadedBook(null);
     if (fileInputRef.current) {
@@ -149,7 +153,8 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
       const book = await uploadPDF(selectedFile.file, {
         title: metadata.title.trim() || selectedFile.name.replace(/\.pdf$/i, ''),
         author: metadata.author.trim() || undefined,
-        description: metadata.description.trim() || undefined
+        description: metadata.description.trim() || undefined,
+        mode
       });
 
       setUploadedBook(book);
@@ -197,6 +202,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
         title,
         pdf_url: urlStr,
         pdf_source: 'url',
+        mode,
       });
 
       // Note: For URL uploads, we don't get the full book object back immediately
@@ -290,6 +296,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
               Add
             </Button>
           </div>
+          <BookModeChoice value={mode} onChange={setMode} />
         </div>
       </TabsContent>
     </Tabs>
@@ -349,6 +356,8 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
             rows={3}
           />
         </div>
+
+        <BookModeChoice value={mode} onChange={setMode} />
       </div>
 
       {/* Action buttons */}

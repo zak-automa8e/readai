@@ -34,10 +34,14 @@ export interface SegmentsPage {
 
 export type ExtractionStatus = "none" | "queued" | "running" | "partial" | "complete" | "failed";
 
+/** Read = the PDF page, chat and notes, no audio; Listen = extracted text and audio. Per reader (spec O14). */
+export type BookMode = "read" | "listen";
+
 export interface ProcessingStatus {
   extractionId: string | null;
   status: ExtractionStatus;
-  bookMode: "listen" | "read";
+  /** This reader's mode: their own choice, else the book's. */
+  bookMode: BookMode;
   pagesTotal: number | null;
   pagesDone: number;
   pagesFailed: number;

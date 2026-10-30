@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import apiService from '@/services/apiService';
 import { toast } from '@/hooks/use-toast';
+import { listeningService } from '@/services/listeningService';
+import type { BookMode } from '@/types/segments';
 
 export interface Book {
   id: string;
@@ -22,7 +24,11 @@ export interface Book {
   total_reading_time_minutes?: number;
   created_at?: string;
   updated_at?: string;
+  /** This reader's Read/Listen choice, else the book's. */
+  mode?: BookMode;
 }
+
+type UploadMetadata = { title: string; author?: string; description?: string; mode?: BookMode };
 
 interface BooksContextType {
   currentBook: Book | null;
@@ -34,7 +40,9 @@ interface BooksContextType {
   removeBook: (id: string) => Promise<void>;
   updateBook: (id: string, updates: Partial<Omit<Book, 'id' | 'uploadDate'>>) => Promise<void>;
   getBookById: (id: string) => Book | undefined;
-  uploadPDF: (file: File, metadata: { title: string; author?: string; description?: string }) => Promise<Book>;
+  uploadPDF: (file: File, metadata: UploadMetadata) => Promise<Book>;
+  /** Switches Read/Listen for this reader on the server, then in the library and the open book. */
+  setBookMode: (id: string, mode: BookMode) => Promise<void>;
   refreshLibrary: () => Promise<void>;
 }
 
@@ -87,6 +95,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
               total_reading_time_minutes: userBook.total_reading_time_minutes || 0,
               created_at: userBook.books.created_at || undefined,
               updated_at: userBook.books.updated_at || undefined,
+              mode: userBook.mode || userBook.books.mode || 'read',
             };
           });
         setBooks(transformedBooks);
@@ -229,7 +238,8 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
         pdf_url: bookData.pdf_url,
         pdf_source: bookData.pdf_source || 'upload',
         thumbnail_url: bookData.thumbnail_url,
-        total_pages: bookData.total_pages
+        total_pages: bookData.total_pages,
+        mode: bookData.mode
       });
 
       if (response.success) {
@@ -247,6 +257,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
           processing_status: response.book.processing_status,
           created_at: response.book.created_at,
           updated_at: response.book.updated_at,
+          mode: response.book.mode,
           // Include local data if provided
           pdfData: bookData.pdfData,
           defaultCover: bookData.defaultCover,
@@ -297,7 +308,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const uploadPDF = async (file: File, metadata: { title: string; author?: string; description?: string }): Promise<Book> => {
+  const uploadPDF = async (file: File, metadata: UploadMetadata): Promise<Book> => {
     if (!user || !session) {
       throw new Error('User must be authenticated to upload PDFs');
     }
@@ -321,10 +332,11 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
           processing_status: response.book.processing_status,
           created_at: response.book.created_at,
           updated_at: response.book.updated_at,
+          mode: response.book.mode,
         };
 
         setBooks(prevBooks => [...prevBooks, newBook]);
-        
+
         toast({
           title: "Success",
           description: "PDF uploaded successfully",
@@ -439,6 +451,12 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
     return books.find(book => book.id === id);
   };
 
+  const setBookMode = async (id: string, mode: BookMode): Promise<void> => {
+    await listeningService.setMode(id, mode);
+    setBooks(prevBooks => prevBooks.map(book => (book.id === id ? { ...book, mode } : book)));
+    setCurrentBook(prev => (prev?.id === id ? { ...prev, mode } : prev));
+  };
+
   return (
     <BooksContext.Provider value={{
       currentBook,
@@ -451,6 +469,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       updateBook,
       getBookById,
       uploadPDF,
+      setBookMode,
       refreshLibrary,
     }}>
       {children}

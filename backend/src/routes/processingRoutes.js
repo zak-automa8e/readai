@@ -7,6 +7,7 @@ const processingController = require('../controllers/processingController');
 const router = express.Router();
 
 router.post('/:bookId/process', authenticateUser, processingController.startProcessing);
+router.put('/:bookId/mode', authenticateUser, processingController.setMode);
 router.get('/:bookId/processing', authenticateUser, playbackUserLimiter, processingController.getProcessing);
 
 module.exports = router;
