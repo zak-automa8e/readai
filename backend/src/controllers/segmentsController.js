@@ -17,23 +17,34 @@ const positiveInt = (value) => {
   return Number.isInteger(n) && n >= 1 ? n : null;
 };
 
+// Whether every page in [first, last] has text (pages with no paragraphs, e.g. blank, count)
+async function allDone(extraction, first, last) {
+  if (first > last) return true;
+  const done = new Set(await supabaseService.getDonePageNumbers(extraction.id, first - 1));
+  for (let n = first; n <= last; n++) if (!done.has(n)) return false;
+  return true;
+}
+
 /**
- * Where a listen request starts: fromPage → the paragraph that starts on that page (else the one
- * running across it, else the next one); fromSeq → that paragraph's page. seq is null when the page
- * has no text yet; page is what the text window is built around.
+ * Where a listen request starts. fromPage → the paragraph that starts on that page, else the one
+ * running across it, else the next one when the pages before it have text. fromSeq → that
+ * paragraph, or the next one ("seq + 1" = the paragraph after) unless pages with no text lie
+ * between. seq is null when the start has no text yet; page is what the text window is built around.
  */
 async function listenStart(extraction, { fromSeq, fromPage }) {
   if (fromPage) {
     const rows = await supabaseService.getSegments(extraction.id, { fromPage, limit: 3 });
     const hit = rows.find((s) => s.start_page === fromPage) || rows[0];
-    return { seq: hit ? hit.seq : null, page: fromPage };
+    if (!hit || !(await allDone(extraction, fromPage, hit.start_page - 1))) return { seq: null, page: fromPage };
+    return { seq: hit.seq, page: fromPage };
   }
   const seq = fromSeq || 1;
   const [segment] = await supabaseService.getSegmentsFromSeq(extraction.id, seq, 1);
-  if (segment) return { seq, page: segment.start_page };
-  // Past the known text: listening continues at the page after the last paragraph
-  const last = await supabaseService.getLastSegment(extraction.id);
-  return { seq, page: last ? last.end_page + 1 : 1 };
+  const previous = segment?.seq === seq ? null : await supabaseService.getSegmentBefore(extraction.id, seq);
+  // The paragraph after `previous` is missing or lies past pages that have no text yet
+  const next = previous ? previous.end_page + 1 : 1;
+  if (!segment || (previous && !(await allDone(extraction, next, segment.start_page - 1)))) return { seq: null, page: next };
+  return { seq: segment.seq, page: segment.start_page };
 }
 
 function notInListenMode(res) {
@@ -61,12 +72,11 @@ function toSegment(row) {
 
 const segmentsController = {
   /**
-   * GET /api/books/:bookId/segments?fromPage=&limit=  or  ?atChar=&limit=
+   * GET /api/books/:bookId/segments?fromPage=&limit=
    * Segments in seq order that end on or after fromPage (a paragraph that starts on the previous
-   * page and continues on fromPage is included), or from the segment holding character atChar of
-   * the book (the last one when atChar is past the known text). An 'open' segment may still grow.
-   * Each segment carries charStart, its position in the whole book; `book` gives the known length
-   * and, while extraction runs, an estimate of the whole (known chars per page × pages).
+   * page and continues on fromPage is included); pages without text are gaps between seqs. An
+   * 'open' or 'head' segment may still change. `book` gives the known length and, until every page
+   * has text, an estimate of the whole (known chars per page with text × pages).
    */
   async getSegments(req, res) {
     try {
@@ -80,32 +90,19 @@ const segmentsController = {
 
       const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
       const counts = await supabaseService.getSegmentCharCounts(extraction.id);
-      const starts = new Map();
-      let knownChars = 0;
-      for (const row of counts) {
-        starts.set(row.seq, knownChars);
-        knownChars += row.char_count;
-      }
-
-      let rows;
-      const atChar = parseInt(req.query.atChar, 10);
-      if (Number.isInteger(atChar) && atChar >= 0) {
-        const hit = counts.find((row) => starts.get(row.seq) + row.char_count > atChar) || counts[counts.length - 1];
-        rows = hit ? await supabaseService.getSegmentsFromSeq(extraction.id, hit.seq, limit) : [];
-      } else {
-        const fromPage = Math.max(parseInt(req.query.fromPage, 10) || 1, 1);
-        rows = await supabaseService.getSegments(extraction.id, { fromPage, limit });
-      }
+      const knownChars = counts.reduce((sum, row) => sum + row.char_count, 0);
+      const fromPage = Math.max(parseInt(req.query.fromPage, 10) || 1, 1);
+      const rows = await supabaseService.getSegments(extraction.id, { fromPage, limit });
 
       const complete = extraction.status === 'complete';
-      const lastPage = counts.length ? counts[counts.length - 1].end_page : 0;
-      const estimate = !complete && lastPage > 0 && extraction.pages_total
-        ? Math.round((knownChars / lastPage) * extraction.pages_total)
+      const pagesTotal = extraction.pages_total || null;
+      const estimate = !complete && extraction.pages_done > 0 && pagesTotal
+        ? Math.round((knownChars / extraction.pages_done) * pagesTotal)
         : knownChars;
       return res.json({
         extractionId: extraction.id,
-        segments: rows.map((row) => ({ ...toSegment(row), charStart: starts.get(row.seq) ?? 0 })),
-        book: { knownChars, totalChars: Math.max(knownChars, estimate), complete },
+        segments: rows.map(toSegment),
+        book: { knownChars, totalChars: Math.max(knownChars, estimate), complete, pagesTotal },
       });
     } catch (error) {
       logger.error('Error in getSegments:', error);

@@ -60,12 +60,12 @@ describe('runPlan', () => {
     expect(db.state.jobs.every((j) => j.book_id === BOOK && j.payload.phase === 'realtime')).toBe(true);
   });
 
-  it('reaches back to page 1 from a later reading position, in chunks (segments grow from page 1)', async () => {
+  it('queues only the window around a later reading position, not the pages before it', async () => {
     const { extraction, plan } = await planned(40, { fromPage: 12, ahead: 2 });
 
     await service.runPlan(plan);
 
-    expect(db.state.jobs.map((j) => j.idempotency_key)).toEqual([`extract:${extraction.id}:w1-10`, `extract:${extraction.id}:w11-15`]);
+    expect(db.state.jobs.map((j) => [j.idempotency_key, j.payload.pages])).toEqual([[`extract:${extraction.id}:w11-15`, [11, 12, 13, 14, 15]]]);
   });
 
   it('marks the extraction failed when the plan fails for good', async () => {
@@ -129,17 +129,14 @@ describe('startOrResume', () => {
 });
 
 describe('textWindow', () => {
-  it('covers the page before, the page and ahead + 1 pages after it', () => {
-    expect(service.textWindow({ page: 10, ahead: 2, total: 50, finalizedThrough: 20 })).toEqual({ first: 9, last: 13 });
-  });
-
-  it('reaches back to the first page that is not finalised', () => {
-    expect(service.textWindow({ page: 10, ahead: 2, total: 50, finalizedThrough: 4 })).toEqual({ first: 5, last: 13 });
+  it('covers the page before, the page and ahead + 1 pages after it, wherever the page is', () => {
+    expect(service.textWindow({ page: 10, ahead: 2, total: 50 })).toEqual({ first: 9, last: 13 });
+    expect(service.textWindow({ page: 120, ahead: 2, total: 371 })).toEqual({ first: 119, last: 123 });
   });
 
   it('stays inside the book', () => {
     expect(service.textWindow({ page: 1, ahead: 2, total: 2 })).toEqual({ first: 1, last: 2 });
-    expect(service.textWindow({ page: 99, ahead: 2, total: 5, finalizedThrough: 5 })).toEqual({ first: 4, last: 5 });
+    expect(service.textWindow({ page: 99, ahead: 2, total: 5 })).toEqual({ first: 4, last: 5 });
   });
 });
 

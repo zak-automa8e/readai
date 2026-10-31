@@ -2,12 +2,46 @@ const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const supabaseService = require('../supabaseService');
 const pdfSource = require('./pdfSource');
-const { buildSegments, carryFromSegment } = require('./segmentBuilder');
+const { buildSegments } = require('./segmentBuilder');
 const jobRunner = require('../jobs/jobRunner');
 
 const sha256 = (text) => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
-// Turns done pages into segments (prefix finalisation) and rebuilds settled extractions.
+/**
+ * Turns done pages into segments and rebuilds settled extractions (spec §5.2, listen-ahead story 2).
+ *
+ * Text arrives a few pages at a time wherever listeners are, so the done pages form runs anywhere
+ * in the book. book_extractions.built_runs lists the pages whose segments are built; a pass rebuilds
+ * the region around the pages done since, and replace_segments swaps that region's rows and moves
+ * built_runs in one transaction (compare-and-set on segment_version).
+ *
+ * seq = start_page × 1000 + the segment's index among those starting on that page (a head: the seq
+ * just before its page): stable while other runs are built, with gaps between runs. A run's first paragraph is 'head' while the page
+ * before it has no text (it may continue that page); its last is 'open' while its sentence may go
+ * on to the next page. Both are rebuilt when the neighbouring page lands, and never voiced.
+ */
+
+const SEQ_PER_PAGE = 1000;
+const VERSION_CONFLICT = 'SEGMENT_VERSION_CONFLICT';
+
+/** Sorted page numbers → [[first, last], ...] of consecutive pages. */
+function runsOf(pages) {
+  const runs = [];
+  for (const n of pages) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  return runs;
+}
+
+function pagesOfRuns(runs) {
+  const pages = new Set();
+  for (const [first, last] of runs) for (let n = first; n <= last; n++) pages.add(n);
+  return pages;
+}
+
+const addRun = (runs, run) => runsOf([...pagesOfRuns([...runs, run])].sort((a, b) => a - b));
 
 function segmentRow(extractionId, seq, segment) {
   return {
@@ -26,6 +60,46 @@ function segmentRow(extractionId, seq, segment) {
   };
 }
 
+/**
+ * Segment rows for consecutive pages, with page-anchored seqs. The first is 'head' when it is body
+ * text on the first page and the page before has no text yet. A head takes the seq just before its
+ * page (page × 1000 − 1, where the previous page, having no text, has no segments), so the page's
+ * own paragraphs keep their seqs when the head later merges into the paragraph before it.
+ * @param {{moreToCome: boolean, headUnknown: boolean}} options
+ */
+function regionRows(extractionId, pages, { moreToCome, headUnknown }) {
+  const { segments } = buildSegments(pages, { moreToCome });
+  const perPage = new Map();
+  return segments.map((segment, i) => {
+    if (i === 0 && headUnknown && segment.role === 'body' && segment.startPage === pages[0].page) {
+      return segmentRow(extractionId, segment.startPage * SEQ_PER_PAGE - 1, { ...segment, status: 'head' });
+    }
+    const index = perPage.get(segment.startPage) || 0;
+    perPage.set(segment.startPage, index + 1);
+    return segmentRow(extractionId, segment.startPage * SEQ_PER_PAGE + index, segment);
+  });
+}
+
+/**
+ * Widen the new pages [from, to] to clean page breaks: no stored segment crosses an edge, and the
+ * paragraph on either side is settled (an 'open' or 'head' one next to the new pages is rebuilt).
+ */
+async function regionFor(extractionId, from, to) {
+  let first = from;
+  let last = to;
+  for (;;) {
+    const before = await supabaseService.getSegmentsTouching(extractionId, first - 1, first);
+    const left = before.filter((s) => s.start_page < first && (s.end_page >= first || s.status !== 'final'));
+    const after = await supabaseService.getSegmentsTouching(extractionId, last, last + 1);
+    const right = after.filter((s) => s.end_page > last && (s.start_page <= last || s.status === 'head'));
+    const widerFirst = Math.min(first, ...left.map((s) => s.start_page));
+    const widerLast = Math.max(last, ...right.map((s) => s.end_page));
+    if (widerFirst === first && widerLast === last) return [first, last];
+    first = widerFirst;
+    last = widerLast;
+  }
+}
+
 async function failedPagesOf(extractionId, jobs, doneAfter) {
   const candidates = new Set();
   jobs.filter((job) => job.status === 'failed' && job.payload?.phase !== 'plan')
@@ -35,86 +109,90 @@ async function failedPagesOf(extractionId, jobs, doneAfter) {
   return [...candidates].filter((n) => !done.has(n)).sort((a, b) => a - b);
 }
 
+// The last page whose text is all in final segments, counting from page 1 (0 when page 1 has no text)
+async function finalizedThrough(extractionId, runs) {
+  const [first, last] = runs[0] || [];
+  if (first !== 1) return 0;
+  const tail = await supabaseService.getSegmentBefore(extractionId, (last + 1) * SEQ_PER_PAGE);
+  return tail && tail.status !== 'final' ? tail.start_page - 1 : last;
+}
+
 /**
- * One finalisation pass. The stored state is: segments built over pages 1..D, every segment final
- * except possibly the last (status 'open': its sentence may continue on page D+1), and
- * finalized_through_page F = the last page whose text is all in final segments.
- *   D = open ? lastSegment.end_page : max(F, lastSegment.end_page)
- * so a crash after writing segments but before writing F is recovered without duplicates.
- * The pass extends D over the newly done contiguous pages, rebuilding from the open segment (carry),
- * rewrites the open segment in place (same seq) and appends new ones with the next seqs in ONE upsert,
- * then moves F with a compare-and-set.
+ * Build the segments of the done runs that have new pages (every run when `rebuild`), one
+ * replace_segments per run.
+ * @returns {Promise<{changed: boolean, done: number[], runs: number[][]}>}
  */
-async function finalizeOnce(extractionId, { excludeJobId = null } = {}) {
+async function buildRuns(extraction, { rebuild = false } = {}) {
+  const total = extraction.pages_total;
+  const done = await supabaseService.getDonePageNumbers(extraction.id, 0);
+  const doneSet = new Set(done);
+  let built = rebuild ? [] : (extraction.built_runs || []);
+  const builtPages = pagesOfRuns(built);
+  let version = extraction.segment_version || 0;
+  let changed = false;
+
+  for (const run of runsOf(done)) {
+    const fresh = [];
+    for (let n = run[0]; n <= run[1]; n++) if (!builtPages.has(n)) fresh.push(n);
+    if (!fresh.length) continue;
+    const [from, to] = rebuild ? run : await regionFor(extraction.id, fresh[0], fresh[fresh.length - 1]);
+    const pages = await supabaseService.getPageBlocksRange(extraction.id, from, to);
+    const rows = regionRows(extraction.id, pages, {
+      moreToCome: to < total && !doneSet.has(to + 1),
+      headUnknown: from > 1 && !doneSet.has(from - 1),
+    });
+    built = addRun(built, run);
+    version = await supabaseService.replaceSegments(extraction.id, { fromPage: from, toPage: to, rows, builtRuns: built, expectVersion: version });
+    changed = true;
+  }
+  return { changed, done, runs: runsOf(done) };
+}
+
+async function finalizeOnce(extractionId, { excludeJobId = null, rebuild = false } = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const extraction = await supabaseService.getExtractionById(extractionId);
     if (!extraction || extraction.status === 'failed' || !extraction.pages_total) return extraction;
     const total = extraction.pages_total;
 
-    const last = await supabaseService.getLastSegment(extractionId);
-    const open = Boolean(last && last.status === 'open');
-    const built = open ? last.end_page : Math.max(extraction.finalized_through_page, last ? last.end_page : 0);
-
-    const doneAfter = await supabaseService.getDonePageNumbers(extractionId, built);
-    let end = built;
-    for (const n of doneAfter) {
-      if (n === end + 1) end = n;
-      else if (n > end + 1) break;
+    let built;
+    try {
+      built = await buildRuns(extraction, { rebuild });
+    } catch (error) {
+      if (error.code !== VERSION_CONFLICT) throw error;
+      logger.warn('Segments changed under us; another finaliser is running (run ONE job process)', { extractionId });
+      continue;
     }
-
-    let finalized;
-    if (end > built) {
-      const pages = await supabaseService.getPageBlocksRange(extractionId, open ? built : built + 1, end);
-      let carry = null;
-      let input = pages;
-      if (open) {
-        carry = carryFromSegment(last, pages[0]);
-        input = pages.slice(1);
-      }
-      const { segments } = buildSegments(input, { carry, moreToCome: end < total });
-      let nextSeq = (last ? last.seq : 0) + 1;
-      const rows = segments.map((segment) => segmentRow(extractionId, segment.carried ? last.seq : nextSeq++, segment));
-      await supabaseService.upsertSegments(rows);
-      const tail = rows[rows.length - 1];
-      finalized = tail && tail.status === 'open' ? tail.start_page - 1 : end;
-    } else {
-      finalized = open ? last.start_page - 1 : built;
-    }
+    const { changed, done, runs } = built;
 
     const jobs = await supabaseService.getExtractionJobs(extractionId);
-    const pagesDone = await supabaseService.countDonePages(extractionId);
-    const failedPages = await failedPagesOf(extractionId, jobs);
+    const failedPages = await failedPagesOf(extractionId, jobs, done);
     const outstanding = jobs.filter((job) => (job.status === 'queued' || job.status === 'running') && job.id !== excludeJobId).length;
-    const complete = pagesDone >= total && finalized >= total;
-    const status = complete ? 'complete' : outstanding > 0 ? 'running' : 'partial';
+    const status = done.length >= total ? 'complete' : outstanding > 0 ? 'running' : 'partial';
 
     const updated = await supabaseService.updateExtraction(extractionId, {
-      finalized_through_page: finalized,
-      pages_done: pagesDone,
+      finalized_through_page: await finalizedThrough(extractionId, runs),
+      pages_done: done.length,
       pages_failed: failedPages.length,
       status,
       finished_at: status === 'running' ? null : (extraction.finished_at || new Date().toISOString()),
-    }, { expectFinalizedThrough: extraction.finalized_through_page });
+    });
 
-    if (updated) {
-      if (status !== 'running' && extraction.status === 'running') {
-        logger.info('Extraction settled', { extractionId, status, pagesDone, pagesFailed: failedPages.length, finalized });
-        pdfSource.forgetPdf(extraction.content_sha256).catch(() => {});
-      }
-      if (end > built || status !== 'running') await wakeFollowups(extractionId);
-      return updated;
+    if (status !== 'running' && extraction.status === 'running') {
+      logger.info('Extraction settled', { extractionId, status, pagesDone: done.length, pagesFailed: failedPages.length, runs });
+      pdfSource.forgetPdf(extraction.content_sha256).catch(() => {});
     }
-    logger.warn('finalized_through_page moved under us; another finaliser is running (run ONE job process)', { extractionId });
+    if (changed || status !== 'running') await wakeFollowups(extractionId);
+    return updated;
   }
   throw new Error(`Could not finalize extraction ${extractionId}: concurrent updates`);
 }
 
 /**
  * Rebuild a settled extraction's segments from its stored page text with the current builder
- * (after a merge-rule fix). Segment audio is keyed by text hash, so unchanged paragraphs keep their
- * clips; only rewritten ones are voiced again. Seqs stay 1..n: rows are rewritten in place, the
- * surplus deleted. A running extraction is refused (its finaliser owns the segments).
- * @returns {{before: number, after: number, changed: number, finalized: number}}
+ * (after a merge-rule fix, or to move older extractions to page-anchored seqs). Segment audio is
+ * keyed by text hash, so unchanged paragraphs keep their clips. A running extraction is refused
+ * (its finaliser owns the segments).
+ * @returns {{before: number, after: number, changed: number, runs: number[][]}}
  */
 async function resegment(extractionId, { apply = false } = {}) {
   const extraction = await supabaseService.getExtractionById(extractionId);
@@ -122,23 +200,22 @@ async function resegment(extractionId, { apply = false } = {}) {
   if (extraction.status === 'running') throw new Error(`Extraction ${extractionId} is running; rebuild it once it settles`);
 
   const stored = await supabaseService.getSegmentHashes(extractionId);
-  const built = stored.reduce((max, s) => Math.max(max, s.end_page), extraction.finalized_through_page || 0);
-  if (!built) return { before: 0, after: 0, changed: 0, finalized: 0 };
-
-  const pages = await supabaseService.getPageBlocksRange(extractionId, 1, built);
-  const { segments } = buildSegments(pages, { moreToCome: built < extraction.pages_total });
-  const rows = segments.map((segment, i) => segmentRow(extractionId, i + 1, segment));
+  const done = await supabaseService.getDonePageNumbers(extractionId, 0);
+  const doneSet = new Set(done);
+  const runs = runsOf(done);
+  const rows = [];
+  for (const [from, to] of runs) {
+    const pages = await supabaseService.getPageBlocksRange(extractionId, from, to);
+    rows.push(...regionRows(extractionId, pages, {
+      moreToCome: to < extraction.pages_total && !doneSet.has(to + 1),
+      headUnknown: from > 1,
+    }));
+  }
   const storedHashes = new Set(stored.map((s) => s.text_sha256));
-  const tail = rows[rows.length - 1];
-  const finalized = tail && tail.status === 'open' ? tail.start_page - 1 : built;
-  const result = { before: stored.length, after: rows.length, changed: rows.filter((r) => !storedHashes.has(r.text_sha256)).length, finalized };
+  const result = { before: stored.length, after: rows.length, changed: rows.filter((r) => !storedHashes.has(r.text_sha256)).length, runs };
   if (!apply) return result;
 
-  await supabaseService.upsertSegments(rows);
-  await supabaseService.deleteSegmentsAfter(extractionId, rows.length);
-  if (finalized !== extraction.finalized_through_page) {
-    await supabaseService.updateExtraction(extractionId, { finalized_through_page: finalized }, { expectFinalizedThrough: extraction.finalized_through_page });
-  }
+  await finalizeOnce(extractionId, { rebuild: true });
   logger.info('Extraction resegmented', { extractionId, ...result });
   return result;
 }
@@ -167,4 +244,4 @@ function finalizePrefix(extractionId, options = {}) {
   return run;
 }
 
-module.exports = { finalizePrefix, resegment, failedPagesOf };
+module.exports = { finalizePrefix, resegment, failedPagesOf, SEQ_PER_PAGE, VERSION_CONFLICT };

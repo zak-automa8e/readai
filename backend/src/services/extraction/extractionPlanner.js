@@ -23,15 +23,13 @@ const ACTIVE_JOB = new Set(['queued', 'running']);
 /**
  * The pages listening at `page` needs text for (O15): the page before it (does its first paragraph
  * begin there?), the page itself, and `ahead` + 1 pages after it (the last voiced paragraph may run
- * onto the next page). Segments only grow from page 1, so the window also reaches back to the first
- * page that is not finalised yet.
- * @param {{page: number, ahead: number, total: number, finalizedThrough?: number}} args
+ * onto the next page). Segments build from any page (story 2), so nothing further back is needed.
+ * @param {{page: number, ahead: number, total: number}} args
  * @returns {{first: number, last: number}}
  */
-function textWindow({ page, ahead, total, finalizedThrough = 0 }) {
+function textWindow({ page, ahead, total }) {
   const p = Math.min(Math.max(parseInt(page, 10) || 1, 1), total);
-  const first = Math.max(Math.min(p - 1, finalizedThrough + 1), 1);
-  return { first, last: Math.min(p + ahead + 1, total) };
+  return { first: Math.max(p - 1, 1), last: Math.min(p + ahead + 1, total) };
 }
 
 /**
@@ -45,14 +43,14 @@ async function ensureText({ extraction, page, ahead, userId }) {
   const total = extraction.pages_total;
   if (!total || extraction.status === 'complete' || extraction.status === 'failed') return { extraction, queued: [] };
 
-  const { first, last } = textWindow({ page, ahead, total, finalizedThrough: extraction.finalized_through_page || 0 });
+  const { first, last } = textWindow({ page, ahead, total });
   const done = new Set(await supabaseService.getDonePageNumbers(extraction.id, first - 1));
   const jobs = await supabaseService.getExtractionJobs(extraction.id);
   const busy = new Set(jobs.filter((job) => ACTIVE_JOB.has(job.status)).flatMap((job) => job.payload?.pages || []));
   const todo = range(first, last).filter((n) => !done.has(n) && !busy.has(n));
   if (!todo.length) return { extraction, queued: [] };
 
-  // Chunks keep each job well inside its lease when the window reaches far back
+  // Chunks keep each job well inside its lease when the reader asks for many pages ahead
   const rows = chunk(todo, config.extraction.realtimeChunkPages).map((pages) => {
     const base = `extract:${extraction.id}:w${pages[0]}-${pages[pages.length - 1]}`;
     const earlier = jobs.filter((job) => job.idempotency_key === base || job.idempotency_key.startsWith(`${base}:`)).length;

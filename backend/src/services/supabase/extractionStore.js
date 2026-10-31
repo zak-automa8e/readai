@@ -187,25 +187,53 @@ class ExtractionStore {
     return data.map((row) => row.validation?.spokenChars).filter((n) => typeof n === 'number');
   }
 
-  async getLastSegment(extractionId) {
+  // The segment just before `seq` (null when none): the paragraph a gap or a run ends on
+  async getSegmentBefore(extractionId, seq) {
     const { data, error } = await this.adminClient
       .from('segments')
       .select('*')
       .eq('extraction_id', extractionId)
+      .lt('seq', seq)
       .order('seq', { ascending: false })
       .limit(1);
     if (error) throw error;
     return data[0] || null;
   }
 
-  /**
-   * Write segments in ONE statement: the rewritten open segment (same seq) and the appended ones
-   * land together or not at all.
-   */
-  async upsertSegments(rows) {
-    if (!rows.length) return;
-    const { error } = await this.adminClient.from('segments').upsert(rows, { onConflict: 'extraction_id,seq' });
+  // Segments that start on or before toPage and end on or after fromPage (the edges of a rebuild)
+  async getSegmentsTouching(extractionId, fromPage, toPage) {
+    const { data, error } = await this.adminClient
+      .from('segments')
+      .select('seq, start_page, end_page, status')
+      .eq('extraction_id', extractionId)
+      .lte('start_page', toPage)
+      .gte('end_page', fromPage)
+      .order('seq', { ascending: true });
     if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Swap the segments starting on fromPage..toPage for `rows` and record the built runs, in one
+   * transaction (RPC replace_segments). Returns the new segment_version; throws code
+   * SEGMENT_VERSION_CONFLICT when another finaliser moved it since expectVersion.
+   */
+  async replaceSegments(extractionId, { fromPage, toPage, rows, builtRuns, expectVersion }) {
+    const { data, error } = await this.adminClient.rpc('replace_segments', {
+      p_extraction: extractionId,
+      p_from_page: fromPage,
+      p_to_page: toPage,
+      p_rows: rows,
+      p_built_runs: builtRuns,
+      p_expect_version: expectVersion,
+    });
+    if (error) {
+      if (String(error.message).includes('segment_version_conflict')) {
+        throw Object.assign(new Error('segment_version_conflict'), { code: 'SEGMENT_VERSION_CONFLICT' });
+      }
+      throw error;
+    }
+    return data;
   }
 
   // Every segment's text hash in seq order (a rebuild compares against them)
@@ -215,12 +243,6 @@ class ExtractionStore {
       .select('seq, end_page, text_sha256')
       .eq('extraction_id', extractionId)
       .order('seq', { ascending: true }));
-  }
-
-  // Drop the segments past `seq` (a rebuild that produced fewer segments)
-  async deleteSegmentsAfter(extractionId, seq) {
-    const { error } = await this.adminClient.from('segments').delete().eq('extraction_id', extractionId).gt('seq', seq);
-    if (error) throw error;
   }
 
   async getSegments(extractionId, { fromPage = 1, limit = 200 } = {}) {

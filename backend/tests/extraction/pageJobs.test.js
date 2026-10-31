@@ -62,7 +62,7 @@ describe('runChunk (realtime)', () => {
     const extraction = await setupExtraction(2);
     await service.runChunk(chunkJob(extraction, [1, 2]), ctx);
     const segments = db.segmentsOf(extraction.id);
-    expect(segments.map((s) => [s.seq, s.start_page, s.status])).toEqual([[1, 1, 'final'], [2, 2, 'final']]);
+    expect(segments.map((s) => [s.seq, s.start_page, s.status])).toEqual([[1000, 1, 'final'], [2000, 2, 'final']]);
     expect(segments[0].text_sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(db.state.extractions.get(extraction.id)).toMatchObject({ finalized_through_page: 2, pages_done: 2, status: 'complete' });
   });

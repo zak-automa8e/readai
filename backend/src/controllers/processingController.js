@@ -98,6 +98,8 @@ const processingController = {
           pagesFailed: 0,
           failedPages: [],
           finalizedThroughPage: 0,
+          builtRuns: [],
+          segmentVersion: 0,
           mode: 'legacy',
         });
       }

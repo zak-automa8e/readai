@@ -113,8 +113,42 @@ describe('POST /api/books/:bookId/listen prepares the text ahead (O15)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ stopReason: 'processing', items: [] });
-    expect(textJobs()).toEqual([[7, 8, 9, 10, 11]]); // reaches back to page 7: segments grow from page 1
+    expect(textJobs()).toEqual([[8, 9, 10, 11]]); // page 8 to 11 only: page 7 stays without text
     expect(db.state.segmentAudio).toHaveLength(0);
+  });
+
+  it('does not jump over pages with no text to a later run', async () => {
+    // a run at pages 12-13 (another listener's), pages 7-11 without text
+    for (const page of [12, 13]) {
+      db.landPage(extraction, BOOK, page, { blocks: [], pageType: 'body' });
+      db.addSegment({ id: segId(page * 10), extraction_id: extraction.id, seq: page * 1000, role: 'body', start_page: page, end_page: page, parts: [{ page, chars: 9 }], text: `later ${page}`, text_sha256: sha(`later ${page}`), char_count: 300 });
+    }
+
+    const next = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 7 }); // "the paragraph after seq 6"
+    const page = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
+
+    expect(next.body).toMatchObject({ stopReason: 'processing', items: [] });
+    expect(page.body).toMatchObject({ stopReason: 'processing', items: [] });
+    expect(textJobs()).toEqual([[7, 8, 9], [10, 11]]); // pages 6-9 around page 7, then 8-11 for page 9
+  });
+
+  it('plans across a page that has text but no paragraphs, and stops at a page with no text', async () => {
+    require('../../src/config').audio.pagesAhead = 2;
+    db.subscribe('user-1', 'basic');
+    db.landPage(extraction, BOOK, 7, { blocks: [], pageType: 'blank' }); // read, no paragraphs (and skipped)
+    const later = (page) => {
+      db.landPage(extraction, BOOK, page, { blocks: [], pageType: 'body' });
+      db.addSegment({ id: segId(page * 10), extraction_id: extraction.id, seq: page * 1000, role: 'body', start_page: page, end_page: page, parts: [{ page, chars: 9 }], text: `page ${page}`, text_sha256: sha(`page ${page}`), char_count: 300 });
+    };
+    later(9); // page 8 has no text yet
+
+    const gap = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 6 });
+    expect(gap.body.items.map((i) => i.seq)).toEqual([6]);
+    expect(gap.body.stopReason).toBe('processing');
+
+    later(8);
+    const across = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 6 });
+    expect(across.body.items.map((i) => i.seq)).toEqual([6, 8000, 9000]);
   });
 
   it('queues nothing more on a second request for the same window', async () => {

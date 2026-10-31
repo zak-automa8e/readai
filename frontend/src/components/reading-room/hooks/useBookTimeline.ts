@@ -1,83 +1,106 @@
 import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
-import { listeningService } from "@/services/listeningService";
-import type { BookLength, ListenWindow, Segment, SegmentsPage } from "@/types/segments";
+import type { BookLength, ListenWindow, Segment } from "@/types/segments";
 import type { CachedClip } from "./segmentPlaybackUtils";
-import { SEGMENT_PAGE_SIZE } from "./useSegmentText";
 
 interface Params {
-  bookId: string | null;
   bookLength: BookLength | null;
+  numPages: number | null;
   currentSeq: number | null;
   resumeSeq: number | null;
   segmentBySeq: Map<number, Segment>;
-  segmentsRef: MutableRefObject<Segment[]>;
   audioCurrentTime: number;
   audioDuration: number;
   windowVersion: number;
   windowRef: MutableRefObject<ListenWindow | null>;
   clipsRef: MutableRefObject<Map<number, CachedClip>>;
-  applyPage: (page: SegmentsPage, replace: boolean) => Segment[];
-  playFrom: (seq: number, offsetChars?: number) => void;
+  playPage: (page: number) => Promise<void>;
 }
 
-/** The whole book as one timeline for the segment player's book-wide bar. */
+/**
+ * Where character `charIndex` of `segment` sits in the book, in pages from the start (page 1 is
+ * 0..1): its page, plus how far into that page's text it is, from the paragraphs loaded around it.
+ */
+function pagePosition(segments: Segment[], segment: Segment, charIndex: number) {
+  let page = segment.endPage;
+  let intoPart = 0;
+  let offset = 0;
+  for (const part of segment.parts) {
+    if (charIndex < offset + part.chars) {
+      page = part.page;
+      intoPart = charIndex - offset;
+      break;
+    }
+    offset += part.chars;
+    intoPart = part.chars;
+  }
+  let before = intoPart;
+  let onPage = 0;
+  for (const other of segments) {
+    for (const part of other.parts) {
+      if (part.page !== page) continue;
+      onPage += part.chars;
+      if (other.seq < segment.seq) before += part.chars;
+    }
+  }
+  return page - 1 + (onPage > 0 ? Math.min(before / onPage, 1) : 0);
+}
+
+/**
+ * The whole book as one timeline for the segment player's book-wide bar. Positions are pages (text
+ * arrives in runs anywhere in the book, so characters before a point are not known); they are
+ * shown as characters at the book's average per page, which the bar turns into time estimates.
+ */
 export const useBookTimeline = ({
-  bookId,
   bookLength,
+  numPages,
   currentSeq,
   resumeSeq,
   segmentBySeq,
-  segmentsRef,
   audioCurrentTime,
   audioDuration,
   windowVersion,
   windowRef,
   clipsRef,
-  applyPage,
-  playFrom,
+  playPage,
 }: Params) => {
-  const bookLengthRef = useRef(bookLength);
-  bookLengthRef.current = bookLength;
+  const pagesTotal = bookLength?.pagesTotal || numPages || 0;
+  const pagesTotalRef = useRef(pagesTotal);
+  pagesTotalRef.current = pagesTotal;
 
-  /**
-   * Position in the whole book, in characters (most of its audio does not exist yet): played =
-   * where the reading is, ready = the end of the clips ready right after it (the bar's lighter part).
-   */
+  /** played = where the reading is; ready = the end of the clips ready right after it (lighter part). */
   const bookProgress = useMemo(() => {
-    if (!bookLength || bookLength.totalChars <= 0) return null;
+    if (!bookLength || bookLength.totalChars <= 0 || pagesTotal <= 0) return null;
     void windowVersion; // window statuses live in a ref; this re-reads them when they change
+    const charsPerPage = bookLength.totalChars / pagesTotal;
+    const segments = [...segmentBySeq.values()];
     const anchorSeq = currentSeq ?? resumeSeq;
     const current = anchorSeq !== null ? segmentBySeq.get(anchorSeq) : undefined;
     const fraction = current && currentSeq !== null && audioDuration > 0 ? Math.min(audioCurrentTime / audioDuration, 1) : 0;
-    const playedChars = current ? current.charStart + fraction * current.charCount : 0;
-    let readyChars = playedChars;
+    const played = current ? pagePosition(segments, current, fraction * current.charCount) : 0;
+    let ready = played;
     const plan = windowRef.current;
     if (plan && current && currentSeq !== null) {
       for (const item of plan.items) {
         if (item.seq < current.seq) continue;
         const segment = segmentBySeq.get(item.seq);
         if (!segment || (item.status !== "ready" && !clipsRef.current.has(item.seq))) break;
-        readyChars = Math.max(readyChars, segment.charStart + segment.charCount);
+        ready = Math.max(ready, pagePosition(segments, segment, segment.charCount));
       }
     }
-    return { playedChars, readyChars, ...bookLength };
-  }, [bookLength, currentSeq, resumeSeq, segmentBySeq, audioCurrentTime, audioDuration, windowVersion, windowRef, clipsRef]);
+    return {
+      playedChars: played * charsPerPage,
+      readyChars: ready * charsPerPage,
+      totalChars: bookLength.totalChars,
+      complete: bookLength.complete,
+    };
+  }, [bookLength, pagesTotal, currentSeq, resumeSeq, segmentBySeq, audioCurrentTime, audioDuration, windowVersion, windowRef, clipsRef]);
 
-  /** Jump to a point of the book (0..1 of its length) and play from the paragraph there. */
+  /** Jump to a point of the book (0..1 of its pages) and play from the start of the page there. */
   const seekBook = useCallback(async (fraction: number) => {
-    const length = bookLengthRef.current;
-    if (!bookId || !length || length.knownChars <= 0) return;
-    // Past the extracted text: the last known paragraph
-    const atChar = Math.min(Math.max(fraction, 0), 1) * length.totalChars;
-    const target = Math.min(atChar, length.knownChars - 1);
-    const holding = (rows: Segment[]) => rows.find((s) => s.charStart <= target && target < s.charStart + s.charCount);
-    let segment = holding(segmentsRef.current);
-    if (!segment) {
-      const rows = applyPage(await listeningService.getSegmentsAtChar(bookId, target, SEGMENT_PAGE_SIZE), true);
-      segment = holding(rows) ?? rows[0];
-    }
-    if (segment) playFrom(segment.seq, Math.max(Math.round(target - segment.charStart), 0));
-  }, [applyPage, bookId, playFrom, segmentsRef]);
+    const total = pagesTotalRef.current;
+    if (total <= 0) return;
+    await playPage(Math.min(Math.floor(Math.min(Math.max(fraction, 0), 1) * total) + 1, total));
+  }, [playPage]);
 
   return { bookProgress, seekBook };
 };

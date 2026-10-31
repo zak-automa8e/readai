@@ -66,7 +66,7 @@ export const CanvasViews = ({ fixedFit = false }: { fixedFit?: boolean }) => {
         <PageCanvas fixedFit={fixedFit} />
       </div>
       <div className={view === "text" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-        <ExtractedTextView />
+        <ExtractedTextView visible={view === "text"} />
       </div>
     </div>
   );

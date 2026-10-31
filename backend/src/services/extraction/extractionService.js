@@ -27,7 +27,11 @@ async function getStatus(extraction) {
     pagesFailed: extraction.pages_failed,
     failedPages,
     finalizedThroughPage: extraction.finalized_through_page,
-    mode: extraction.finalized_through_page >= 1 ? 'segments' : 'legacy',
+    // [[first, last], ...] pages whose paragraphs are built; the text view tells blank pages from unprepared ones
+    builtRuns: extraction.built_runs || [],
+    // Bumped whenever segments change anywhere in the book (the player reloads its text on it)
+    segmentVersion: extraction.segment_version || 0,
+    mode: extraction.finalized_through_page >= 1 || extraction.built_runs?.length > 0 ? 'segments' : 'legacy',
   };
 }
 

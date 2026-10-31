@@ -115,17 +115,17 @@ describe('GET /api/books/:bookId/processing', () => {
 
     const res = await request(app).get(`/api/books/${BOOK}/processing`);
 
-    expect(res.body).toMatchObject({ extractionId: null, status: 'none', mode: 'legacy', bookMode: 'listen', pagesTotal: 12 });
+    expect(res.body).toMatchObject({ extractionId: null, status: 'none', mode: 'legacy', bookMode: 'listen', pagesTotal: 12, builtRuns: [] });
   });
 
   it('switches to segments once page 1 is finalised', async () => {
     db.addBook({ id: BOOK, content_sha256: 'sha-1' });
     const ext = await db.createExtraction({ content_sha256: 'sha-1', source_book_id: BOOK, model: 'test/model', prompt_version: 2 });
-    Object.assign(db.state.extractions.get(ext.id), { status: 'running', pages_total: 20, pages_done: 10, finalized_through_page: 9 });
+    Object.assign(db.state.extractions.get(ext.id), { status: 'running', pages_total: 20, pages_done: 10, finalized_through_page: 9, built_runs: [[1, 9], [15, 16]] });
 
     const res = await request(app).get(`/api/books/${BOOK}/processing`);
 
-    expect(res.body).toMatchObject({ extractionId: ext.id, status: 'running', pagesTotal: 20, pagesDone: 10, finalizedThroughPage: 9, mode: 'segments' });
+    expect(res.body).toMatchObject({ extractionId: ext.id, status: 'running', pagesTotal: 20, pagesDone: 10, finalizedThroughPage: 9, builtRuns: [[1, 9], [15, 16]], mode: 'segments' });
   });
 
   it("reports the reader's own mode over the book's", async () => {
@@ -190,40 +190,35 @@ describe('GET /api/books/:bookId/segments', () => {
   it('returns segments that end on or after fromPage, in seq order, in camelCase', async () => {
     db.addBook({ id: BOOK, content_sha256: 'sha-1' });
     const ext = await db.createExtraction({ content_sha256: 'sha-1', source_book_id: BOOK, model: 'test/model', prompt_version: 2 });
-    await db.upsertSegments([
-      { extraction_id: ext.id, seq: 1, role: 'heading', start_page: 1, end_page: 1, parts: [{ page: 1, chars: 5 }], text: 'تمهيد', char_count: 5, sentence_offsets: [0], footnote_markers: [], status: 'final' },
-      { extraction_id: ext.id, seq: 2, role: 'body', start_page: 1, end_page: 2, parts: [{ page: 1, chars: 4 }, { page: 2, chars: 3 }], text: 'نص في صف', char_count: 7, sentence_offsets: [0], footnote_markers: [], status: 'final' },
-      { extraction_id: ext.id, seq: 3, role: 'body', start_page: 2, end_page: 2, parts: [{ page: 2, chars: 4 }], text: 'آخر', char_count: 4, sentence_offsets: [0], footnote_markers: [], status: 'open' },
-    ]);
+    [
+      { extraction_id: ext.id, seq: 1000, role: 'heading', start_page: 1, end_page: 1, parts: [{ page: 1, chars: 5 }], text: 'تمهيد', char_count: 5, sentence_offsets: [0], footnote_markers: [], status: 'final' },
+      { extraction_id: ext.id, seq: 1001, role: 'body', start_page: 1, end_page: 2, parts: [{ page: 1, chars: 4 }, { page: 2, chars: 3 }], text: 'نص في صف', char_count: 7, sentence_offsets: [0], footnote_markers: [], status: 'final' },
+      { extraction_id: ext.id, seq: 2000, role: 'body', start_page: 2, end_page: 2, parts: [{ page: 2, chars: 4 }], text: 'آخر', char_count: 4, sentence_offsets: [0], footnote_markers: [], status: 'open' },
+    ].forEach((row) => db.addSegment(row));
 
     const res = await request(app).get(`/api/books/${BOOK}/segments?fromPage=2`);
 
     expect(res.body.extractionId).toBe(ext.id);
-    expect(res.body.segments.map((s) => s.seq)).toEqual([2, 3]);
+    expect(res.body.segments.map((s) => s.seq)).toEqual([1001, 2000]);
     expect(res.body.segments[0]).toMatchObject({ role: 'body', startPage: 1, endPage: 2, charCount: 7, sentenceOffsets: [0], status: 'final' });
     expect(res.body.segments[1].status).toBe('open');
-    // Position in the whole book, for the book-wide progress bar
-    expect(res.body.segments.map((s) => s.charStart)).toEqual([5, 12]);
     expect(res.body.book).toMatchObject({ knownChars: 16, complete: false });
   });
 
-  it('atChar starts at the segment holding that character; the total is estimated while extraction runs', async () => {
+  it('estimates the whole book from the pages that have text while some are still missing', async () => {
     db.addBook({ id: BOOK, content_sha256: 'sha-1' });
     const ext = await db.createExtraction({ content_sha256: 'sha-1', source_book_id: BOOK, model: 'test/model', prompt_version: 2 });
-    await db.updateExtraction(ext.id, { status: 'running', pages_total: 10 });
-    await db.upsertSegments([1, 2, 3, 4].map((seq) => ({
-      extraction_id: ext.id, seq, role: 'body', start_page: seq, end_page: seq, parts: [{ page: seq, chars: 100 }],
-      text: 'x'.repeat(100), char_count: 100, sentence_offsets: [0], footnote_markers: [], status: 'final',
-    })));
+    // pages 1-2 and 7-8 have text: 4 pages done out of 10
+    await db.updateExtraction(ext.id, { status: 'partial', pages_total: 10, pages_done: 4 });
+    [1, 2, 7, 8].forEach((page) => db.addSegment({
+      extraction_id: ext.id, seq: page * 1000, role: 'body', start_page: page, end_page: page, parts: [{ page, chars: 100 }],
+      text: 'x'.repeat(100), char_count: 100,
+    }));
 
-    const at = await request(app).get(`/api/books/${BOOK}/segments?atChar=250`);
-    expect(at.body.segments.map((s) => s.seq)).toEqual([3, 4]);
-    expect(at.body.segments[0].charStart).toBe(200);
-    // 400 chars over 4 pages, 10 pages in the book
-    expect(at.body.book).toEqual({ knownChars: 400, totalChars: 1000, complete: false });
+    const res = await request(app).get(`/api/books/${BOOK}/segments?fromPage=7`);
 
-    const past = await request(app).get(`/api/books/${BOOK}/segments?atChar=5000`);
-    expect(past.body.segments.map((s) => s.seq)).toEqual([4]);
+    expect(res.body.segments.map((s) => s.seq)).toEqual([7000, 8000]);
+    expect(res.body.book).toEqual({ knownChars: 400, totalChars: 1000, complete: false, pagesTotal: 10 });
   });
 
   it('returns an empty list for a book that has not been processed', async () => {

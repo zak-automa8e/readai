@@ -68,10 +68,6 @@ export const listeningService = {
   getSegments: (bookId: string, fromPage: number, limit = 200) =>
     request<SegmentsPage>(`/books/${bookId}/segments?fromPage=${fromPage}&limit=${limit}`),
 
-  /** Segments from the one holding character `atChar` of the book (a click on the book-wide bar). */
-  getSegmentsAtChar: (bookId: string, atChar: number, limit = 200) =>
-    request<SegmentsPage>(`/books/${bookId}/segments?atChar=${Math.max(Math.floor(atChar), 0)}&limit=${limit}`),
-
   /**
    * Plan from fromSeq (the rest of that page and the next ones) and queue its audio; or from
    * fromPage when that page has no text yet. Either way the server queues the text ahead (O15).

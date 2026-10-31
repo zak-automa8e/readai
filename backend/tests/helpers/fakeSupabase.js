@@ -1,6 +1,7 @@
 // In-memory stand-in for the supabaseService methods the extraction pipeline uses.
 // Mirrors the constraints that matter: page_text.page_id unique, segments unique (extraction_id, seq),
-// one live extraction per (content, prompt version, model), job idempotency_key unique.
+// one live extraction per (content, prompt version, model), job idempotency_key unique, and
+// replace_segments' compare-and-set on segment_version.
 function createFakeSupabase() {
   let ids = 0;
   const nextId = (prefix) => `${prefix}-${++ids}`;
@@ -23,6 +24,7 @@ function createFakeSupabase() {
         costs: [],
         files: new Map(),
         failNextExtractionUpdate: false,
+        failNextReplace: false,
         segmentAudio: [],
         skipOverrides: [],
         plans: new Map([
@@ -102,6 +104,8 @@ function createFakeSupabase() {
         pages_done: 0,
         pages_failed: 0,
         finalized_through_page: 0,
+        built_runs: [],
+        segment_version: 0,
         started_at: null,
         finished_at: null,
         error: null,
@@ -159,22 +163,38 @@ function createFakeSupabase() {
       .sort((a, b) => a.page - b.page)),
     getSpokenCharSample: jest.fn(async () => []),
 
-    getLastSegment: jest.fn(async (extractionId) => {
-      const rows = fake.segmentsOf(extractionId);
+    getSegmentBefore: jest.fn(async (extractionId, seq) => {
+      const rows = fake.segmentsOf(extractionId).filter((s) => s.seq < seq);
       return rows.length ? { ...rows[rows.length - 1] } : null;
     }),
-    upsertSegments: jest.fn(async (rows) => {
+    getSegmentsTouching: jest.fn(async (extractionId, fromPage, toPage) => fake.segmentsOf(extractionId)
+      .filter((s) => s.start_page <= toPage && s.end_page >= fromPage)
+      .map(({ seq, start_page, end_page, status }) => ({ seq, start_page, end_page, status }))),
+    // replace_segments: compare-and-set on segment_version, then the region's rows swap in one go;
+    // a surviving seq keeps its id. failNextReplace simulates a crash before the transaction commits.
+    replaceSegments: jest.fn(async (extractionId, { fromPage, toPage, rows, builtRuns, expectVersion }) => {
+      if (state.failNextReplace) {
+        state.failNextReplace = false;
+        throw new Error('simulated crash before replace_segments committed');
+      }
+      const extraction = state.extractions.get(extractionId);
+      if ((extraction.segment_version || 0) !== expectVersion) {
+        throw Object.assign(new Error('segment_version_conflict'), { code: 'SEGMENT_VERSION_CONFLICT' });
+      }
+      extraction.segment_version = expectVersion + 1;
+      extraction.built_runs = builtRuns;
+      const keep = new Set(rows.map((r) => r.seq));
+      state.segments = state.segments.filter((s) => s.extraction_id !== extractionId
+        || s.start_page < fromPage || s.start_page > toPage || keep.has(s.seq));
       for (const row of rows) {
-        const existing = state.segments.find((s) => s.extraction_id === row.extraction_id && s.seq === row.seq);
+        const existing = state.segments.find((s) => s.extraction_id === extractionId && s.seq === row.seq);
         if (existing) Object.assign(existing, row);
         else state.segments.push({ id: nextId('seg'), ...row });
       }
+      return extraction.segment_version;
     }),
     getSegmentHashes: jest.fn(async (extractionId) => fake.segmentsOf(extractionId)
       .map((s) => ({ seq: s.seq, end_page: s.end_page, text_sha256: s.text_sha256 }))),
-    deleteSegmentsAfter: jest.fn(async (extractionId, seq) => {
-      state.segments = state.segments.filter((s) => s.extraction_id !== extractionId || s.seq <= seq);
-    }),
     getSegments: jest.fn(async (extractionId, { fromPage = 1, limit = 200 } = {}) => fake.segmentsOf(extractionId)
       .filter((s) => s.end_page >= fromPage)
       .slice(0, limit)),

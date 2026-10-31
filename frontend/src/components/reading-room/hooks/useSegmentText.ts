@@ -61,20 +61,18 @@ export const useSegmentText = ({
     loadSegments(Math.max(pageNumber - 1, 1), true).catch((error) => console.warn("Segments failed", error));
   }, [bookId, pageNumber, processing, loadSegments]);
 
-  // New text landed: refresh the loaded tail if it reached the extraction frontier, wake text waiters
-  const finalized = processing?.finalizedThroughPage ?? 0;
+  // Paragraphs changed somewhere in the book (new pages, or two runs joined): read the loaded range
+  // again whole, since a join replaces paragraphs, and wake text waiters
+  const segmentVersion = processing?.segmentVersion ?? 0;
   useEffect(() => {
-    if (!bookId || finalized < 1) return;
+    if (!bookId || segmentVersion < 1) return;
     const loaded = segmentsRef.current;
-    const last = loaded[loaded.length - 1];
-    if (!last || last.status === "open" || loaded.length < SEGMENT_PAGE_SIZE) {
-      loadSegments(loaded[0]?.startPage ?? Math.max(pageRef.current - 1, 1), loaded.length === 0)
-        .catch((error) => console.warn("Segments failed", error));
-    }
+    loadSegments(loaded[0]?.startPage ?? Math.max(pageRef.current - 1, 1), true)
+      .catch((error) => console.warn("Segments failed", error));
     const waiters = textWaitersRef.current;
     textWaitersRef.current = [];
     waiters.forEach((wake) => wake());
-  }, [bookId, finalized, loadSegments]);
+  }, [bookId, segmentVersion, loadSegments]);
 
   /** Resolves when new text lands, or after TEXT_WAIT_MS at the latest. */
   const waitForText = useCallback((signal: AbortSignal) =>

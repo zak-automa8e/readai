@@ -12,18 +12,21 @@ export interface Segment {
   sentenceOffsets: number[];
   charCount: number;
   footnoteMarkers: string[] | null;
-  /** 'open' while its last sentence may still continue on a page not extracted yet. */
-  status: "open" | "final";
-  /** Position of its first character in the whole book. */
-  charStart: number;
+  /**
+   * 'open' while its last sentence may still continue on a page with no text yet; 'head' while it
+   * may continue the page before (that page has no text yet). Seqs are page × 1000 + index, with
+   * gaps where pages have no text.
+   */
+  status: "open" | "final" | "head";
 }
 
-/** The book's length in characters: the unit of the book-wide progress bar. */
+/** The book's length: characters (the progress bar's time estimate) and pages (its positions). */
 export interface BookLength {
   knownChars: number;
-  /** Estimated from known chars per page while extraction runs; equals knownChars once complete. */
+  /** Estimated from known chars per page with text until every page has text; then knownChars. */
   totalChars: number;
   complete: boolean;
+  pagesTotal: number | null;
 }
 
 export interface SegmentsPage {
@@ -47,7 +50,11 @@ export interface ProcessingStatus {
   pagesFailed: number;
   failedPages: number[];
   finalizedThroughPage: number;
-  /** 'segments' once page 1's text is final. */
+  /** [[first, last], ...] pages whose paragraphs are built (a page outside them has no text yet). */
+  builtRuns: [number, number][];
+  /** Bumped whenever paragraphs change anywhere in the book: loaded text is read again. */
+  segmentVersion: number;
+  /** 'segments' once any paragraphs exist. */
   mode: "segments" | "legacy";
 }
 

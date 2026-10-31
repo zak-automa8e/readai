@@ -69,7 +69,7 @@ export const useSegmentPlayback = ({
   const [audioDuration, setAudioDuration] = useState(0);
   const [limit, setLimit] = useState<DailyLimitReached | null>(null);
   const [isPrefetching, setIsPrefetching] = useState(false);
-  const { segments, segmentsRef, segmentBySeq, segmentBySeqRef, bookLength, applyPage, loadSegments, waitForText } =
+  const { segments, segmentsRef, segmentBySeq, segmentBySeqRef, bookLength, loadSegments, waitForText } =
     useSegmentText({ bookId, pageNumber, processing });
   /** Bumped when the planned window's clip statuses change (the bar's "ready ahead" part). */
   const [windowVersion, setWindowVersion] = useState(0);
@@ -386,12 +386,17 @@ export const useSegmentPlayback = ({
     const seq = currentSeqRef.current;
     if (seq === null) return void playPage(pageRef.current);
     if (direction === 1) {
+      // seq + 1 = "the paragraph after": seqs have gaps; the server finds it, or waits for its text
       const next = windowRef.current?.items.find((i) => i.seq > seq)?.seq ?? seq + 1;
       void runFromRef.current(next);
-    } else {
-      void runFromRef.current(Math.max(seq - 1, 1));
+      return;
     }
-  }, [playPage]);
+    const previous = segmentsRef.current.filter((s) => s.seq < seq).pop();
+    const current = segmentBySeqRef.current.get(seq);
+    if (previous && (!current || previous.endPage >= current.startPage - 1)) void runFromRef.current(previous.seq);
+    else if (current && current.startPage > 1) void playPage(current.startPage - 1);
+    else void runFromRef.current(seq);
+  }, [playPage, segmentBySeqRef, segmentsRef]);
 
   const handleSeek = useCallback((percent: number) => {
     const audio = audioRef.current;
@@ -402,19 +407,17 @@ export const useSegmentPlayback = ({
   // ---------------------------------------------------------------- the whole book as one timeline
 
   const { bookProgress, seekBook } = useBookTimeline({
-    bookId,
     bookLength,
+    numPages,
     currentSeq,
     resumeSeq,
     segmentBySeq,
-    segmentsRef,
     audioCurrentTime,
     audioDuration,
     windowVersion,
     windowRef,
     clipsRef,
-    applyPage,
-    playFrom,
+    playPage,
   });
 
   // Turning the player off (book switched to the page player) stops everything

@@ -60,27 +60,35 @@ function lastWindowPage(page, pagesAhead, isSkipped) {
  *   - the current page is the start page of the first segment that is read;
  *   - a segment that starts after the last window page ends the walk; one that starts on it is
  *     taken whole, so a paragraph cut by the next page break is voiced in one clip;
- *   - an 'open' segment ends the walk (its text can still change; never synthesised);
+ *   - an 'open' or 'head' segment ends the walk (its text can still change; never synthesised);
+ *   - a page with no text yet between two segments ends the walk (text arrives a few pages at a time);
  *   - a segment whose start page is skipped is passed over (listed in skippedSeqs);
  *   - a segment that needs more pages not yet counted today than the allowance has left ends the walk.
- * @param {Object[]} segments rows in seq order (seq, start_page, parts, char_count, status)
- * @param {{isSkipped: (page: number) => boolean, countedPages: Set<number>, remaining: number, pagesAhead: number}} options
+ * @param {Object[]} segments rows in seq order (seq, start_page, end_page, parts, char_count, status)
+ * @param {{isSkipped: (page: number) => boolean, countedPages: Set<number>, remaining: number, pagesAhead: number, hasText?: (page: number) => boolean}} options
  * @returns {{items: {segment: Object, offsetSeconds: number, estimatedSeconds: number, newPages: number[]}[], skippedSeqs: number[], estimatedSeconds: number, newPages: number[], stopReason: 'window'|'allowance'|'processing'|null, waitSeq?: number}}
- *   stopReason null = the segments ran out; waitSeq = the open segment a 'processing' stop waits for
+ *   stopReason null = the segments ran out; waitSeq = the open or head segment a 'processing' stop waits for
  */
-function planWindow(segments, { isSkipped, countedPages, remaining, pagesAhead }) {
+function planWindow(segments, { isSkipped, countedPages, remaining, pagesAhead, hasText = () => true }) {
   const items = [];
   const skippedSeqs = [];
   const planned = new Set();
   let total = 0;
   let lastPage = null;
+  let previous = null;
 
   for (const segment of segments) {
     if (lastPage !== null && segment.start_page > lastPage) {
       return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'window' };
     }
+    if (previous) {
+      for (let page = previous.end_page + 1; page < segment.start_page; page++) {
+        if (!hasText(page)) return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'processing' };
+      }
+    }
+    previous = segment;
     if (lastPage === null && !isSkipped(segment.start_page)) lastPage = lastWindowPage(segment.start_page, pagesAhead, isSkipped);
-    if (segment.status === 'open') {
+    if (segment.status === 'open' || segment.status === 'head') {
       return { items, skippedSeqs, estimatedSeconds: total, newPages: [...planned], stopReason: 'processing', waitSeq: segment.seq };
     }
     if (isSkipped(segment.start_page)) {
@@ -175,8 +183,9 @@ async function queueFollowup({ userId, bookId, extraction, fromSeq, voice, waitS
 }
 
 /**
- * listen_followup handler: once segment waitSeq is built and final, plan the window again as a
- * listen request would (and queue its clips). Gives up when extraction stops or the wait runs out.
+ * listen_followup handler: once segment waitSeq is final (or merged away by a rebuild), plan the
+ * window again as a listen request would (and queue its clips). Gives up when extraction stops or
+ * the wait runs out.
  * @returns {Promise<null|{requeue: {delayMs: number}}>}
  */
 async function runFollowup(job) {
@@ -186,7 +195,8 @@ async function runFollowup(job) {
   if (!extraction) return null;
 
   const [segment] = await supabaseService.getSegmentsFromSeq(extraction.id, waitSeq, 1);
-  if (segment && segment.seq === waitSeq && segment.status === 'final') {
+  // Settled: the awaited segment is final, or gone (a rebuild merged it) and a later one exists
+  if (segment && (segment.seq !== waitSeq || segment.status === 'final')) {
     const result = await listen({
       userId: job.user_id,
       book: { id: job.book_id },
@@ -231,6 +241,8 @@ async function listen({ userId, book, extraction, fromSeq, voice }) {
     countedPages: usage.countedPages,
     remaining: usage.remainingToday,
     pagesAhead: config.audio.pagesAhead,
+    // Page types exist for exactly the pages that have text
+    hasText: (page) => rules.pageTypes.has(page),
   };
   const plan = fromSeq === null
     ? { items: [], skippedSeqs: [], estimatedSeconds: 0, newPages: [], stopReason: extraction.status === 'complete' ? 'end' : 'processing' }

@@ -8,7 +8,7 @@ const { finalizePrefix, resegment } = require('../../src/services/extraction/ext
 const { buildSegments } = require('../../src/services/extraction/segmentBuilder');
 const fixtures = require('../fixtures/bakeoff-pages.json');
 
-// Bake-off book b1 (printed pages 5-8, three page-crossing sentences) as a 4-page book
+// Bake-off book b1 (printed pages 5-8) as a 4-page book: a sentence crosses every page break
 const b1 = fixtures.books.find((b) => b.key === 'b1').pages.map((p, i) => ({ page: i + 1, blocks: p.blocks }));
 const BOOK = 'book-1';
 
@@ -24,53 +24,85 @@ async function setup(total = 4) {
 }
 
 const land = (extraction, n) => db.landPage(extraction, BOOK, n, { blocks: b1[n - 1].blocks });
+const landAll = async (extraction, pages) => {
+  for (const n of pages) {
+    land(extraction, n);
+    await finalizePrefix(extraction.id);
+  }
+};
 const strip = (s) => ({ seq: s.seq, role: s.role, text: s.text, parts: s.parts, status: s.status, start: s.start_page, end: s.end_page });
-const expected = () => buildSegments(b1).segments.map((s, i) => ({
-  seq: i + 1, role: s.role, text: s.text, parts: s.parts, status: 'final', start: s.startPage, end: s.endPage,
-}));
+// The whole book built in one pass, with page-anchored seqs (page × 1000 + index on the page)
+const expected = () => {
+  const perPage = new Map();
+  return buildSegments(b1).segments.map((s) => {
+    const index = perPage.get(s.startPage) || 0;
+    perPage.set(s.startPage, index + 1);
+    return { seq: s.startPage * 1000 + index, role: s.role, text: s.text, parts: s.parts, status: 'final', start: s.startPage, end: s.endPage };
+  });
+};
+const extractionOf = (extraction) => db.state.extractions.get(extraction.id);
 
 describe('finalizePrefix', () => {
-  it('builds the same segments as one pass when pages land in order, seq 1..n without gaps', async () => {
+  it('builds the same segments as one pass when pages land in order, seqs anchored to their page', async () => {
     const extraction = await setup();
-    for (let n = 1; n <= 4; n++) {
-      land(extraction, n);
-      await finalizePrefix(extraction.id);
-    }
-    const segments = db.segmentsOf(extraction.id);
-    expect(segments.map(strip)).toEqual(expected());
-    expect(segments.map((s) => s.seq)).toEqual(segments.map((_, i) => i + 1));
-    expect(db.state.extractions.get(extraction.id)).toMatchObject({ finalized_through_page: 4, pages_done: 4 });
+    await landAll(extraction, [1, 2, 3, 4]);
+    expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
+    expect(extractionOf(extraction)).toMatchObject({ finalized_through_page: 4, pages_done: 4, built_runs: [[1, 4]] });
   });
 
   it('keeps the page-crossing paragraph open and rewrites it in place when the next page lands', async () => {
     const extraction = await setup();
-    land(extraction, 1);
-    await finalizePrefix(extraction.id);
-
+    await landAll(extraction, [1]);
     const afterOne = db.segmentsOf(extraction.id);
     const open = afterOne[afterOne.length - 1];
-    expect(open.status).toBe('open');
-    expect(open.end_page).toBe(1);
-    expect(db.state.extractions.get(extraction.id).finalized_through_page).toBe(0);
-    expect(db.state.extractions.get(extraction.id).status).toBe('running');
+    expect(open).toMatchObject({ status: 'open', end_page: 1 });
+    expect(extractionOf(extraction)).toMatchObject({ finalized_through_page: 0, status: 'running' });
 
-    land(extraction, 2);
-    await finalizePrefix(extraction.id);
+    await landAll(extraction, [2]);
 
     const rewritten = db.segmentsOf(extraction.id).find((s) => s.seq === open.seq);
-    expect(rewritten.id).toBe(open.id);
-    expect(rewritten.start_page).toBe(1);
-    expect(rewritten.end_page).toBe(2);
+    expect(rewritten).toMatchObject({ id: open.id, start_page: 1, end_page: 2, status: 'final' });
     expect(rewritten.text.startsWith(open.text)).toBe(true);
-    expect(rewritten.status).toBe('final');
-    // earlier segments untouched, nothing renumbered
     afterOne.slice(0, -1).forEach((s) => expect(db.segmentsOf(extraction.id).find((r) => r.seq === s.seq)).toEqual(s));
   });
 
-  it('wakes the listening follow-ups of the extraction when a pass closes segments, not on a no-op pass', async () => {
+  it('builds a run that starts mid-book, its first paragraph held as head while the page before has no text', async () => {
     const extraction = await setup();
-    land(extraction, 1);
-    await finalizePrefix(extraction.id);
+    await landAll(extraction, [3, 4]);
+
+    const segments = db.segmentsOf(extraction.id);
+    expect(segments[0]).toMatchObject({ seq: 2999, start_page: 3, status: 'head' });
+    expect(segments.slice(1).map(strip)).toEqual(expected().filter((s) => s.start >= 3));
+    expect(extractionOf(extraction)).toMatchObject({ built_runs: [[3, 4]], finalized_through_page: 0 });
+  });
+
+  it('joins two runs when the gap lands: the open tail and the head become one paragraph, nothing else moves', async () => {
+    const extraction = await setup();
+    await landAll(extraction, [3, 4, 1]);
+    const before = db.segmentsOf(extraction.id).map((s) => ({ ...s }));
+    expect(extractionOf(extraction).built_runs).toEqual([[1, 1], [3, 4]]);
+
+    await landAll(extraction, [2]);
+
+    const segments = db.segmentsOf(extraction.id);
+    expect(segments.map(strip)).toEqual(expected());
+    expect(segments.some((s) => s.seq === 2999)).toBe(false);
+    // every paragraph that did not touch the gap keeps its seq, its id and its text (so its audio)
+    before.filter((s) => s.status === 'final').forEach((s) => expect(segments.find((r) => r.seq === s.seq)).toEqual(s));
+    expect(extractionOf(extraction)).toMatchObject({ built_runs: [[1, 4]], finalized_through_page: 4 });
+  });
+
+  it('builds any landing order to the same segments', async () => {
+    for (const order of [[4, 2, 3, 1], [2, 4, 1, 3], [1, 3, 2, 4]]) {
+      const extraction = await setup();
+      await landAll(extraction, order);
+      expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
+    }
+  });
+
+  it('wakes the listening follow-ups of the extraction when a pass changes segments, not on a no-op pass', async () => {
+    const extraction = await setup();
+    await landAll(extraction, [1]);
     const later = new Date(Date.now() + 60000).toISOString();
     await db.enqueueJobs([{ kind: 'listen_followup', extraction_id: extraction.id, idempotency_key: 'followup:k', run_after: later }]);
     db.wakeQueuedJobs.mockClear();
@@ -78,91 +110,48 @@ describe('finalizePrefix', () => {
     await finalizePrefix(extraction.id); // nothing new landed
     expect(db.wakeQueuedJobs).not.toHaveBeenCalled();
 
-    land(extraction, 2);
-    await finalizePrefix(extraction.id);
+    await landAll(extraction, [2]);
     expect(db.wakeQueuedJobs).toHaveBeenCalledWith(extraction.id, 'listen_followup');
     expect(Date.parse(db.state.jobs.find((j) => j.idempotency_key === 'followup:k').run_after)).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('waits for the gap when pages land out of order', async () => {
-    const extraction = await setup();
-    land(extraction, 3);
-    await finalizePrefix(extraction.id);
-    expect(db.segmentsOf(extraction.id)).toEqual([]);
-
-    land(extraction, 1);
-    await finalizePrefix(extraction.id);
-    land(extraction, 4);
-    await finalizePrefix(extraction.id);
-    expect(Math.max(...db.segmentsOf(extraction.id).map((s) => s.end_page))).toBe(1);
-
-    land(extraction, 2);
-    await finalizePrefix(extraction.id);
-    expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
   });
 
   it('is a no-op when replayed', async () => {
     const extraction = await setup();
     land(extraction, 1);
-    land(extraction, 2);
+    land(extraction, 3);
     await finalizePrefix(extraction.id);
     const before = JSON.stringify(db.segmentsOf(extraction.id));
+    const version = extractionOf(extraction).segment_version;
     await finalizePrefix(extraction.id);
     await finalizePrefix(extraction.id);
     expect(JSON.stringify(db.segmentsOf(extraction.id))).toBe(before);
+    expect(extractionOf(extraction).segment_version).toBe(version);
   });
 
-  it('recovers without duplicates after a crash between writing segments and moving the prefix', async () => {
+  it('writes nothing when a pass crashes before replace_segments commits, and the next pass catches up', async () => {
     const extraction = await setup();
     land(extraction, 1);
     land(extraction, 2);
-    db.state.failNextExtractionUpdate = true;
+    db.state.failNextReplace = true;
     await expect(finalizePrefix(extraction.id)).rejects.toThrow('simulated crash');
-    expect(db.state.extractions.get(extraction.id).finalized_through_page).toBe(0); // stale
+    expect(db.segmentsOf(extraction.id)).toEqual([]);
+    expect(extractionOf(extraction).built_runs).toEqual([]);
 
-    land(extraction, 3);
-    land(extraction, 4);
-    await finalizePrefix(extraction.id); // the "restart"
-
-    const segments = db.segmentsOf(extraction.id);
-    expect(segments.map(strip)).toEqual(expected());
-    expect(new Set(segments.map((s) => s.text)).size).toBe(segments.length);
+    await landAll(extraction, [3, 4]); // the "restart"
+    expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
   });
 
-  it('recovers from the same crash when the last stored segment is already final', async () => {
+  it('starts over when another finaliser moved the segments first', async () => {
     const extraction = await setup();
     for (let n = 1; n <= 4; n++) land(extraction, n);
-    db.state.failNextExtractionUpdate = true;
-    await expect(finalizePrefix(extraction.id)).rejects.toThrow('simulated crash');
-
+    db.replaceSegments.mockImplementationOnce(async () => {
+      throw Object.assign(new Error('segment_version_conflict'), { code: 'SEGMENT_VERSION_CONFLICT' });
+    });
     await finalizePrefix(extraction.id);
-
     expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
-    expect(db.state.extractions.get(extraction.id).finalized_through_page).toBe(4);
   });
 
-  it('continues seq after the last stored segment when a new run resumes the book', async () => {
-    const extraction = await setup();
-    land(extraction, 1);
-    land(extraction, 2);
-    await finalizePrefix(extraction.id);
-    const firstRun = db.segmentsOf(extraction.id).map((s) => ({ ...s }));
-
-    // a new process: nothing in memory, everything derived from the tables
-    jest.resetModules();
-    jest.doMock('../../src/services/supabaseService', () => db);
-    const fresh = require('../../src/services/extraction/extractionService');
-    land(extraction, 3);
-    land(extraction, 4);
-    await fresh.finalizePrefix(extraction.id);
-
-    const segments = db.segmentsOf(extraction.id);
-    expect(segments.map((s) => s.seq)).toEqual(segments.map((_, i) => i + 1));
-    firstRun.filter((s) => s.status === 'final').forEach((s) => expect(segments.find((r) => r.seq === s.seq)).toEqual(s));
-    expect(segments.map(strip)).toEqual(expected());
-  });
-
-  it('marks the extraction complete once every page is in final segments', async () => {
+  it('marks the extraction complete once every page has text', async () => {
     const extraction = await setup();
     db.state.jobs = []; // nothing left to run
     for (let n = 1; n <= 4; n++) land(extraction, n);
@@ -177,7 +166,7 @@ describe('finalizePrefix', () => {
     land(extraction, 1);
     land(extraction, 2);
     const updated = await finalizePrefix(extraction.id);
-    // page 2 ends mid-sentence and page 3 is missing: that paragraph stays open, so the prefix is page 1
+    // page 2 ends mid-sentence and page 3 is missing: that paragraph stays open, so page 1 is final
     expect(updated).toMatchObject({ status: 'partial', pages_done: 2, pages_failed: 2, finalized_through_page: 1 });
     expect(db.segmentsOf(extraction.id).pop().status).toBe('open');
   });
@@ -213,15 +202,14 @@ describe('finalizePrefix', () => {
 });
 
 describe('resegment', () => {
-  async function settled() {
+  async function settled(pages = [1, 2, 3, 4]) {
     const extraction = await setup();
-    for (let n = 1; n <= 4; n++) land(extraction, n);
-    await finalizePrefix(extraction.id);
+    await landAll(extraction, pages);
     await db.updateExtraction(extraction.id, { status: 'complete' });
     return extraction;
   }
 
-  // Segments as an older merge rule stored them: one paragraph split in two, so one seq too many
+  // Segments as before page-anchored seqs (1..n) and an older merge rule: one paragraph split in two
   function storeStale(extraction) {
     const rows = db.segmentsOf(extraction.id);
     const cross = rows.find((s) => s.start_page !== s.end_page);
@@ -236,6 +224,7 @@ describe('resegment', () => {
         db.state.segments.push({ ...s, seq: seq++ });
       }
     }
+    Object.assign(extractionOf(extraction), { built_runs: [] }); // as the migration leaves older extractions
     return rows.length;
   }
 
@@ -246,25 +235,31 @@ describe('resegment', () => {
 
     const result = await resegment(extraction.id);
 
-    expect(result).toEqual({ before: count + 1, after: count, changed: 1, finalized: 4 });
+    expect(result).toEqual({ before: count + 1, after: count, changed: 1, runs: [[1, 4]] });
     expect(db.segmentsOf(extraction.id).map(strip)).toEqual(before);
   });
 
-  it('rewrites the segments in place with seq 1..n and drops the surplus', async () => {
+  it('rewrites older segments with page-anchored seqs and records the built runs', async () => {
     const extraction = await settled();
     storeStale(extraction);
 
     await resegment(extraction.id, { apply: true });
 
+    expect(db.segmentsOf(extraction.id).map(strip)).toEqual(expected());
+    expect(extractionOf(extraction).built_runs).toEqual([[1, 4]]);
+  });
+
+  it('rebuilds every run of a book with gaps', async () => {
+    const extraction = await settled([1, 3, 4]);
+    await resegment(extraction.id, { apply: true });
     const segments = db.segmentsOf(extraction.id);
-    expect(segments.map(strip)).toEqual(expected());
-    expect(segments.map((s) => s.seq)).toEqual(segments.map((_, i) => i + 1));
+    expect(segments.find((s) => s.seq === 2999)).toMatchObject({ status: 'head' });
+    expect(extractionOf(extraction).built_runs).toEqual([[1, 1], [3, 4]]);
   });
 
   it('refuses a running extraction', async () => {
     const extraction = await setup();
-    land(extraction, 1);
-    await finalizePrefix(extraction.id);
+    await landAll(extraction, [1]);
     await expect(resegment(extraction.id, { apply: true })).rejects.toThrow(/running/);
   });
 });
