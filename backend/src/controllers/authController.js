@@ -1,4 +1,6 @@
+const config = require('../config');
 const supabaseService = require('../services/supabaseService');
+const listenerSettings = require('../services/audio/listenerSettings');
 const logger = require('../utils/logger');
 
 /**
@@ -203,6 +205,9 @@ const getProfile = async (req, res) => {
         id: userId,
         email: req.user.email,
         display_name: userProfile?.display_name || req.user.email?.split('@')[0],
+        listenPagesAhead: listenerSettings.isPagesAhead(userProfile?.listen_pages_ahead)
+          ? userProfile.listen_pages_ahead
+          : config.audio.pagesAhead,
         profile: userProfile
       }
     });
@@ -211,6 +216,30 @@ const getProfile = async (req, res) => {
     logger.error('Get profile error:', error);
     res.status(500).json({
       error: 'Failed to fetch profile'
+    });
+  }
+};
+
+/**
+ * Update the current user's settings. Only listenPagesAhead (1-5) for now.
+ */
+const updateProfile = async (req, res) => {
+  try {
+    const { listenPagesAhead } = req.body || {};
+    if (!listenerSettings.isPagesAhead(listenPagesAhead)) {
+      return res.status(400).json({
+        error: 'INVALID_PAGES_AHEAD',
+        message: `listenPagesAhead must be a whole number from ${listenerSettings.PAGES_AHEAD_MIN} to ${listenerSettings.PAGES_AHEAD_MAX}.`
+      });
+    }
+
+    await supabaseService.setListenPagesAhead(req.user.id, listenPagesAhead);
+    res.json({ success: true, listenPagesAhead });
+
+  } catch (error) {
+    logger.error('Update profile error:', error);
+    res.status(500).json({
+      error: 'Failed to update profile'
     });
   }
 };
@@ -261,5 +290,6 @@ module.exports = {
   refreshSession,
   logout,
   getProfile,
+  updateProfile,
   resetPassword
 };

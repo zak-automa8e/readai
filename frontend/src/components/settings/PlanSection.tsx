@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatResetTime, usePlan } from "@/hooks/usePlan";
+import { PagesAheadSetting } from "@/components/settings/PagesAheadSetting";
 import type { PlanSummary } from "@/types/segments";
 
 const formatPrice = ({ priceCents, currency }: PlanSummary) =>
@@ -82,6 +83,10 @@ export const PlanSection = () => {
             </div>
           </>
         )}
+
+        <div className="border-t border-border pt-6">
+          <PagesAheadSetting />
+        </div>
       </Card>
     </section>
   );

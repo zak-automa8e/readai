@@ -98,6 +98,16 @@ export const listeningService = {
   /** The plan and today's count; reading it counts nothing. */
   getPlan: () => request<PlanUsage>("/plan"),
 
+  /** Pages of audio prepared past the listener (1-5); text runs one page more. */
+  getPagesAhead: async () =>
+    (await request<{ user: { listenPagesAhead: number } }>("/auth/profile")).user.listenPagesAhead,
+
+  setPagesAhead: (listenPagesAhead: number) =>
+    request<{ listenPagesAhead: number }>("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify({ listenPagesAhead }),
+    }),
+
   saveReadingPosition: (bookId: string, lastReadPage: number) =>
     request<unknown>(`/books/${bookId}/progress`, {
       method: "PUT",

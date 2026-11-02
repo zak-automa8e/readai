@@ -72,6 +72,15 @@ describe('POST /api/books/:bookId/process', () => {
     expect(jobRunner.wake).toHaveBeenCalled();
   });
 
+  it("plans the first window with the listener's pages-ahead setting", async () => {
+    db.addBook({ id: BOOK, content_sha256: 'sha-1' });
+    db.state.pagesAhead.set('user-1', 5);
+
+    await request(app).post(`/api/books/${BOOK}/process`).send({ fromPage: 4 });
+
+    expect(db.state.jobs[0].payload).toEqual({ phase: 'plan', fromPage: 4, ahead: 5 });
+  });
+
   it('is idempotent: a second request returns the same extraction and adds no job', async () => {
     db.addBook({ id: BOOK, content_sha256: 'sha-1' });
 

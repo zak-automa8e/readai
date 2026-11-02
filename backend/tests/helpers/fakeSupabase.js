@@ -33,6 +33,7 @@ function createFakeSupabase() {
           ['pro', { id: 'pro', name: 'Pro', daily_page_limit: 50, price_cents: 1500, currency: 'usd' }],
         ]),
         subscriptions: new Map(),
+        pagesAhead: new Map(),
         dailyUsage: [],
         today: new Date().toISOString().slice(0, 10), // record_page_listen's UTC day
       });
@@ -81,6 +82,8 @@ function createFakeSupabase() {
       return Boolean(book && (book.user_id === userId || state.userBooks.some((u) => u.user_id === userId && u.book_id === bookId)));
     }),
     getUserBook: jest.fn(async (userId, bookId) => state.userBooks.find((u) => u.user_id === userId && u.book_id === bookId) || null),
+    getListenPagesAhead: jest.fn(async (userId) => state.pagesAhead.get(userId) ?? null),
+    setListenPagesAhead: jest.fn(async (userId, pagesAhead) => { state.pagesAhead.set(userId, pagesAhead); }),
     setUserBookMode: jest.fn(async (userId, bookId, mode) => {
       const userBook = state.userBooks.find((u) => u.user_id === userId && u.book_id === bookId);
       if (userBook) userBook.mode = mode;

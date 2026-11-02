@@ -231,6 +231,25 @@ class ListeningStore {
     if (error) throw error;
     return data;
   }
+
+  // The listener's "Prepare ahead" setting (listen-ahead spec story 3); null when there is no profile row
+  async getListenPagesAhead(userId) {
+    const { data, error } = await this.adminClient
+      .from('user_profiles')
+      .select('listen_pages_ahead')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? data.listen_pages_ahead : null;
+  }
+
+  async setListenPagesAhead(userId, pagesAhead) {
+    const { error } = await this.adminClient
+      .from('user_profiles')
+      .update({ listen_pages_ahead: pagesAhead, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (error) throw error;
+  }
 }
 
 module.exports = ListeningStore;

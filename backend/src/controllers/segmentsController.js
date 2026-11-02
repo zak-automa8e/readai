@@ -2,6 +2,7 @@ const supabaseService = require('../services/supabaseService');
 const extractionService = require('../services/extraction/extractionService');
 const segmentAudioService = require('../services/audio/segmentAudioService');
 const windowService = require('../services/audio/windowService');
+const listenerSettings = require('../services/audio/listenerSettings');
 const bookModeService = require('../services/bookModeService');
 const jobRunner = require('../services/jobs/jobRunner');
 const logger = require('../utils/logger');
@@ -137,10 +138,11 @@ const segmentsController = {
         fromPage: positiveInt(req.body?.fromPage),
       });
       // O15: text is prepared only here, for the pages this listener is about to reach
+      const pagesAhead = await listenerSettings.pagesAheadFor(userId);
       const { extraction: current, queued } = await extractionService.ensureText({
         extraction,
         page: start.page,
-        ahead: config.audio.pagesAhead,
+        ahead: pagesAhead,
         userId,
       });
       const voice = await segmentAudioService.resolveListenerVoice(userId, {
@@ -153,6 +155,7 @@ const segmentsController = {
         extraction: current,
         fromSeq: start.seq,
         voice,
+        pagesAhead,
       });
       if (result.enqueued || queued.length) jobRunner.wake();
       return res.status(result.status).json(result.body);

@@ -3,6 +3,7 @@ const logger = require('../../utils/logger');
 const supabaseService = require('../supabaseService');
 const planService = require('../plans/planService');
 const segmentAudio = require('./segmentAudioService');
+const listenerSettings = require('./listenerSettings');
 const { DEFAULT_SKIPPED_TYPES, FRONT_MATTER_TYPES } = require('../extraction/pageTypes');
 
 /**
@@ -228,19 +229,21 @@ function toItem(segment, row) {
  * POST /books/:id/listen: plan the window and prepare its audio.
  * fromSeq null = the listener's page has no text yet: nothing is planned, the answer is 'processing'
  * (or 'end' past the last page) and the caller asks again once text lands.
- * @param {{userId: string, book: Object, extraction: Object, fromSeq: number|null, voice: {snapshot, hash}}} args
+ * pagesAhead defaults to the listener's setting (a follow-up job reads it again).
+ * @param {{userId: string, book: Object, extraction: Object, fromSeq: number|null, voice: {snapshot, hash}, pagesAhead?: number}} args
  * @returns {Promise<{status: 200|402, body: Object, enqueued: boolean}>}
  */
-async function listen({ userId, book, extraction, fromSeq, voice }) {
-  const [usage, rules] = await Promise.all([
+async function listen({ userId, book, extraction, fromSeq, voice, pagesAhead }) {
+  const [usage, rules, ahead] = await Promise.all([
     planService.getPlanUsage(userId, { bookId: book.id }),
     skipRules(userId, book.id, extraction.id),
+    pagesAhead ?? listenerSettings.pagesAheadFor(userId),
   ]);
   const options = {
     isSkipped: (page) => isPageSkipped(page, rules),
     countedPages: usage.countedPages,
     remaining: usage.remainingToday,
-    pagesAhead: config.audio.pagesAhead,
+    pagesAhead: ahead,
     // Page types exist for exactly the pages that have text
     hasText: (page) => rules.pageTypes.has(page),
   };

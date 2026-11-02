@@ -133,7 +133,7 @@ const config = {
     storageBucket: 'readai-media',
     storagePrefix: 'segment-audio',
     // Read pages prepared after the current one (O13, O15): audio for these, text for one page more.
-    // A later Settings choice changes this value
+    // The default for a listener who has not chosen in Settings (user_profiles.listen_pages_ahead, 1-5)
     pagesAhead: 2,
     // A window that stopped at a paragraph still being extracted is finished by a listen_followup job:
     // woken when extraction closes paragraphs, re-checked on this interval, given up after the max wait

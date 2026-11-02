@@ -156,6 +156,33 @@ describe('POST /api/books/:bookId/listen prepares the text ahead (O15)', () => {
     await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
     expect(textJobs()).toHaveLength(1);
   });
+
+  it("follows the listener's pages-ahead setting: 4 queues text p-1..p+5", async () => {
+    db.state.pagesAhead.set('user-1', 4);
+    await request(app).post(`/api/books/${BOOK}/listen`).send({ fromPage: 9 });
+    expect(textJobs()).toEqual([[8, 9, 10, 11, 12, 13, 14]]);
+  });
+});
+
+describe("POST /api/books/:bookId/listen with the listener's pages-ahead setting", () => {
+  it('4 prepares audio for p..p+4', async () => {
+    db.subscribe('user-1', 'basic');
+    db.state.pagesAhead.set('user-1', 4);
+
+    const res = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 1 });
+
+    expect(res.body.items.map((i) => i.seq)).toEqual([1, 2, 3, 4, 5]);
+    expect(res.body.stopReason).toBe('window');
+  });
+
+  it('falls back to the default when the setting cannot be read', async () => {
+    db.getListenPagesAhead.mockRejectedValueOnce(new Error('column does not exist'));
+
+    const res = await request(app).post(`/api/books/${BOOK}/listen`).send({ fromSeq: 1 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((i) => i.seq)).toEqual([1, 2]); // pagesAhead = 1 in this file
+  });
 });
 
 describe('GET /api/segments/:segmentId/audio', () => {

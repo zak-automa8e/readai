@@ -1,6 +1,7 @@
 const supabaseService = require('../services/supabaseService');
 const extractionService = require('../services/extraction/extractionService');
 const bookModeService = require('../services/bookModeService');
+const listenerSettings = require('../services/audio/listenerSettings');
 const jobRunner = require('../services/jobs/jobRunner');
 const logger = require('../utils/logger');
 
@@ -51,6 +52,7 @@ const processingController = {
         book: { ...book, content_sha256: contentSha256 },
         userId,
         fromPage,
+        ahead: await listenerSettings.pagesAheadFor(userId),
       });
       jobRunner.wake();
 
