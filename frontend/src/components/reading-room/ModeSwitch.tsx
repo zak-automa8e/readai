@@ -76,8 +76,8 @@ export const ModeSwitch = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Listen to this book?</AlertDialogTitle>
             <AlertDialogDescription>
-              The book's text is prepared first. The first pages take a few minutes and the rest follows while you
-              listen; you can keep reading meanwhile. Each page you listen to counts toward your daily pages.
+              The next pages are prepared as you listen; the first ones take a few seconds. Each page you listen
+              to counts toward your daily pages.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

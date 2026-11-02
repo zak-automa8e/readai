@@ -8,7 +8,7 @@ const OPTIONS: { value: BookMode; label: string; detail: string; Icon: typeof Bo
   {
     value: "listen",
     label: "Listen",
-    detail: "Read aloud paragraph by paragraph. Preparing the text takes a few minutes.",
+    detail: "Read aloud paragraph by paragraph.",
     Icon: Headphones,
   },
 ];
