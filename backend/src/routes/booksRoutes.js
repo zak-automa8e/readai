@@ -3,6 +3,7 @@ const multer = require('multer');
 const { authenticateUser } = require('../middleware/authMiddleware');
 const booksController = require('../controllers/booksController');
 const notesController = require('../controllers/notesController');
+const pdfController = require('../controllers/pdfController');
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ router.post('/', authenticateUser, booksController.createBook);
 router.post('/upload', authenticateUser, upload.single('pdf'), booksController.uploadPDF);
 router.post('/:bookId/add-to-library', authenticateUser, booksController.addToLibrary);
 router.put('/:bookId/progress', authenticateUser, booksController.updateProgress);
+router.get('/:bookId/pdf', authenticateUser, pdfController.getBookPdf);
 
 // Notes routes
 router.get('/:bookId/notes', authenticateUser, notesController.listNotes);

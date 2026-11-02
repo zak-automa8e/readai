@@ -225,6 +225,7 @@ function createFakeSupabase() {
       return { path };
     }),
     createSignedUrl: jest.fn(async (bucket, path) => `https://signed.test/${path}`),
+    downloadFile: jest.fn(async () => Buffer.from('%PDF-1.4 private')),
     removeFiles: jest.fn(async (bucket, paths) => paths.forEach((p) => state.files.delete(p))),
     getFileUrl: jest.fn((bucket, path) => `https://public.test/${bucket}/${path}`),
 

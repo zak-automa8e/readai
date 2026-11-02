@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const pdfRoutes = require('./pdfRoutes');
 const imageRoutes = require('./imageRoutes');
 const audioRoutes = require('./audioRoutes');
 const booksRoutes = require('./booksRoutes');
@@ -31,7 +30,6 @@ router.get('/health', (req, res) => {
 
 // Mount feature routes
 router.use('/auth', authRoutes);
-router.use('/', pdfRoutes);
 router.use('/', imageRoutes);
 router.use('/', audioRoutes);
 router.use('/books', processingRoutes);

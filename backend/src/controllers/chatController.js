@@ -1,6 +1,7 @@
 const supabaseService = require('../services/supabaseService');
 const geminiDocumentService = require('../services/geminiDocumentService');
 const conversationService = require('../services/conversationService');
+const pdfAccess = require('../services/pdfAccess');
 const logger = require('../utils/logger');
 const config = require('../config');
 
@@ -37,11 +38,11 @@ class ContextLimitExceededError extends Error {
 const uploadBookToGemini = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { bookId, pdfUrl, title } = req.body;
+    const { bookId, title } = req.body;
 
-    if (!bookId || !pdfUrl || !title) {
+    if (!bookId || !title) {
       return res.status(400).json({
-        error: 'bookId, pdfUrl, and title are required'
+        error: 'bookId and title are required'
       });
     }
 
@@ -55,10 +56,16 @@ const uploadBookToGemini = async (req, res, next) => {
       });
     }
 
-    const hasAccess = await supabaseService.ensureUserHasBookAccess(userId, bookId);
-    if (!hasAccess) {
+    // The PDF goes to Gemini only for someone who may open it (sharing spec S5)
+    if (await pdfAccess.readAccess(userId, book) !== 'ok') {
       return res.status(403).json({
         error: 'Access denied to this book'
+      });
+    }
+    const link = await pdfAccess.linkFor(book);
+    if (!link) {
+      return res.status(422).json({
+        error: 'This book has no PDF'
       });
     }
 
@@ -76,7 +83,7 @@ const uploadBookToGemini = async (req, res, next) => {
     }
 
     // Upload PDF to Gemini File API
-    const uploadResult = await geminiDocumentService.uploadPdfFromUrl(pdfUrl, title);
+    const uploadResult = await geminiDocumentService.uploadPdfFromUrl(link.url, title);
     
     // Wait for file processing
     const processedFile = await geminiDocumentService.waitForFileProcessing(uploadResult.name);

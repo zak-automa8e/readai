@@ -125,6 +125,12 @@ const config = {
     batchImageUrlSeconds: 48 * 60 * 60,   // signed URLs must outlive the 24 h batch window
   },
 
+  // Uploaded PDFs live in a private bucket and open through short-lived signed links (sharing spec story 0)
+  pdfs: {
+    bucket: 'readai-pdfs',
+    linkSeconds: 600,
+  },
+
   // Segment audio, listening window and daily limit (spec §5.3, O12)
   audio: {
     // Stored format: 'wav' (default) or 'opus' (Ogg Opus; needs ffmpeg on the host, falls back to wav without it)

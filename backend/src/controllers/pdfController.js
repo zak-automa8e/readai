@@ -1,76 +1,41 @@
-const fetch = require('node-fetch');
+const supabaseService = require('../services/supabaseService');
+const pdfAccess = require('../services/pdfAccess');
 const logger = require('../utils/logger');
 
 /**
- * PDF Proxy controller for fetching PDFs from external sources
+ * A book's PDF (sharing spec story 0): the owner, or a reader of a public book in their library,
+ * gets a short-lived link; only the owner may download.
  */
 const pdfController = {
   /**
-   * Fetch and proxy a PDF from an external URL
-   * @param {Object} req - Express request object
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
+   * GET /api/books/:bookId/pdf[?download=1] → { url, expiresAt }
    */
-  async proxyPdf(req, res, next) {
+  async getBookPdf(req, res) {
     try {
-      const { url } = req.query;
-      
-      if (!url) {
-        return res.status(400).json({ error: 'URL parameter is required' });
+      const userId = req.user.id;
+      const book = await supabaseService.getBookById(req.params.bookId).catch(() => null);
+      if (!book) return res.status(404).json({ error: 'NOT_FOUND', message: 'Book not found' });
+
+      const access = await pdfAccess.readAccess(userId, book);
+      if (access === 'private') {
+        return res.status(403).json({ error: 'PDF_PRIVATE', message: 'The owner made this book private.' });
+      }
+      if (access !== 'ok') return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied to this book' });
+
+      const download = req.query.download === '1';
+      if (download && !pdfAccess.canDownload(userId, book)) {
+        return res.status(403).json({ error: 'DOWNLOAD_OWNER_ONLY', message: 'Only the person who uploaded this book can download it.' });
       }
 
-      // Validate URL format
-      try {
-        new URL(url);
-      } catch (error) {
-        return res.status(400).json({ error: 'Invalid URL format' });
-      }
-
-      logger.info(`Proxying PDF from URL: ${url}`);
-
-      // Fetch the PDF from the external URL
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'ReadAI-PDF-Proxy/1.0'
-        }
-      });
-
-      if (!response.ok) {
-        logger.warn(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
-        return res.status(response.status).json({ 
-          error: `Failed to fetch PDF: ${response.statusText}` 
-        });
-      }
-
-      // Get the content type
-      const contentType = response.headers.get('content-type');
-      
-      // Verify it's a PDF
-      if (!contentType || !contentType.includes('application/pdf')) {
-        logger.warn(`URL does not point to a PDF file: ${contentType}`);
-        return res.status(400).json({ 
-          error: 'URL does not point to a PDF file' 
-        });
-      }
-
-      // Set appropriate headers
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
-      });
-
-      // Stream the PDF content
-      response.body.pipe(res);
-      logger.debug('PDF successfully streamed to client');
-
+      const link = await pdfAccess.linkFor(book, { download });
+      if (!link) return res.status(404).json({ error: 'NO_PDF', message: 'This book has no PDF.' });
+      res.set('Cache-Control', 'no-store');
+      return res.json(link);
     } catch (error) {
-      logger.error('Error in PDF proxy:', error);
-      next(error);
+      logger.error('Error in getBookPdf:', error);
+      return res.status(500).json({ error: 'PDF_LINK_FAILED', message: 'Failed to open this book.' });
     }
-  }
+  },
 };
 
 module.exports = pdfController;

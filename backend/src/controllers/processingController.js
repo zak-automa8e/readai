@@ -40,7 +40,7 @@ const processingController = {
           message: 'This book is in Read mode. Switch it to Listen mode to prepare it for listening.',
         });
       }
-      if (!book.pdf_url && !book.content_sha256) {
+      if (!book.pdf_path && !book.pdf_url && !book.content_sha256) {
         return res.status(422).json({ error: 'BOOK_HAS_NO_PDF', message: 'This book has no PDF to process.' });
       }
 

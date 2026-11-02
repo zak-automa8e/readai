@@ -10,6 +10,7 @@ jest.mock('../../src/services/llm', () => ({
 jest.mock('../../src/services/extraction/pdfSource', () => ({
   sha256: jest.requireActual('../../src/services/extraction/pdfSource').sha256,
   downloadPdf: jest.fn(),
+  downloadBookPdf: jest.fn(),
   rememberPdf: jest.fn().mockResolvedValue('/tmp/x.pdf'),
   getPdfFile: jest.fn().mockResolvedValue('/tmp/book.pdf'),
   forgetPdf: jest.fn().mockResolvedValue(),
@@ -189,7 +190,7 @@ describe('ensureContentHash', () => {
   it('hashes the PDF once, stores it and caches the bytes', async () => {
     db.reset();
     db.addBook({ id: BOOK, content_sha256: null });
-    pdfSource.downloadPdf.mockResolvedValue(Buffer.from('%PDF-1.4 test'));
+    pdfSource.downloadBookPdf.mockResolvedValue(Buffer.from('%PDF-1.4 test'));
 
     const hash = await service.ensureContentHash(db.state.books.get(BOOK));
 
@@ -200,6 +201,6 @@ describe('ensureContentHash', () => {
 
   it('does not download when the hash is known', async () => {
     expect(await service.ensureContentHash({ id: BOOK, content_sha256: 'known' })).toBe('known');
-    expect(pdfSource.downloadPdf).not.toHaveBeenCalled();
+    expect(pdfSource.downloadBookPdf).not.toHaveBeenCalled();
   });
 });

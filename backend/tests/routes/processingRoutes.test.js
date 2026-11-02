@@ -10,6 +10,7 @@ jest.mock('../../src/services/llm', () => ({ extractionModel: () => 'test/model'
 jest.mock('../../src/services/extraction/pdfSource', () => ({
   sha256: jest.requireActual('../../src/services/extraction/pdfSource').sha256,
   downloadPdf: jest.fn(),
+  downloadBookPdf: jest.fn(),
   rememberPdf: jest.fn().mockResolvedValue('/tmp/x.pdf'),
   getPdfFile: jest.fn(),
   forgetPdf: jest.fn().mockResolvedValue(),
@@ -33,7 +34,7 @@ const PDF = Buffer.from('%PDF-1.4 the book');
 beforeEach(() => {
   jest.clearAllMocks();
   db.reset();
-  pdfSource.downloadPdf.mockResolvedValue(PDF);
+  pdfSource.downloadBookPdf.mockResolvedValue(PDF);
 });
 
 describe('POST /api/books/:bookId/process', () => {
@@ -92,7 +93,7 @@ describe('POST /api/books/:bookId/process', () => {
     expect(second.body.reused).toBe(true);
     expect(db.state.extractions.size).toBe(1);
     expect(db.state.jobs).toHaveLength(1);
-    expect(pdfSource.downloadPdf).not.toHaveBeenCalled();
+    expect(pdfSource.downloadBookPdf).not.toHaveBeenCalled();
   });
 
   it('returns the existing extraction for another book with the same PDF content', async () => {

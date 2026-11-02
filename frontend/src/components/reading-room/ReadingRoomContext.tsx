@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { DocumentProps } from "react-pdf";
 import { useBooks, type Book } from "@/contexts/BooksContext";
 import { useVoiceChoice } from "./hooks/useVoiceChoice";
-import { usePdfDocument } from "./hooks/usePdfDocument";
+import { usePdfDocument, type PdfUnavailable } from "./hooks/usePdfDocument";
 import { usePageAudio } from "./hooks/usePageAudio";
 import { useSegmentPlayback } from "./hooks/useSegmentPlayback";
 import { useBookProcessing, type PlayerKind } from "./hooks/useBookProcessing";
@@ -23,6 +23,8 @@ export type FitMode = "width" | "page";
 interface ReadingRoomValue {
   book: Book;
   pdfUrl: string | null;
+  /** Why there is no PDF to show, when there is none. */
+  pdfUnavailable: PdfUnavailable;
   pdf: PdfDocument | null;
   numPages: number | null;
   onDocumentLoadSuccess: (pdf: PdfDocument) => void;
@@ -78,7 +80,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   const voice = useVoiceChoice();
 
   // The canvas pane re-measures itself (ResizeObserver), so there is nothing to do on load here.
-  const { pdfUrl, numPages, onDocumentLoadSuccess, onDocumentLoadError } = usePdfDocument(currentBook, () => {});
+  const { pdfUrl, numPages, unavailable: pdfUnavailable, onDocumentLoadSuccess, onDocumentLoadError } = usePdfDocument(currentBook, () => {});
 
   // Redirect to library if no book is selected (must be in useEffect, not during render)
   useEffect(() => {
@@ -227,6 +229,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
         ? {
             book: currentBook,
             pdfUrl,
+            pdfUnavailable,
             pdf,
             numPages,
             onDocumentLoadSuccess: handleLoadSuccess,
@@ -251,6 +254,7 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
     [
       currentBook,
       pdfUrl,
+      pdfUnavailable,
       pdf,
       numPages,
       handleLoadSuccess,

@@ -6,6 +6,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "../ui/button";
 import { useReadingRoom } from "./ReadingRoomContext";
 import { CAPTURE_WIDTH_PX } from "./pageCapture";
+import { PDF_OPTIONS } from "./hooks/usePdfDocument";
 
 // Worker is configured globally in main.tsx - no need to set it here
 
@@ -16,18 +17,28 @@ import { CAPTURE_WIDTH_PX } from "./pageCapture";
  */
 export const CanvasPane = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
-  const { book, pdfUrl, onDocumentLoadSuccess, onDocumentLoadError, prefetchPageNumber, prefetchPageRef } =
+  const { book, pdfUrl, pdfUnavailable, onDocumentLoadSuccess, onDocumentLoadError, prefetchPageNumber, prefetchPageRef } =
     useReadingRoom();
 
   if (!pdfUrl) {
+    // Still asking for the link
+    if (book.has_pdf && !pdfUnavailable) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-label="Loading PDF" />
+        </div>
+      );
+    }
     return (
       <div className="flex h-full items-center justify-center p-6 text-center">
         <div>
-          <p className="mb-2 text-destructive">PDF not available</p>
+          <p className="mb-2 text-foreground">
+            {pdfUnavailable === "private" ? "The owner made this book private." : "This book's PDF could not be opened."}
+          </p>
           <p className="mb-4 text-sm text-muted-foreground">
-            PDF URL: {book.pdf_url || "Not provided"}
-            <br />
-            Local Data: {book.pdfData ? "Available" : "Not available"}
+            {pdfUnavailable === "private"
+              ? "Your notes and progress are kept in your library."
+              : "Try again in a moment."}
           </p>
           <Button onClick={() => navigate("/library")} variant="outline">
             Back to Library
@@ -40,6 +51,7 @@ export const CanvasPane = ({ children }: { children: ReactNode }) => {
   return (
     <Document
       file={pdfUrl}
+      options={PDF_OPTIONS}
       onLoadSuccess={onDocumentLoadSuccess}
       onLoadError={onDocumentLoadError}
       className="flex h-full min-h-0 flex-col"
@@ -48,15 +60,12 @@ export const CanvasPane = ({ children }: { children: ReactNode }) => {
           <div className="py-4 text-center">
             <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
             <p>Loading PDF...</p>
-            <p className="mt-2 text-xs text-muted-foreground">URL: {pdfUrl}</p>
           </div>
         </div>
       }
       error={
         <div className="py-4 text-center text-destructive">
           <p>Error loading PDF. Please try again.</p>
-          <p className="mt-2 text-xs text-muted-foreground">URL: {pdfUrl}</p>
-          <p className="mt-1 text-xs text-destructive">Check console for detailed error information</p>
         </div>
       }
     >

@@ -198,34 +198,6 @@ const apiService = {
   },
 
   /**
-   * Proxy a PDF from an external URL
-   * @param {string} url - URL of the PDF to proxy
-   * @returns {Promise<Blob>} - PDF blob
-   */
-  async proxyPdf(url) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/pdf-proxy?url=${encodeURIComponent(url)}`, {
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Accept': 'application/pdf',
-          ...getAuthHeaders()
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to proxy PDF");
-      }
-
-      return await response.blob();
-    } catch (error) {
-      // Surface error to caller
-      throw error;
-    }
-  },
-
-  /**
    * Get user's book library from backend
    * @returns {Promise<Object>} - User's books
    */
@@ -400,7 +372,6 @@ const apiService = {
   async uploadBookToGemini(data: {
     conversationId: string;
     bookId: string;
-    pdfUrl: string;
     title: string;
   }): Promise<UploadBookToGeminiResponse> {
     try {

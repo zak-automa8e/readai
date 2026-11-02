@@ -81,7 +81,7 @@ async function ensureText({ extraction, page, ahead, userId }) {
  */
 async function ensureContentHash(book) {
   if (book.content_sha256) return book.content_sha256;
-  const bytes = await pdfSource.downloadPdf(book.pdf_url);
+  const bytes = await pdfSource.downloadBookPdf(book);
   const hash = pdfSource.sha256(bytes);
   await supabaseService.updateBook(book.id, { content_sha256: hash });
   try {

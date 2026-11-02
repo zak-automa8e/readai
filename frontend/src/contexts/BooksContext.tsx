@@ -12,8 +12,13 @@ export interface Book {
   description?: string;
   uploadDate: Date;
   pdfData?: Uint8Array; // For local processing only
-  pdf_url?: string; // URL from backend storage
+  pdf_url?: string; // The uploader's link for books added from a URL; uploads open through GET /books/:id/pdf
   pdf_source?: 'upload' | 'url';
+  /** The book has a PDF (uploaded or linked). */
+  has_pdf?: boolean;
+  /** This reader uploaded the book: only the owner downloads, edits or shares it. */
+  is_owner?: boolean;
+  visibility?: 'private' | 'public';
   coverUrl?: string;
   defaultCover?: string;
   thumbnail_url?: string;
@@ -87,6 +92,9 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
               uploadDate: new Date(userBook.books.created_at || Date.now()),
               pdf_url: userBook.books.pdf_url || undefined,
               pdf_source: userBook.books.pdf_source || 'upload',
+              has_pdf: Boolean(userBook.books.pdf_path || userBook.books.pdf_url),
+              is_owner: userBook.books.user_id === user.id,
+              visibility: userBook.books.visibility || 'private',
               thumbnail_url: userBook.books.thumbnail_url || undefined,
               total_pages: userBook.books.total_pages || undefined,
               processing_status: userBook.books.processing_status || 'pending',
@@ -121,18 +129,11 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       return book.thumbnail_url || book.coverUrl || book.defaultCover;
     }
 
-    if (!book.pdf_url) {
+    if (!book.has_pdf) {
       return undefined;
     }
 
     try {
-      // Test if URL is accessible first
-      const headResponse = await fetch(book.pdf_url, { method: 'HEAD' });
-      
-      if (!headResponse.ok) {
-        throw new Error(`PDF not accessible: ${headResponse.status} ${headResponse.statusText}`);
-      }
-      
   // SIMPLE APPROACH: Create a basic thumbnail with canvas
       // Create a simple canvas with book title as thumbnail
       const canvas = document.createElement('canvas');
@@ -215,7 +216,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (books.length > 0) {
       books.forEach((book) => {
-        if (!book.thumbnail_url && !book.coverUrl && !book.defaultCover && book.pdf_url) {
+        if (!book.thumbnail_url && !book.coverUrl && !book.defaultCover && book.has_pdf) {
           generateBookThumbnail(book).catch(() => {});
         }
       });
@@ -252,6 +253,9 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
           uploadDate: new Date(response.book.created_at),
           pdf_url: response.book.pdf_url,
           pdf_source: response.book.pdf_source,
+          has_pdf: Boolean(response.book.pdf_path || response.book.pdf_url),
+          is_owner: true,
+          visibility: 'private',
           thumbnail_url: response.book.thumbnail_url,
           total_pages: response.book.total_pages,
           processing_status: response.book.processing_status,
@@ -327,6 +331,9 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
           uploadDate: new Date(response.book.created_at),
           pdf_url: response.book.pdf_url,
           pdf_source: response.book.pdf_source,
+          has_pdf: Boolean(response.book.pdf_path || response.book.pdf_url),
+          is_owner: true,
+          visibility: 'private',
           thumbnail_url: response.book.thumbnail_url,
           total_pages: response.book.total_pages,
           processing_status: response.book.processing_status,

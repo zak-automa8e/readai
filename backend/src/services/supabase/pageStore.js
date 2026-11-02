@@ -396,10 +396,17 @@ class PageStore {
     }
   }
 
-  async createSignedUrl(bucket, filePath, expiresInSeconds) {
-    const { data, error } = await this.adminClient.storage.from(bucket).createSignedUrl(filePath, expiresInSeconds);
+  // options.download: true or a file name makes the link download instead of display
+  async createSignedUrl(bucket, filePath, expiresInSeconds, options = {}) {
+    const { data, error } = await this.adminClient.storage.from(bucket).createSignedUrl(filePath, expiresInSeconds, options);
     if (error) throw error;
     return data.signedUrl;
+  }
+
+  async downloadFile(bucket, filePath) {
+    const { data, error } = await this.adminClient.storage.from(bucket).download(filePath);
+    if (error) throw error;
+    return Buffer.from(await data.arrayBuffer());
   }
 
   async removeFiles(bucket, filePaths) {

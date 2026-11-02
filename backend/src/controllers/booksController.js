@@ -1,3 +1,4 @@
+const config = require('../config');
 const supabaseService = require('../services/supabaseService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
@@ -200,10 +201,10 @@ const uploadPDF = async (req, res) => {
 
     logger.info(`Uploading file: ${originalFileName} -> ${fileName}`, { userId, bookId });
 
-    // Upload PDF to Supabase Storage
-    logger.info(`Starting upload to bucket: readai-media, path: ${filePath}`);
-    const uploadResult = await supabaseService.uploadFile(
-      'readai-media',
+    // Upload PDF to the private bucket: it opens only through GET /books/:id/pdf (sharing spec story 0)
+    logger.info(`Starting upload to bucket: ${config.pdfs.bucket}, path: ${filePath}`);
+    await supabaseService.uploadFile(
+      config.pdfs.bucket,
       filePath,
       req.file.buffer,
       {
@@ -211,26 +212,13 @@ const uploadPDF = async (req, res) => {
         upsert: false
       }
     );
-    
-    logger.info(`Upload result:`, uploadResult);
-
-    // Get public URL
-    const pdfUrl = supabaseService.getFileUrl('readai-media', filePath);
-    
-    logger.info(`Generated PDF URL: ${pdfUrl}`, { userId, bookId, filePath });
-
-    // Verify the URL is valid
-    if (!pdfUrl || pdfUrl === '{}' || typeof pdfUrl !== 'string') {
-      logger.error(`Invalid PDF URL generated: ${pdfUrl}`, { userId, bookId, filePath });
-      throw new Error('Failed to generate valid PDF URL');
-    }
 
     // Create book record
     const book = await supabaseService.createBook(userId, {
       title,
       author,
       description,
-      pdf_url: pdfUrl,
+      pdf_path: filePath,
       pdf_source: 'upload',
       total_pages: null, // Will be determined during processing
       mode: uploadMode(mode)

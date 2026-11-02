@@ -1,8 +1,36 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil, FileText, Share2, Headphones } from "lucide-react";
+import { Trash2, Pencil, FileText, Share2, Headphones, Download } from "lucide-react";
 import type { Book } from "@/contexts/BooksContext";
 import { toast } from "@/hooks/use-toast";
+import { listeningService } from "@/services/listeningService";
+
+/** Only the owner downloads the PDF (sharing spec S6): a short-lived link that saves the file. */
+const DownloadButton = ({ book }: { book: Book }) =>
+  book.is_owner && book.has_pdf ? (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      aria-label="Download PDF"
+      title="Download PDF"
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          const { url } = await listeningService.getPdfLink(book.id, true);
+          window.location.assign(url);
+        } catch (error) {
+          toast({
+            title: "Download failed",
+            description: error instanceof Error ? error.message : "The PDF could not be downloaded.",
+            variant: "destructive",
+          });
+        }
+      }}
+    >
+      <Download className="h-4 w-4" />
+    </Button>
+  ) : null;
 
 /** Listen-mode books carry a headphones mark (spec O1). */
 const ListenMark = ({ book }: { book: Book }) =>
@@ -65,6 +93,7 @@ export const BookGridCard = ({ book, loading, onOpen, onEdit, onDelete }: BookIt
       >
         <Share2 className="h-4 w-4" />
       </Button>
+      <DownloadButton book={book} />
       <Button
         variant="ghost"
         size="icon"
@@ -132,6 +161,7 @@ export const BookListRow = ({ book, onOpen, onEdit, onDelete }: BookItemProps) =
           </div>
 
           <div className="flex items-center gap-2 ms-4">
+            <DownloadButton book={book} />
             <Button
               variant="ghost"
               size="icon"

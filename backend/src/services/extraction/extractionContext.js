@@ -30,7 +30,7 @@ async function loadContext(extractionId) {
 }
 
 async function pdfPathFor({ extraction, book }) {
-  return pdfSource.getPdfFile({ pdfUrl: book.pdf_url, contentSha256: extraction.content_sha256 });
+  return pdfSource.getPdfFile({ book, contentSha256: extraction.content_sha256 });
 }
 
 module.exports = { recipe, chunk, range, loadContext, pdfPathFor };

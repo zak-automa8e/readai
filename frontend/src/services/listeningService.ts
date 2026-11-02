@@ -95,6 +95,13 @@ export const listeningService = {
     return limited<Clip>(`/segments/${segmentId}/audio?${query}`);
   },
 
+  /**
+   * A short-lived link to the book's PDF (sharing spec story 0). 403 PDF_PRIVATE when the owner
+   * made a shared book private again; download is owner-only.
+   */
+  getPdfLink: (bookId: string, download = false) =>
+    request<{ url: string; expiresAt: string | null }>(`/books/${bookId}/pdf${download ? "?download=1" : ""}`),
+
   /** The plan and today's count; reading it counts nothing. */
   getPlan: () => request<PlanUsage>("/plan"),
 

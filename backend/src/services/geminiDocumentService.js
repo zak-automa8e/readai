@@ -17,7 +17,7 @@ class GeminiDocumentService {
 
   /**
    * Upload a PDF to Gemini File API
-   * @param {string} pdfUrl - Public URL to the PDF
+   * @param {string} pdfUrl - A URL the server can fetch the PDF from (a signed link for uploads)
    * @param {string} displayName - Human-readable name for the file
    * @returns {Promise<Object>} - { fileUri, name, mimeType, sizeBytes }
    */
@@ -29,7 +29,8 @@ class GeminiDocumentService {
       throw new Error('Display name is required');
     }
 
-    logger.info(`Uploading PDF to Gemini File API - URL: ${pdfUrl}, Name: ${displayName}`);
+    // The URL is a signed link for uploads: not logged
+    logger.info(`Uploading PDF to Gemini File API - Name: ${displayName}`);
 
     let tempFilePath = null;
 

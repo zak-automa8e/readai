@@ -56,8 +56,8 @@ export const useBookConversation = (book: Book | null) => {
     async (conversationIdParam: string) => {
       const currentBook = bookRef.current;
       if (!currentBook) return;
-      if (!currentBook.pdf_url) {
-        const description = "This book is missing a PDF URL. Please re-upload the book.";
+      if (!currentBook.has_pdf) {
+        const description = "This book has no PDF. Please re-upload the book.";
         setUploadError(description);
         toast({ title: "Upload failed", description, variant: "destructive" });
         return;
@@ -71,7 +71,6 @@ export const useBookConversation = (book: Book | null) => {
         const response = await apiService.uploadBookToGemini({
           conversationId: conversationIdParam,
           bookId: currentBook.id,
-          pdfUrl: currentBook.pdf_url,
           title: currentBook.title,
         });
 

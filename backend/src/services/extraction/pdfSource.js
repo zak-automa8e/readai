@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const config = require('../../config');
+const supabaseService = require('../supabaseService');
 
 /**
  * PDF bytes for the extraction pipeline: the content hash that identifies "the same book"
@@ -16,8 +18,14 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+/** A book's PDF bytes: the private bucket for uploads, the uploader's link otherwise. */
+async function downloadBookPdf(book) {
+  if (book.pdf_path) return supabaseService.downloadFile(config.pdfs.bucket, book.pdf_path);
+  return downloadPdf(book.pdf_url);
+}
+
 async function downloadPdf(url) {
-  if (!url) throw Object.assign(new Error('Book has no pdf_url'), { nonRetriable: true });
+  if (!url) throw Object.assign(new Error('Book has no PDF'), { nonRetriable: true });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
@@ -49,10 +57,10 @@ async function rememberPdf(contentSha256, buffer) {
 /**
  * Local path of the PDF, downloading it once. A download whose hash differs from the expected
  * content hash is refused: the book's file changed after it was hashed.
- * @param {{pdfUrl: string, contentSha256: string}} source
+ * @param {{book: Object, contentSha256: string}} source
  * @returns {Promise<string>}
  */
-async function getPdfFile({ pdfUrl, contentSha256 }) {
+async function getPdfFile({ book, contentSha256 }) {
   const target = cachePath(contentSha256);
   try {
     await fs.promises.access(target, fs.constants.R_OK);
@@ -60,7 +68,7 @@ async function getPdfFile({ pdfUrl, contentSha256 }) {
   } catch {
     // not cached yet
   }
-  const buffer = await downloadPdf(pdfUrl);
+  const buffer = await downloadBookPdf(book);
   const actual = sha256(buffer);
   if (actual !== contentSha256) {
     throw Object.assign(
@@ -75,4 +83,4 @@ async function forgetPdf(contentSha256) {
   await fs.promises.rm(cachePath(contentSha256), { force: true });
 }
 
-module.exports = { sha256, downloadPdf, rememberPdf, getPdfFile, forgetPdf, cachePath };
+module.exports = { sha256, downloadPdf, downloadBookPdf, rememberPdf, getPdfFile, forgetPdf, cachePath };

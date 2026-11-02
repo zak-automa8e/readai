@@ -10,6 +10,7 @@ jest.mock('../../src/services/llm', () => ({
 jest.mock('../../src/services/extraction/pdfSource', () => ({
   sha256: jest.requireActual('../../src/services/extraction/pdfSource').sha256,
   downloadPdf: jest.fn(),
+  downloadBookPdf: jest.fn(),
   rememberPdf: jest.fn().mockResolvedValue('/tmp/x.pdf'),
   getPdfFile: jest.fn().mockResolvedValue('/tmp/book.pdf'),
   forgetPdf: jest.fn().mockResolvedValue(),
