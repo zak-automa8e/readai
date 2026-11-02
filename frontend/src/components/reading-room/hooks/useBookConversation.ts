@@ -65,7 +65,6 @@ export const useBookConversation = (book: Book | null) => {
 
       setIsUploadingBook(true);
       setUploadError(null);
-      addSystemMessage(`Indexing "${currentBook.title}" so we can chat about it...`);
 
       try {
         const response = await apiService.uploadBookToGemini({
@@ -76,9 +75,6 @@ export const useBookConversation = (book: Book | null) => {
 
         setCacheExpiresAt(response.expiresAt ? new Date(response.expiresAt) : null);
         setHasActiveCache(true);
-
-        addSystemMessage(`All set! I can now answer questions about "${currentBook.title}".`);
-        toast({ title: "Document ready", description: `"${currentBook.title}" is now cached for quick answers.` });
       } catch (error) {
         const description = error instanceof Error ? error.message : "Failed to prepare the document for chat";
         setUploadError(description);
@@ -117,14 +113,8 @@ export const useBookConversation = (book: Book | null) => {
 
     const init = async () => {
       setIsInitializing(true);
-      setMessages([
-        {
-          id: `loading-${currentBook.id}`,
-          content: `Loading chat session for "${currentBook.title}"...`,
-          sender: "assistant",
-          timestamp: new Date(),
-        },
-      ]);
+      // The pending bubble and the input placeholder show that the chat is getting ready
+      setMessages([]);
 
       try {
         const { conversation } = await apiService.getOrCreateConversation(currentBook.id);
@@ -141,7 +131,7 @@ export const useBookConversation = (book: Book | null) => {
             : [
                 {
                   id: `welcome-${conversation.id}`,
-                  content: `Hi! I'm ready to help with "${currentBook.title}". Ask me anything about this book once I'm done preparing the document context.`,
+                  content: `Hi! Ask me anything about "${currentBook.title}".`,
                   sender: "assistant",
                   timestamp: new Date(),
                 },
@@ -173,16 +163,9 @@ export const useBookConversation = (book: Book | null) => {
 
     try {
       const response = await apiService.extendCacheLifetime(conversationId);
-      if (response.expiresAt) {
-        setCacheExpiresAt(new Date(response.expiresAt));
-        toast({ title: "Chat session extended", description: "Keeping the document context warm for your questions." });
-      }
-    } catch (error) {
-      toast({
-        title: "Cache extension failed",
-        description: error instanceof Error ? error.message : "Unable to extend chat session",
-        variant: "destructive",
-      });
+      if (response.expiresAt) setCacheExpiresAt(new Date(response.expiresAt));
+    } catch {
+      // Not shown to the reader: the question still goes out
     }
   }, [conversationId, cacheExpiresAt]);
 

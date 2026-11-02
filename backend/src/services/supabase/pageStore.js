@@ -357,24 +357,15 @@ class PageStore {
 
   getFileUrl(bucket, filePath) {
     try {
-      logger.info(`Getting URL for bucket: ${bucket}, path: ${filePath}`);
-
-      const result = this.supabase.storage
+      const { data } = this.supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
-
-      logger.info(`getPublicUrl result:`, result);
-
-      const { data } = result;
-
-      logger.info(`Data from getPublicUrl:`, data);
 
       if (!data || !data.publicUrl) {
         logger.error(`No public URL in result data:`, { bucket, filePath, data });
         throw new Error('Failed to get public URL from Supabase');
       }
 
-      logger.info(`Generated file URL: ${data.publicUrl}`, { bucket, filePath });
       return data.publicUrl;
     } catch (error) {
       logger.error('Error getting file URL:', error);

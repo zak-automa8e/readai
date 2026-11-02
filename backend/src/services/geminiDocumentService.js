@@ -61,7 +61,7 @@ class GeminiDocumentService {
         },
       });
 
-      logger.info(`PDF uploaded successfully - File URI: ${file.uri}, Name: ${file.name}, MimeType: ${file.mimeType}`);
+      logger.info(`PDF uploaded to Gemini - Name: ${file.name}`);
 
       // Clean up temp file immediately after successful upload
       try {
@@ -149,8 +149,6 @@ class GeminiDocumentService {
     if (!userMessage) {
       throw new Error('User message is required');
     }
-
-    logger.info(`Generating content with file - URI: ${fileUri}`);
 
     try {
       // Build conversation history
