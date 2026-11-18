@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useBooks, Book } from "@/contexts/BooksContext";
 import { useNavigate } from "react-router-dom";
+import { readPath } from "@/components/reading-room/hooks/useBookFromUrl";
 import { toast } from "@/hooks/use-toast";
 import { BookModeChoice } from "./BookModeChoice";
 import type { BookMode } from "@/types/segments";
@@ -220,7 +221,7 @@ export function AddBookModal({ isOpen, onClose }: AddBookModalProps) {
     if (uploadedBook) {
       setCurrentBook(uploadedBook);
       handleClose();
-      navigate('/read');
+      navigate(readPath(uploadedBook.id));
     }
   };
 

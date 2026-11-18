@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Grid, List, SortAsc, SortDesc, Filter, FileText } from "lucide-react";
 import { useBooks, Book } from "@/contexts/BooksContext";
 import { useNavigate } from "react-router-dom";
+import { readPath } from "@/components/reading-room/hooks/useBookFromUrl";
 import { EditBookModal } from "@/components/EditBookModal";
 import { AddBookModal } from "@/components/AddBookModal";
 import { Dialog as ConfirmDialog, DialogContent as ConfirmDialogContent, DialogHeader as ConfirmDialogHeader, DialogTitle as ConfirmDialogTitle } from "@/components/ui/dialog";
@@ -37,7 +38,7 @@ export default function Library() {
 
   const handleBookClick = (book: Book) => {
     setCurrentBook(book);
-    navigate('/read');
+    navigate(readPath(book.id));
   };
 
   // Filter and sort books

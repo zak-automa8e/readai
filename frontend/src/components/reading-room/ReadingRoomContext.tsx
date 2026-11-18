@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { useNavigate } from "react-router-dom";
 import type { DocumentProps } from "react-pdf";
 import { useBooks, type Book } from "@/contexts/BooksContext";
 import { useVoiceChoice } from "./hooks/useVoiceChoice";
+import { useBookFromUrl } from "./hooks/useBookFromUrl";
 import { usePdfDocument, type PdfUnavailable } from "./hooks/usePdfDocument";
 import { usePageAudio } from "./hooks/usePageAudio";
 import { useSegmentPlayback } from "./hooks/useSegmentPlayback";
@@ -62,7 +62,6 @@ const PlaybackContext = createContext<PlaybackValue | undefined>(undefined);
 
 export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   const { currentBook, setCurrentBook, setBookMode } = useBooks();
-  const navigate = useNavigate();
 
   const [pageNumber, setPageNumber] = useState(1);
   const [resumeSeq, setResumeSeq] = useState<number | null>(null);
@@ -82,12 +81,8 @@ export const ReadingRoomProvider = ({ children }: { children: ReactNode }) => {
   // The canvas pane re-measures itself (ResizeObserver), so there is nothing to do on load here.
   const { pdfUrl, numPages, unavailable: pdfUnavailable, onDocumentLoadSuccess, onDocumentLoadError } = usePdfDocument(currentBook, () => {});
 
-  // Redirect to library if no book is selected (must be in useEffect, not during render)
-  useEffect(() => {
-    if (!currentBook) {
-      navigate("/library");
-    }
-  }, [currentBook, navigate]);
+  // The open book lives in the address (?book=), so a reload reopens it; no book → Library
+  useBookFromUrl();
 
   // Reopen a book where the reader left it
   const bookId = currentBook?.id;

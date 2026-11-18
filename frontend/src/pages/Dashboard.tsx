@@ -12,6 +12,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { readPath } from "@/components/reading-room/hooks/useBookFromUrl";
 import { useBooks, Book } from "@/contexts/BooksContext";
 
 const Dashboard = () => {
@@ -32,7 +33,7 @@ const Dashboard = () => {
 
   const handleBookClick = (book: Book) => {
     setCurrentBook(book);
-    navigate('/read');
+    navigate(readPath(book.id));
   };
 
   const handleUploadClick = () => {

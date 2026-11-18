@@ -40,6 +40,8 @@ interface BooksContextType {
   setCurrentBook: (book: Book | null) => void;
   books: Book[];
   loading: boolean;
+  /** True once the library has been fetched for the signed-in user (empty or not). */
+  libraryLoaded: boolean;
   error: string | null;
   addBook: (bookData: Omit<Book, 'id' | 'uploadDate'>) => Promise<string>;
   removeBook: (id: string) => Promise<void>;
@@ -57,6 +59,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
   const [books, setBooks] = useState<Book[]>([]);
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(false);
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
 
@@ -68,6 +71,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       // Clear books when user logs out
       setBooks([]);
       setCurrentBook(null);
+      setLibraryLoaded(false);
     }
   }, [user, session]);
 
@@ -121,6 +125,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       });
     } finally {
       setLoading(false);
+      setLibraryLoaded(true);
     }
   };
 
@@ -470,6 +475,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       setCurrentBook,
       books,
       loading,
+      libraryLoaded,
       error,
       addBook,
       removeBook,
