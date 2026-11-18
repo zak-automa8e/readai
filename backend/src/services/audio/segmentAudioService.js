@@ -7,6 +7,7 @@ const { pcmToWav } = require('../llm/audio');
 const pageCacheService = require('../pageCacheService');
 const voicePersonaService = require('../voicePersonaService');
 const { pcmToOggOpus } = require('./transcode');
+const { trimSilence } = require('./silence');
 
 /**
  * Content-addressed clip cache (spec §3, O12). A clip is identified by
@@ -232,12 +233,14 @@ async function generate({ segmentId, textSha256, voiceHash, voiceSnapshot }) {
   }
 
   const startedAt = Date.now();
-  const audio = await llm.synthesize({
+  const spoken = await llm.synthesize({
     text: segment.text,
     baseVoice: voiceSnapshot.base_voice,
     styleInstruction: voiceSnapshot.instructions,
   });
-  // Duration (and the cost) from the PCM, before any transcoding
+  // The edge silence is paid for (usage.costUsd) but not stored: clips then play back to back
+  const audio = trimSilence(spoken);
+  // Duration from the stored PCM, before any transcoding
   const seconds = pcmSeconds(audio);
   const { buffer, format, contentType } = await encode(audio);
 
