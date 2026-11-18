@@ -217,16 +217,29 @@ class ListeningStore {
       .order('first_listened_at', { ascending: true }));
   }
 
+  // Pages of one book this user has heard in this voice on any day, or before voices were recorded
+  async getHeardPages(userId, bookId, voiceHash) {
+    const rows = await this.selectAll(() => this.adminClient
+      .from('daily_page_usage')
+      .select('page_number')
+      .eq('user_id', userId)
+      .eq('book_id', bookId)
+      .or(`voice_hash.eq.${voiceHash},voice_hash.is.null`)
+      .order('page_number', { ascending: true }));
+    return rows.map((row) => row.page_number);
+  }
+
   /**
-   * Count a page toward today's limit (RPC record_page_listen). A page already counted today is
-   * allowed without counting again.
+   * Count a page toward today's limit (RPC record_page_listen). A page heard before in this voice,
+   * on any day, is allowed without counting again.
    * @returns {Promise<{allowed: boolean, counted: boolean, used: number, limit: number, plan: string}>}
    */
-  async recordPageListen(userId, bookId, pageNumber) {
+  async recordPageListen(userId, bookId, pageNumber, voiceHash) {
     const { data, error } = await this.adminClient.rpc('record_page_listen', {
       p_user: userId,
       p_book: bookId,
       p_page: pageNumber,
+      p_voice: voiceHash,
     });
     if (error) throw error;
     return data;

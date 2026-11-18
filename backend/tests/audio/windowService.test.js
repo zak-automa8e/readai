@@ -376,14 +376,16 @@ describe('planService', () => {
     expect(await planService.getPlanUsage(USER)).toMatchObject({ plan: 'pro', name: 'Pro', limit: 50, usedToday: 0, remainingToday: 50 });
   });
 
-  it('counts today across every book and lists the pages already counted in one book', async () => {
+  it('counts today across every book; heard pages are this book in this voice on any day, plus voiceless old rows', async () => {
     db.state.dailyUsage.push(
-      { user_id: USER, usage_date: db.state.today, book_id: BOOK, page_number: 4 },
-      { user_id: USER, usage_date: db.state.today, book_id: 'other', page_number: 4 },
-      { user_id: USER, usage_date: '2000-01-01', book_id: BOOK, page_number: 5 },
+      { user_id: USER, usage_date: db.state.today, book_id: BOOK, page_number: 4, voice_hash: VOICE.hash },
+      { user_id: USER, usage_date: db.state.today, book_id: 'other', page_number: 4, voice_hash: VOICE.hash },
+      { user_id: USER, usage_date: '2000-01-01', book_id: BOOK, page_number: 5, voice_hash: VOICE.hash },
+      { user_id: USER, usage_date: '2000-01-01', book_id: BOOK, page_number: 6, voice_hash: 'other-voice' },
+      { user_id: USER, usage_date: '2000-01-01', book_id: BOOK, page_number: 7, voice_hash: null },
     );
-    const usage = await planService.getPlanUsage(USER, { bookId: BOOK });
+    const usage = await planService.getPlanUsage(USER, { bookId: BOOK, voiceHash: VOICE.hash });
     expect(usage).toMatchObject({ usedToday: 2, remainingToday: 0 });
-    expect([...usage.countedPages]).toEqual([4]);
+    expect([...usage.countedPages]).toEqual([4, 5, 7]);
   });
 });

@@ -306,16 +306,21 @@ function createFakeSupabase() {
     getDailyPageUsage: jest.fn(async (userId, date) => state.dailyUsage
       .filter((u) => u.user_id === userId && u.usage_date === date)
       .map((u) => ({ book_id: u.book_id, page_number: u.page_number }))),
-    recordPageListen: jest.fn(async (userId, bookId, page) => {
+    // Heard in this voice on any day, or a row from before voices were recorded (voice_hash null)
+    getHeardPages: jest.fn(async (userId, bookId, voiceHash) => [...new Set(state.dailyUsage
+      .filter((u) => u.user_id === userId && u.book_id === bookId && (u.voice_hash === voiceHash || u.voice_hash == null))
+      .map((u) => u.page_number))].sort((a, b) => a - b)),
+    recordPageListen: jest.fn(async (userId, bookId, page, voiceHash) => {
       const sub = state.subscriptions.get(userId);
       const active = sub && sub.status === 'active' && (!sub.ends_at || Date.parse(sub.ends_at) > Date.now());
       const plan = state.plans.get(active ? sub.plan_id : 'free');
-      const today = state.dailyUsage.filter((u) => u.user_id === userId && u.usage_date === state.today);
-      const used = today.length;
+      const used = state.dailyUsage.filter((u) => u.user_id === userId && u.usage_date === state.today).length;
       const out = (allowed, counted, n) => ({ allowed, counted, used: n, limit: plan.daily_page_limit, plan: plan.id });
-      if (today.some((u) => u.book_id === bookId && u.page_number === page)) return out(true, false, used);
+      const heard = state.dailyUsage.some((u) => u.user_id === userId && u.book_id === bookId && u.page_number === page
+        && (u.voice_hash === voiceHash || u.voice_hash == null));
+      if (heard) return out(true, false, used);
       if (used >= plan.daily_page_limit) return out(false, false, used);
-      state.dailyUsage.push({ user_id: userId, usage_date: state.today, book_id: bookId, page_number: page });
+      state.dailyUsage.push({ user_id: userId, usage_date: state.today, book_id: bookId, page_number: page, voice_hash: voiceHash });
       return out(true, true, used + 1);
     }),
   };

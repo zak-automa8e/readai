@@ -235,7 +235,7 @@ function toItem(segment, row) {
  */
 async function listen({ userId, book, extraction, fromSeq, voice, pagesAhead }) {
   const [usage, rules, ahead] = await Promise.all([
-    planService.getPlanUsage(userId, { bookId: book.id }),
+    planService.getPlanUsage(userId, { bookId: book.id, voiceHash: voice.hash }),
     skipRules(userId, book.id, extraction.id),
     pagesAhead ?? listenerSettings.pagesAheadFor(userId),
   ]);
@@ -355,8 +355,8 @@ function limitReached({ used, limit, plan }) {
 
 /**
  * GET /segments/:id/audio: the only place a clip URL is handed out. Cache only, never generates.
- * A ready clip counts every page of the segment toward today's limit (a page already counted today
- * is free); when the pages do not fit, nothing is counted and no URL is returned (402).
+ * A ready clip counts every page of the segment toward today's limit (a page heard before in this
+ * voice, on any day, is free); when the pages do not fit, nothing is counted and no URL is returned (402).
  * @param {{userId: string, book: Object, segment: Object, voice: {hash: string}}} args
  * @returns {Promise<{status: 200|402, body: Object}>}
  */
@@ -367,13 +367,13 @@ async function deliver({ userId, book, segment, voice }) {
   }
 
   const pages = pagesOf(segment);
-  const usage = await planService.getPlanUsage(userId, { bookId: book.id });
+  const usage = await planService.getPlanUsage(userId, { bookId: book.id, voiceHash: voice.hash });
   const newPages = pages.filter((page) => !usage.countedPages.has(page));
   // Checked first so a segment that does not fit counts none of its pages
   if (newPages.length > usage.remainingToday) {
     return limitReached({ used: usage.usedToday, limit: usage.limit, plan: usage.plan });
   }
-  const recorded = await planService.recordPageListens(userId, book.id, pages);
+  const recorded = await planService.recordPageListens(userId, book.id, pages, voice.hash);
   if (!recorded.allowed) return limitReached(recorded);
 
   const used = recorded.used ?? usage.usedToday;

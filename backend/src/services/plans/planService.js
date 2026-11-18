@@ -28,14 +28,16 @@ function activePlanOf(subscription, now = new Date()) {
 /**
  * The user's plan and today's usage.
  * @param {string} userId
- * @param {{bookId?: string, now?: Date}} [options] with bookId, `countedPages` lists the pages of
- *   that book already counted today (listening to them again is free)
+ * @param {{bookId?: string, voiceHash?: string, now?: Date}} [options] with bookId and voiceHash,
+ *   `countedPages` lists the pages of that book already heard in that voice on any day (listening
+ *   to them again is free)
  * @returns {Promise<{plan: string, name: string, limit: number, usedToday: number, remainingToday: number, countedPages: Set<number>}>}
  */
-async function getPlanUsage(userId, { bookId = null, now = new Date() } = {}) {
-  const [subscription, usage] = await Promise.all([
+async function getPlanUsage(userId, { bookId = null, voiceHash = null, now = new Date() } = {}) {
+  const [subscription, usage, heard] = await Promise.all([
     supabaseService.getSubscription(userId),
     supabaseService.getDailyPageUsage(userId, todayUtc(now)),
+    bookId && voiceHash ? supabaseService.getHeardPages(userId, bookId, voiceHash) : [],
   ]);
   const plan = activePlanOf(subscription, now) || await supabaseService.getPlan(FREE_PLAN_ID);
   if (!plan) throw new Error('The free plan row is missing from plans');
@@ -48,23 +50,24 @@ async function getPlanUsage(userId, { bookId = null, now = new Date() } = {}) {
     limit,
     usedToday,
     remainingToday: Math.max(limit - usedToday, 0),
-    countedPages: new Set(usage.filter((row) => row.book_id === bookId).map((row) => row.page_number)),
+    countedPages: new Set(heard),
   };
 }
 
 /**
  * Count pages toward today's limit, in order, stopping at the first page that is not allowed.
- * Pages already counted today are allowed and not counted again.
+ * Pages heard before in this voice (any day) are allowed and not counted again.
  * @param {string} userId
  * @param {string} bookId
  * @param {number[]} pages
+ * @param {string} voiceHash
  * @returns {Promise<{allowed: boolean, used: number|null, limit: number|null, plan: string|null, counted: number[]}>}
  */
-async function recordPageListens(userId, bookId, pages) {
+async function recordPageListens(userId, bookId, pages, voiceHash) {
   const counted = [];
   let last = null;
   for (const page of pages) {
-    last = await supabaseService.recordPageListen(userId, bookId, page);
+    last = await supabaseService.recordPageListen(userId, bookId, page, voiceHash);
     if (!last.allowed) return { allowed: false, used: last.used, limit: last.limit, plan: last.plan, counted };
     if (last.counted) counted.push(page);
   }
